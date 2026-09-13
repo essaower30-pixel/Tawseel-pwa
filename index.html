@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <title>توصيل - التوصيل المحلي</title>
+    <meta name="description" content="تطبيق توصيل الطلبات للمحافظات والقرى، يدعم تتبع المندوب، المحادثة المباشرة، العروض، وإدارة الطلبات." />
+    
+    <!-- PWA & Mobile Optimization -->
+    <meta name="theme-color" content="#f97316" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="توصيل" />
+    
+    <!-- Icons and Manifest -->
+    <link rel="icon" type="image/png" sizes="192x192" href="./favicon.png" />
+    <link rel="apple-touch-icon" sizes="192x192" href="./apple-touch-icon.png" />
+    <link rel="manifest" href="./manifest.json" />
+    
+    <meta property="og:title" content="توصيل - التوصيل المحلي" />
+    <meta property="og:description" content="تطبيق توصيل الطلبات للمحافظات والقرى، يدعم تتبع المندوب، المحادثة المباشرة، العروض، وإدارة الطلبات." />
+    <meta property="og:image" content="./icon-512.png" />
+    <meta property="og:type" content="website" />
+    
+    <!-- Google Fonts for crisp Arabic typography -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800;900&family=Tajawal:wght@400;500;700;800;900&display=swap" rel="stylesheet">
+
+    <!-- Safe Storage & Permissions fallback for iframes -->
+    <script>
+      (function() {
+        try {
+          var test = '__tw_test__';
+          window.localStorage.setItem(test, test);
+          window.localStorage.removeItem(test);
+        } catch (e) {
+          var memoryStore = {};
+          var fallbackStorage = {
+            getItem: function(k) { return Object.prototype.hasOwnProperty.call(memoryStore, k) ? memoryStore[k] : null; },
+            setItem: function(k, v) { memoryStore[k] = String(v); },
+            removeItem: function(k) { delete memoryStore[k]; },
+            clear: function() { memoryStore = {}; },
+            get length() { return Object.keys(memoryStore).length; },
+            key: function(i) { return Object.keys(memoryStore)[i] || null; }
+          };
+          try {
+            Object.defineProperty(window, 'localStorage', { value: fallbackStorage, configurable: true, writable: true });
+          } catch (e2) {}
+          try {
+            Object.defineProperty(window, 'sessionStorage', { value: fallbackStorage, configurable: true, writable: true });
+          } catch (e3) {}
+        }
+      })();
+    </script>
+  </head>
+  <body class="bg-slate-50 antialiased selection:bg-orange-500 selection:text-white relative min-h-screen">
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+    <script>
+      // PWA Install Prompt Listener
+      window.deferredPrompt = null;
+      window.addEventListener('beforeinstallprompt', (e) => {
+        e.preventDefault();
+        window.deferredPrompt = e;
+        window.dispatchEvent(new CustomEvent('pwaInstallPromptReady'));
+      });
+
+      // Register Service Worker on production, PWA standalone, and live domains
+      if ('serviceWorker' in navigator) {
+        const isLocalDev = window.location.hostname === 'localhost' || window.location.port === '5173';
+        const isIframePreview = window.self !== window.top && !window.location.search.includes('enable_sw');
+
+        if (!isLocalDev && !isIframePreview) {
+          window.addEventListener('load', () => {
+            const isGhPages = window.location.pathname.startsWith('/Tawseel-app');
+            const swPath = isGhPages ? '/Tawseel-app/sw.js' : './sw.js';
+            const swScope = isGhPages ? '/Tawseel-app/' : './';
+            navigator.serviceWorker.register(swPath, { scope: swScope }).then((reg) => {
+              reg.update();
+              setInterval(() => {
+                reg.update();
+              }, 120000);
+            }).catch((err) => {
+              console.warn('SW registration notice:', err);
+            });
+          });
+        }
+      }
+    </script>
+  </body>
+</html>
+

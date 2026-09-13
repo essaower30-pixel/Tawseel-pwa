@@ -1,0 +1,41 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Orders collection: customers create, admin/stores/drivers update status
+    match /orders/{orderId} {
+      allow read, write: if true;
+    }
+    // Stores collection: stores and products
+    match /stores/{storeId} {
+      allow read, write: if true;
+    }
+    // Drivers collection: drivers profiles and status
+    match /drivers/{driverId} {
+      allow read, write: if true;
+    }
+    // Registrations collection (store/driver join requests)
+    match /registrations/{regId} {
+      allow read, write: if true;
+    }
+    // Reviews collection
+    match /reviews/{reviewId} {
+      allow read, write: if true;
+    }
+    // Broadcasts and notifications
+    match /broadcasts/{broadcastId} {
+      allow read, write: if true;
+    }
+    // Users & profiles
+    match /users/{userId} {
+      allow read, write: if true;
+    }
+    // App settings & nodes
+    match /settings/{settingId} {
+      allow read, write: if true;
+    }
+    // General fallback
+    match /{document=**} {
+      allow read, write: if true;
+    }
+  }
+}
