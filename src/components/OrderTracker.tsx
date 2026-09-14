@@ -17,7 +17,10 @@ import {
   Pill,
   Camera,
   ZoomIn,
-  X
+  X,
+  KeyRound,
+  Copy,
+  Check
 } from "lucide-react";
 import { MapNode, Order } from "../types";
 import { ContactActions } from "./ContactActions";
@@ -38,6 +41,17 @@ export const OrderTracker: React.FC<OrderTrackerProps> = ({
   stores = []
 }) => {
   const [zoomedImage, setZoomedImage] = useState<string | null>(null);
+  const [isCopiedOtp, setIsCopiedOtp] = useState(false);
+
+  const otpCode = order.deliveryOtp || (order.id ? order.id.replace(/\D/g, "").slice(-4).padStart(4, "7") : "1234");
+
+  const handleCopyOtp = () => {
+    try {
+      navigator.clipboard.writeText(otpCode);
+      setIsCopiedOtp(true);
+      setTimeout(() => setIsCopiedOtp(false), 2500);
+    } catch {}
+  };
 
   // Purely computed based on live order status
   const currentStep = (() => {
@@ -88,6 +102,70 @@ export const OrderTracker: React.FC<OrderTrackerProps> = ({
             طلب #{order.id.slice(-6)}
           </span>
           <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
+        </div>
+      </div>
+
+      {/* Delivery Handover Verification Code Card (كود استلام الطلبية) */}
+      <div className="bg-gradient-to-br from-slate-900 via-slate-850 to-slate-900 text-white rounded-3xl p-5 sm:p-6 border border-slate-750 shadow-xl space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-700/70 pb-3">
+          <div className="flex items-center gap-3">
+            <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-amber-400 to-orange-500 text-slate-950 flex items-center justify-center font-black shrink-0 shadow-md">
+              <KeyRound className="w-6 h-6 text-slate-950" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h3 className="font-black text-sm sm:text-base text-white">
+                  كود تسليم واستلام الطلبية 🔑
+                </h3>
+                {order.status === "delivered" ? (
+                  <span className="text-[10px] bg-emerald-500/20 text-emerald-300 font-bold px-2 py-0.5 rounded-full border border-emerald-500/30">
+                    تم التسليم والتحقق ✅
+                  </span>
+                ) : (
+                  <span className="text-[10px] bg-amber-500/20 text-amber-300 font-bold px-2 py-0.5 rounded-full border border-amber-500/30 animate-pulse">
+                    أعطه للكابتن عند الباب
+                  </span>
+                )}
+              </div>
+              <p className="text-slate-400 text-xs font-medium mt-0.5">
+                {order.status === "delivered"
+                  ? "تم تسليم الطلب للزبون بنجاح ومطابقة كود الأمان."
+                  : "لحمايتك وضمان وصول طلبك لشخصك الكريم، اطلب من الكابتن الكود أو أعطه إياه عند الاستلام."}
+              </p>
+            </div>
+          </div>
+
+          {/* 4-Digit Display Pill */}
+          <div className="flex items-center gap-2 self-start sm:self-auto bg-slate-800/90 border border-slate-700 p-2 sm:p-2.5 rounded-2xl">
+            <div className="flex items-center gap-1.5 font-mono font-black text-xl sm:text-2xl tracking-widest text-amber-400 px-3 py-1 bg-black/40 rounded-xl border border-amber-500/20 select-all">
+              {otpCode.split("").map((digit, i) => (
+                <span key={i} className="inline-block w-6 text-center">
+                  {digit}
+                </span>
+              ))}
+            </div>
+
+            <button
+              type="button"
+              onClick={handleCopyOtp}
+              className={`p-2.5 rounded-xl border transition-all cursor-pointer flex items-center justify-center text-xs font-bold active:scale-95 ${
+                isCopiedOtp
+                  ? "bg-emerald-600 text-white border-emerald-500"
+                  : "bg-slate-700 hover:bg-slate-600 text-slate-200 border-slate-600"
+              }`}
+              title="نسخ الكود"
+            >
+              {isCopiedOtp ? <Check className="w-4 h-4 text-white" /> : <Copy className="w-4 h-4 text-slate-300" />}
+            </button>
+          </div>
+        </div>
+
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-[11px] text-slate-300 bg-slate-800/60 px-3 py-2 rounded-xl border border-slate-700/50">
+          <div className="flex items-center gap-1.5">
+            <span className="text-amber-400 font-bold">ℹ️ تنبيه:</span>
+            <span>أعطِ هذا الكود للكابتن عند الباب لاستلام طلبك باليد.</span>
+          </div>
+          <span className="text-slate-400 text-[10px]">في حال تعذر قراءة الكود، يمكن للكابتن تأكيد التسليم برقم هاتفك المسجل.</span>
         </div>
       </div>
 

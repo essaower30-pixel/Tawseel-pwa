@@ -37,7 +37,8 @@ import {
   Info,
   Eye,
   EyeOff,
-  Megaphone
+  Megaphone,
+  KeyRound
 } from "lucide-react";
 import { Order, Product, Store, UserProfile, Category, StoreBroadcast, StoreSize, StoreAddition } from "../types";
 import { ContactActions } from "./ContactActions";
@@ -734,6 +735,15 @@ export const StoreOwnerPortal: React.FC<StoreOwnerPortalProps> = ({
                       </div>
 
                       <div className="flex items-center gap-2">
+                        {order.deliveryOtp && (
+                          <span
+                            className="inline-flex items-center gap-1 text-[11px] font-mono font-black px-2.5 py-1 rounded-xl bg-amber-50 text-amber-900 border border-amber-300 shadow-xs"
+                            title="كود تسليم واستلام الطلبية مع الكابتن"
+                          >
+                            <KeyRound className="w-3.5 h-3.5 text-amber-600" />
+                            <span>كود التسليم: {order.deliveryOtp}</span>
+                          </span>
+                        )}
                         <span
                           className={`px-3 py-1 rounded-full text-xs font-black border ${
                             order.status === "pending"

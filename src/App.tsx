@@ -2584,6 +2584,8 @@ export default function App() {
       : (store && store.deliveryFee !== undefined && store.deliveryFee !== null ? Number(store.deliveryFee) : 0);
     const total = orderData.total !== undefined ? Number(orderData.total) : (subtotal + deliveryFee);
     const orderId = orderData.id || "tw-" + Math.floor(Math.random() * 90000 + 10000);
+    // Generate secure 4-digit delivery verification code (OTP) for the customer to give to the captain upon delivery
+    const deliveryOtp = orderData.deliveryOtp || String(Math.floor(1000 + Math.random() * 9000));
 
     const newOrder: Order = {
       id: orderId,
@@ -2594,6 +2596,7 @@ export default function App() {
       total,
       storeName: store ? store.name : "متجر القرية",
       stockDeducted: true,
+      deliveryOtp,
       ...orderData
     };
 
@@ -2686,6 +2689,7 @@ export default function App() {
 
   const handleCustomOrder = async (customData: any) => {
     const orderId = "tw-" + Math.floor(Math.random() * 90000 + 10000);
+    const deliveryOtp = customData.deliveryOtp || String(Math.floor(1000 + Math.random() * 9000));
     const newOrder: Order = {
       id: orderId,
       status: "pending",
@@ -2699,6 +2703,7 @@ export default function App() {
       customerName: customData.customerName || userProfile?.name || "زبون القرية",
       customerPhone: customData.customerPhone || userProfile?.phone || "09xxxxxxxx",
       addressLandmark: selectedLandmark,
+      deliveryOtp,
       ...customData
     };
 

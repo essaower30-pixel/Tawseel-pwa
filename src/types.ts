@@ -157,6 +157,8 @@ export interface Order {
   driverVehicle?: string;
   assignedAt?: string;
   stockDeducted?: boolean;
+  deliveryOtp?: string;
+  deliveredAt?: string;
 }
 
 export interface Coupon {

@@ -23,7 +23,9 @@ import {
   Camera,
   ZoomIn,
   X,
-  Wallet
+  Wallet,
+  KeyRound,
+  ShieldAlert
 } from "lucide-react";
 import { DriverMember, Order, Store, UserProfile } from "../types";
 import { ContactActions } from "./ContactActions";
@@ -79,10 +81,78 @@ export const DriverPortal: React.FC<DriverPortalProps> = ({
   const [zoomedImage, setZoomedImage] = useState<string | null>(null);
   const [showAccountModal, setShowAccountModal] = useState(false);
 
+  // Delivery Verification Modal State (Supports OTP or Customer Phone Verification as a secure fallback)
+  const [verifyingOrder, setVerifyingOrder] = useState<Order | null>(null);
+  const [verificationMethod, setVerificationMethod] = useState<"otp" | "phone">("otp");
+  const [enteredOtp, setEnteredOtp] = useState<string>("");
+  const [enteredPhone, setEnteredPhone] = useState<string>("");
+  const [otpError, setOtpError] = useState<string | null>(null);
+
+  const handleOpenDeliveryVerification = (order: Order) => {
+    setVerifyingOrder(order);
+    setVerificationMethod("otp");
+    setEnteredOtp("");
+    setEnteredPhone("");
+    setOtpError(null);
+  };
+
+  const handleConfirmDeliveryWithOtp = () => {
+    if (!verifyingOrder) return;
+    setOtpError(null);
+
+    if (verificationMethod === "otp") {
+      const cleanEntered = enteredOtp.trim();
+      if (!cleanEntered) {
+        setOtpError("يرجى إدخال كود التسليم المكون من 4 أرقام من الزبون");
+        return;
+      }
+
+      const expectedOtp = verifyingOrder.deliveryOtp || (verifyingOrder.id ? verifyingOrder.id.replace(/\D/g, "").slice(-4).padStart(4, "7") : "1234");
+      if (cleanEntered !== expectedOtp) {
+        setOtpError("كود التسليم غير صحيح! يمكنك إعادة المحاولة أو التبديل للتحقق عبر رقم هاتف الزبون أدناه");
+        return;
+      }
+    } else {
+      // Phone verification fallback: accepts full phone or last 4/5 digits of customer phone
+      const cleanEnteredPhone = enteredPhone.replace(/\D/g, "");
+      const expectedCustomerPhone = (verifyingOrder.customerPhone || "").replace(/\D/g, "");
+
+      if (!cleanEnteredPhone) {
+        setOtpError("يرجى إدخال رقم هاتف الزبون أو آخر 4 أرقام منه للتأكيد البديل");
+        return;
+      }
+
+      // Check match: exact match, or matching last digits, or endsWith
+      const isMatch =
+        (expectedCustomerPhone.length > 0 && cleanEnteredPhone === expectedCustomerPhone) ||
+        (cleanEnteredPhone.length >= 4 && expectedCustomerPhone.endsWith(cleanEnteredPhone)) ||
+        (expectedCustomerPhone.length >= 4 && cleanEnteredPhone.endsWith(expectedCustomerPhone.slice(-4)));
+
+      if (!isMatch) {
+        setOtpError("رقم الهاتف المدخل لا يتطابق مع رقم هاتف صاحب الطلب المسجل");
+        return;
+      }
+    }
+
+    // Verified successfully! Complete delivery
+    const orderIdToDeliver = verifyingOrder.id;
+    setVerifyingOrder(null);
+    setEnteredOtp("");
+    setEnteredPhone("");
+    setOtpError(null);
+    onUpdateOrderStatus(orderIdToDeliver, "delivered");
+  };
+
   // Close internal modal or zoomed image on mobile back button tap without leaving driver portal
   useEffect(() => {
     const handleBack = (e: Event) => {
-      if (zoomedImage) {
+      if (verifyingOrder) {
+        setVerifyingOrder(null);
+        setEnteredOtp("");
+        setEnteredPhone("");
+        setOtpError(null);
+        e.preventDefault();
+      } else if (zoomedImage) {
         setZoomedImage(null);
         e.preventDefault();
       } else if (showAccountModal) {
@@ -92,7 +162,7 @@ export const DriverPortal: React.FC<DriverPortalProps> = ({
     };
     window.addEventListener("tw_back_button_pressed", handleBack);
     return () => window.removeEventListener("tw_back_button_pressed", handleBack);
-  }, [zoomedImage, showAccountModal]);
+  }, [zoomedImage, showAccountModal, verifyingOrder]);
 
   const handleProfileUpdate = async (updatedProfile: UserProfile, extraData?: any) => {
     const updatedDriver: DriverMember = {
@@ -547,11 +617,11 @@ export const DriverPortal: React.FC<DriverPortalProps> = ({
                       ) : (
                         <button
                           type="button"
-                          onClick={() => onUpdateOrderStatus(order.id, "delivered")}
+                          onClick={() => handleOpenDeliveryVerification(order)}
                           className="flex-1 sm:flex-none py-3 px-6 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs shadow-md shadow-emerald-600/20 transition-all cursor-pointer flex items-center justify-center gap-2 active:scale-95"
                         >
-                          <CheckCircle2 className="w-4 h-4" />
-                          <span>تم تسليم الطلب للزبون بنجاح واستلام الحساب ✅</span>
+                          <KeyRound className="w-4 h-4 text-amber-300" />
+                          <span>إدخال كود التسليم وتأكيد الاستلام 🔑</span>
                         </button>
                       )}
                     </div>
@@ -685,6 +755,265 @@ export const DriverPortal: React.FC<DriverPortalProps> = ({
         activeOrdersCount={myOrders.length}
         userName={currentDriver.name}
       />
+
+      {/* Delivery Handover OTP Verification Dialog for Captain */}
+      {verifyingOrder && (
+        <div 
+          className="fixed inset-0 z-50 bg-black/75 backdrop-blur-xs flex items-center justify-center p-4"
+          dir="rtl"
+          onClick={() => {
+            setVerifyingOrder(null);
+            setEnteredOtp("");
+            setOtpError(null);
+          }}
+        >
+          <div 
+            className="bg-white rounded-3xl w-full max-w-md p-6 shadow-2xl border border-slate-250 space-y-5 animate-in fade-in zoom-in duration-200"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="flex items-start justify-between gap-3 border-b border-slate-100 pb-3">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 rounded-2xl bg-amber-500 text-slate-950 flex items-center justify-center font-black shrink-0 shadow-md">
+                  <KeyRound className="w-6 h-6 text-slate-950" />
+                </div>
+                <div>
+                  <h3 className="font-black text-slate-900 text-base">
+                    تأكيد تسليم الطلبية للزبون 🔐
+                  </h3>
+                  <p className="text-slate-500 text-xs font-bold mt-0.5">
+                    الطلب #{verifyingOrder.id.slice(-6)} • {verifyingOrder.storeName}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setVerifyingOrder(null);
+                  setEnteredOtp("");
+                  setOtpError(null);
+                }}
+                className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 flex items-center justify-center cursor-pointer transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Verification Method Tabs (كود التسليم أو هاتف الزبون كبديل) */}
+            <div className="flex bg-slate-100 p-1 rounded-2xl border border-slate-200">
+              <button
+                type="button"
+                onClick={() => {
+                  setVerificationMethod("otp");
+                  setOtpError(null);
+                }}
+                className={`flex-1 py-2 px-3 rounded-xl text-xs font-black transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                  verificationMethod === "otp"
+                    ? "bg-white text-slate-900 shadow-xs border border-slate-200/80"
+                    : "text-slate-500 hover:text-slate-700"
+                }`}
+              >
+                <KeyRound className="w-3.5 h-3.5 text-amber-500" />
+                <span>كود التسليم (OTP)</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setVerificationMethod("phone");
+                  setOtpError(null);
+                }}
+                className={`flex-1 py-2 px-3 rounded-xl text-xs font-black transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                  verificationMethod === "phone"
+                    ? "bg-white text-slate-900 shadow-xs border border-slate-200/80"
+                    : "text-slate-500 hover:text-slate-700"
+                }`}
+              >
+                <Phone className="w-3.5 h-3.5 text-emerald-600" />
+                <span>بديل: هاتف الزبون</span>
+              </button>
+            </div>
+
+            {/* Instruction Notice */}
+            {verificationMethod === "otp" ? (
+              <div className="p-3 bg-amber-50/90 border border-amber-200/90 rounded-2xl space-y-1">
+                <div className="flex items-center gap-2 text-amber-900 font-black text-xs">
+                  <ShieldCheck className="w-4 h-4 text-amber-600 shrink-0" />
+                  <span>اطلب كود الاستلام من الزبون مباشرة:</span>
+                </div>
+                <p className="text-[11px] text-amber-800 leading-relaxed font-semibold">
+                  يقوم الزبون بإعطائك كود الأمان المكون من 4 أرقام الظاهر على شاشة هاتفه في صفحة متابعة الطلب.
+                </p>
+              </div>
+            ) : (
+              <div className="p-3 bg-emerald-50/90 border border-emerald-200 rounded-2xl space-y-1">
+                <div className="flex items-center gap-2 text-emerald-900 font-black text-xs">
+                  <Phone className="w-4 h-4 text-emerald-600 shrink-0" />
+                  <span>التحقق الاحتياطي عبر رقم هاتف الزبون:</span>
+                </div>
+                <p className="text-[11px] text-emerald-800 leading-relaxed font-semibold">
+                  إذا تعذر الوصول للكود أو أُدخل خطأً، أدخل رقم هاتف الزبون (أو آخر 4 أرقام منه) المسجل بالطلب لتأكيد التسليم.
+                </p>
+              </div>
+            )}
+
+            {/* Customer & Order Recap */}
+            <div className="bg-slate-50 border border-slate-200/80 rounded-2xl p-3.5 flex items-center justify-between text-xs font-bold">
+              <div>
+                <span className="text-slate-400 block text-[11px]">الزبون والموقع:</span>
+                <span className="text-slate-800">{verifyingOrder.customerName} ({verifyingOrder.addressLandmark})</span>
+              </div>
+              <div className="text-left">
+                <span className="text-slate-400 block text-[11px]">المبلغ المطلوب:</span>
+                <span className="text-emerald-700 font-black text-sm">{verifyingOrder.total.toLocaleString()} {currency}</span>
+              </div>
+            </div>
+
+            {/* Input Form based on selected method */}
+            {verificationMethod === "otp" ? (
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <label className="block text-xs font-black text-slate-800">
+                    أدخل كود التسليم (4 أرقام):
+                  </label>
+                  {enteredOtp.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setEnteredOtp("");
+                        setOtpError(null);
+                      }}
+                      className="text-[11px] text-slate-400 hover:text-slate-600 font-bold cursor-pointer"
+                    >
+                      مسح وتصحيح
+                    </button>
+                  )}
+                </div>
+                <div className="relative">
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
+                    maxLength={4}
+                    autoFocus
+                    placeholder="مثال: 4829"
+                    value={enteredOtp}
+                    onChange={(e) => {
+                      const val = e.target.value.replace(/\D/g, "");
+                      setEnteredOtp(val);
+                      if (otpError) setOtpError(null);
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" && enteredOtp.length === 4) {
+                        handleConfirmDeliveryWithOtp();
+                      }
+                    }}
+                    className={`w-full py-3.5 px-4 text-center font-mono font-black text-2xl tracking-widest text-slate-900 bg-slate-100 border-2 rounded-2xl focus:bg-white focus:outline-hidden transition-all placeholder:text-slate-400 placeholder:text-base placeholder:tracking-normal ${
+                      otpError ? "border-rose-400 bg-rose-50/50" : "border-slate-300 focus:border-amber-500"
+                    }`}
+                  />
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <label className="block text-xs font-black text-slate-800">
+                    أدخل رقم هاتف الزبون (أو آخر 4 أرقام):
+                  </label>
+                  {enteredPhone.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setEnteredPhone("");
+                        setOtpError(null);
+                      }}
+                      className="text-[11px] text-slate-400 hover:text-slate-600 font-bold cursor-pointer"
+                    >
+                      مسح وتصحيح
+                    </button>
+                  )}
+                </div>
+                <div className="relative">
+                  <input
+                    type="tel"
+                    inputMode="tel"
+                    autoFocus
+                    placeholder="مثال: 09xxxxxxxx أو آخر 4 أرقام"
+                    value={enteredPhone}
+                    onChange={(e) => {
+                      const val = e.target.value.replace(/[^\d+]/g, "");
+                      setEnteredPhone(val);
+                      if (otpError) setOtpError(null);
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" && enteredPhone.length >= 4) {
+                        handleConfirmDeliveryWithOtp();
+                      }
+                    }}
+                    className={`w-full py-3.5 px-4 text-center font-mono font-black text-lg text-slate-900 bg-slate-100 border-2 rounded-2xl focus:bg-white focus:outline-hidden transition-all placeholder:text-slate-400 placeholder:text-xs ${
+                      otpError ? "border-rose-400 bg-rose-50/50" : "border-slate-300 focus:border-emerald-500"
+                    }`}
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* Error & Fast Fallback Action */}
+            {otpError && (
+              <div className="space-y-2">
+                <div className="flex items-center gap-1.5 text-rose-600 text-xs font-black p-2.5 bg-rose-50 border border-rose-200 rounded-xl">
+                  <AlertCircle className="w-4 h-4 shrink-0" />
+                  <span>{otpError}</span>
+                </div>
+
+                {verificationMethod === "otp" && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setVerificationMethod("phone");
+                      setOtpError(null);
+                    }}
+                    className="w-full py-2 px-3 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 text-xs font-bold transition-colors cursor-pointer flex items-center justify-center gap-2"
+                  >
+                    <Phone className="w-3.5 h-3.5" />
+                    <span>الكود غير متاح أو به خطأ؟ التحقق برقم هاتف الزبون 📲</span>
+                  </button>
+                )}
+              </div>
+            )}
+
+            {/* Action Buttons */}
+            <div className="flex items-center gap-3 pt-2">
+              <button
+                type="button"
+                onClick={handleConfirmDeliveryWithOtp}
+                disabled={verificationMethod === "otp" ? enteredOtp.length < 4 : enteredPhone.trim().length < 4}
+                className={`flex-1 py-3.5 px-4 rounded-2xl font-black text-xs transition-all flex items-center justify-center gap-2 shadow-md ${
+                  (verificationMethod === "otp" ? enteredOtp.length >= 4 : enteredPhone.trim().length >= 4)
+                    ? "bg-emerald-600 hover:bg-emerald-700 text-white cursor-pointer active:scale-95 shadow-emerald-600/20"
+                    : "bg-slate-200 text-slate-400 cursor-not-allowed"
+                }`}
+              >
+                <CheckCircle2 className="w-4 h-4" />
+                <span>تأكيد التسليم وإنهاء الطلب ✅</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setVerifyingOrder(null);
+                  setEnteredOtp("");
+                  setEnteredPhone("");
+                  setOtpError(null);
+                }}
+                className="py-3.5 px-4 bg-slate-100 hover:bg-slate-200 text-slate-700 font-black text-xs rounded-2xl transition-colors cursor-pointer"
+              >
+                إلغاء
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Account Settings Modal */}
       {showAccountModal && (
