@@ -55,7 +55,21 @@
     </script>
   </head>
   <body class="bg-slate-50 antialiased selection:bg-orange-500 selection:text-white relative min-h-screen">
-    <div id="root"></div>
+    <div id="root">
+      <!-- Instant Local Loading Shell (Replaced instantly when React mounts) -->
+      <div id="app-offline-splash" style="min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; background: #f8fafc; font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; direction: rtl; padding: 24px; text-align: center;">
+        <div style="width: 72px; height: 72px; border-radius: 20px; background: #0f172a; display: flex; align-items: center; justify-content: center; margin-bottom: 16px; box-shadow: 0 10px 25px -5px rgba(15, 23, 42, 0.15);">
+          <svg width="38" height="38" viewBox="0 0 24 24" fill="none" stroke="#f97316" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="18.5" cy="17.5" r="3.5"/>
+            <circle cx="5.5" cy="17.5" r="3.5"/>
+            <circle cx="15" cy="5" r="1"/>
+            <path d="M12 17.5V14l-3-3 4-3 2 3h2"/>
+          </svg>
+        </div>
+        <h2 style="font-size: 20px; font-weight: 800; color: #0f172a; margin: 0 0 6px 0; letter-spacing: -0.5px;">تطبيق توصيل</h2>
+        <p style="font-size: 13px; color: #64748b; margin: 0; font-weight: 600;">جاري فتح التطبيق محلياً...</p>
+      </div>
+    </div>
     <script type="module" src="/src/main.tsx"></script>
     <script>
       // PWA Install Prompt Listener
@@ -73,9 +87,11 @@
 
         if (!isLocalDev && !isIframePreview) {
           window.addEventListener('load', () => {
-            const isGhPages = window.location.pathname.startsWith('/Tawseel-app');
-            const swPath = isGhPages ? '/Tawseel-app/sw.js' : './sw.js';
-            const swScope = isGhPages ? '/Tawseel-app/' : './';
+            // Dynamically resolve service worker path and scope based on current location
+            const pathname = window.location.pathname;
+            const dir = pathname.substring(0, pathname.lastIndexOf('/') + 1) || '/';
+            const swPath = dir + 'sw.js';
+            const swScope = dir;
             navigator.serviceWorker.register(swPath, { scope: swScope }).then((reg) => {
               reg.update();
               setInterval(() => {

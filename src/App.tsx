@@ -42,7 +42,8 @@ import {
   Bell,
   CheckCircle2,
   User,
-  Bot
+  Bot,
+  WifiOff
 } from "lucide-react";
 import { CartItem, Category, DriverMember, MapNode, Order, Product, Store, StoreAddition, StoreSize, UserProfile, StoreBroadcast, StoreReview, Coupon } from "./types";
 import { initialCategories, initialMapNodes, initialProducts, initialStores, initialStoreBroadcasts, initialStoreReviews } from "./data/initialData";
@@ -54,6 +55,18 @@ import { OrderTracker } from "./components/OrderTracker";
 const Dashboard = React.lazy(() => import("./components/Dashboards").then((m) => ({ default: m.Dashboard })));
 const DriverPortal = React.lazy(() => import("./components/DriverPortal").then((m) => ({ default: m.DriverPortal })));
 const StoreOwnerPortal = React.lazy(() => import("./components/StoreOwnerPortal").then((m) => ({ default: m.StoreOwnerPortal })));
+
+// Pre-warm lazy components in the background so they are instantly ready offline
+if (typeof window !== "undefined") {
+  window.addEventListener("load", () => {
+    setTimeout(() => {
+      import("./components/Dashboards").catch(() => {});
+      import("./components/DriverPortal").catch(() => {});
+      import("./components/StoreOwnerPortal").catch(() => {});
+    }, 2000);
+  });
+}
+
 import { CustomerOrdersArchiveModal } from "./components/CustomerOrdersArchiveModal";
 import { InstallPromptModal } from "./components/InstallPromptModal";
 import { CustomStoreOrderModal } from "./components/CustomStoreOrderModal";
@@ -61,7 +74,7 @@ import { BottomNavigation } from "./components/BottomNavigation";
 import { StoreNewsTicker } from "./components/StoreNewsTicker";
 import { AccountSettingsModal } from "./components/AccountSettingsModal";
 import { ToastNotification, ToastItem } from "./components/ToastNotification";
-import { OfflineBanner } from "./components/OfflineBanner";
+import { OfflineBanner, useOnlineStatus } from "./components/OfflineBanner";
 import { openWhatsApp } from "./utils/whatsapp";
 import {
   playOrderAlertSound,
@@ -142,6 +155,8 @@ import { getAppUrl, getShareTemplates } from "./utils/appUrl";
 export { getAppUrl };
 
 export default function App() {
+  const isOnline = useOnlineStatus();
+
   // Global State with LocalStorage Persistence
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
 
@@ -2930,24 +2945,27 @@ export default function App() {
   // If user is guest and no profile exists
   if (userRole === "guest" && !userProfile) {
     return (
-      <AuthModal
-        onRegister={handleAuthSuccess}
-        stores={stores}
-        onAddStore={handleAddNewStore}
-        categories={categories}
-        activeOrder={activeOrder}
-        onTrackOrder={() => {
-          if (activeOrder) {
+      <>
+        <OfflineBanner />
+        <AuthModal
+          onRegister={handleAuthSuccess}
+          stores={stores}
+          onAddStore={handleAddNewStore}
+          categories={categories}
+          activeOrder={activeOrder}
+          onTrackOrder={() => {
+            if (activeOrder) {
+              setUserRole("customer");
+            }
+          }}
+          onClose={() => {
+            const guestProfile: UserProfile = { name: "زائر متسوق", phone: "09xxxxxxxx", pin: "1234" };
+            setUserProfile(guestProfile);
             setUserRole("customer");
-          }
-        }}
-        onClose={() => {
-          const guestProfile: UserProfile = { name: "زائر متسوق", phone: "09xxxxxxxx", pin: "1234" };
-          setUserProfile(guestProfile);
-          setUserRole("customer");
-        }}
-        driversList={driversList}
-      />
+          }}
+          driversList={driversList}
+        />
+      </>
     );
   }
 
@@ -2986,6 +3004,27 @@ export default function App() {
 
           {/* Header Action Buttons */}
           <div className="flex items-center flex-wrap justify-end gap-1.5 sm:gap-3">
+            {/* Real-time Offline Mode Indicator Badge */}
+            {!isOnline && (
+              <button
+                type="button"
+                onClick={() => {
+                  addToastNotification({
+                    title: "وضع عدم الاتصال بالإنترنت 📡",
+                    message: "أنت تتصفح التطبيق في وضع الأوفلاين. جميع المتاجر، السلة، والطلبات تعمل محلياً وبشكل فوري دون انقطاع.",
+                    type: "warning"
+                  });
+                }}
+                className="py-1.5 px-2.5 sm:px-3 rounded-xl border border-amber-400/60 bg-amber-500/20 hover:bg-amber-500/30 text-amber-900 transition-all cursor-pointer flex items-center gap-1.5 text-xs font-black shadow-xs active:scale-95 shrink-0 select-none animate-pulse"
+                title="أنت في وضع عدم الاتصال - التطبيق يعمل محلياً"
+              >
+                <span className="w-2 h-2 rounded-full bg-amber-500 shrink-0" />
+                <WifiOff className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                <span className="hidden xs:inline">أوفلاين (بدون نت)</span>
+                <span className="xs:hidden">أوفلاين</span>
+              </button>
+            )}
+
             {/* App Update Notification Icon & Button (الايقونة تختفي بعد التحديث) */}
             {hasNewUpdate && (
               <button
