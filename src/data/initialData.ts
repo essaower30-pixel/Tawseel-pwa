@@ -191,26 +191,6 @@ export const initialStores: Store[] = [
     description: "دهان منازل، ديكورات جصية وورق جدران"
   },
   {
-    id: "service_hamza_oweir",
-    name: "الكابتن حمزة عوير للتوصيل السريع",
-    category: "drivers",
-    image: "https://images.unsplash.com/photo-1558981403-c5f9899a28bc?w=500&auto=format&fit=crop&q=60",
-    rating: 5.0,
-    deliveryTime: "طلب فوري",
-    deliveryFee: 0,
-    locationNode: "center",
-    featuredProduct: "توصيل ركاب وطلبات ومهمات سريعة بدراجة نارية",
-    contactPhone: "0951854257",
-    ownerPhone: "0951854257",
-    ownerName: "الكابتن حمزة عوير",
-    ownerPin: "1111",
-    status: "open",
-    isApproved: true,
-    isService: true,
-    description: "خدمات توصيل ركاب وطلبات ومهمات سريعة داخل وخارج القرية بدراجة نارية سوزوكي حديثة على مدار الساعة",
-    priority: 1
-  },
-  {
     id: "service_taxi",
     name: "كابتن تيسير للتوصيل الخاص",
     category: "drivers",

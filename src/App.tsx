@@ -200,10 +200,10 @@ export default function App() {
           }
           return { ...st, category: cat };
         });
-        return cleaned;
+        return cleaned.filter((st: Store) => !st.id.startsWith("service_driver_") && st.id !== "service_hamza_oweir");
       } catch (e) {}
     }
-    return ensureInitialStoresPreserved([]);
+    return ensureInitialStoresPreserved([]).filter((st: Store) => !st.id.startsWith("service_driver_") && st.id !== "service_hamza_oweir");
   });
 
   // Always start with null so fresh app launches show all stores in the marketplace
@@ -481,6 +481,47 @@ export default function App() {
       localStorage.removeItem("tw_current_store_id");
     }
   }, [currentStoreId]);
+
+  // Automatic cleanup of legacy auto-generated driver service cards for fleet captains
+  useEffect(() => {
+    const cleanP = (p?: string) => (p || "").replace(/[^0-9]/g, "");
+    const fleetPhones = new Set(driversList.map(d => cleanP(d.phone)).filter(Boolean));
+
+    setStores((prev) => {
+      const legacyDriverStoreIds: string[] = [];
+      const filtered = prev.filter((s) => {
+        const isLegacyCaptainStore =
+          s.id.startsWith("service_driver_") ||
+          s.id === "service_hamza_oweir" ||
+          (s.category === "drivers" && fleetPhones.has(cleanP(s.contactPhone)));
+
+        if (isLegacyCaptainStore) {
+          legacyDriverStoreIds.push(s.id);
+          return false;
+        }
+        return true;
+      });
+
+      if (legacyDriverStoreIds.length > 0) {
+        try {
+          localStorage.setItem("tw_stores", JSON.stringify(filtered));
+          const deletedStores: string[] = JSON.parse(localStorage.getItem("tw_deleted_store_ids") || "[]");
+          legacyDriverStoreIds.forEach((id) => {
+            if (!deletedStores.includes(id)) deletedStores.push(id);
+          });
+          localStorage.setItem("tw_deleted_store_ids", JSON.stringify(deletedStores));
+        } catch {}
+
+        legacyDriverStoreIds.forEach((sId) => {
+          deleteStoreFromFirestore(sId).catch(() => {});
+          deleteStoreOnServer(sId).catch(() => {});
+        });
+
+        return filtered;
+      }
+      return prev;
+    });
+  }, [driversList]);
 
   // Sound & Toast Notifications State
   const [toasts, setToasts] = useState<ToastItem[]>([]);
@@ -1255,56 +1296,31 @@ export default function App() {
       type: "success"
     });
 
-    // Also automatically create/update a corresponding service card in stores under category 'drivers'
+    // NOTE: Fleet captains are internal delivery staff and should NEVER be added to customer-facing 'drivers' marketplace services.
+    // Ensure any previously generated store for this driver is purged:
+    const cleanP = (p?: string) => (p || "").replace(/[^0-9]/g, "");
+    const targetPhone = cleanP(driver.phone);
     const driverStoreId = driver.id === "driver_hamza" ? "service_hamza_oweir" : "service_driver_" + driver.id.replace(/[^a-zA-Z0-9_]/g, "_");
-    try {
-      const deletedStores: string[] = JSON.parse(localStorage.getItem("tw_deleted_store_ids") || "[]");
-      localStorage.setItem("tw_deleted_store_ids", JSON.stringify(deletedStores.filter(id => id !== driverStoreId && id !== "service_hamza_oweir")));
-    } catch {}
-
-    const driverServiceStore: Store = {
-      id: driverStoreId,
-      name: driver.name.startsWith("الكابتن") || driver.name.startsWith("كابتن") ? driver.name : `الكابتن ${driver.name}`,
-      category: "drivers",
-      image: "https://images.unsplash.com/photo-1558981403-c5f9899a28bc?w=500&auto=format&fit=crop&q=60",
-      rating: driver.rating !== undefined && driver.rating !== null ? driver.rating : 0,
-      deliveryTime: "طلب فوري",
-      deliveryFee: 0,
-      locationNode: "center",
-      featuredProduct: driver.vehicle ? `توصيل سريع (${driver.vehicle})` : "توصيل طلبات ومشاوير فورية",
-      contactPhone: driver.phone,
-      ownerPhone: driver.phone,
-      ownerName: driver.name,
-      ownerPin: driver.pin || "1111",
-      status: "open",
-      isApproved: true,
-      isService: true,
-      description: `كابتن توصيل سريع معتمد في القرية (${driver.vehicle || "دراجة نارية"}). متاح لتوصيل الطلبات والمشاوير الخاصة.`,
-      priority: 1
-    };
 
     setStores((prev) => {
-      const cleanP = (p?: string) => (p || "").replace(/[^0-9]/g, "");
-      const targetPhone = cleanP(driver.phone);
-      // Remove any existing duplicate store for this driver/phone
       const filtered = prev.filter(s => {
         if (s.id === driverStoreId) return false;
         if (driver.id === "driver_hamza" && s.id === "service_hamza_oweir") return false;
+        if (s.id.startsWith("service_driver_") && s.id.includes(driver.id)) return false;
         if (s.category === "drivers" && targetPhone && cleanP(s.contactPhone) === targetPhone) return false;
         return true;
       });
-      const updatedStores = [driverServiceStore, ...filtered];
       try {
-        localStorage.setItem("tw_stores", JSON.stringify(updatedStores));
+        localStorage.setItem("tw_stores", JSON.stringify(filtered));
       } catch {}
-      return updatedStores;
+      return filtered;
     });
 
     await Promise.allSettled([
       saveDriverToFirestore(driver),
       saveDriverOnServer(driver),
-      saveStoreToFirestore(driverServiceStore),
-      registerStoreOnServer(driverServiceStore)
+      deleteStoreFromFirestore(driverStoreId).catch(() => {}),
+      deleteStoreOnServer(driverStoreId).catch(() => {})
     ]);
   };
 
@@ -1320,87 +1336,36 @@ export default function App() {
       return updated;
     });
 
-    // Also update and deduplicate corresponding service store
+    // Ensure any legacy store cards for this driver are removed from stores
     const cleanP = (p?: string) => (p || "").replace(/[^0-9]/g, "");
     const targetPhone = cleanP(driver.phone);
     const driverStoreId = driver.id === "driver_hamza" ? "service_hamza_oweir" : "service_driver_" + driver.id.replace(/[^a-zA-Z0-9_]/g, "_");
-    const storeName = driver.name.startsWith("الكابتن") || driver.name.startsWith("كابتن") ? driver.name : `الكابتن ${driver.name}`;
 
-    let storeToSave: Store | null = null;
     setStores((prev) => {
-      const matchingStore = prev.find(s =>
-        s.id === driverStoreId ||
-        (driver.id === "driver_hamza" && s.id === "service_hamza_oweir") ||
-        s.id === `service_driver_${driver.id}` ||
-        (s.category === "drivers" && ((targetPhone && cleanP(s.contactPhone) === targetPhone) || (s.name && s.name.includes(driver.name))))
-      );
-
-      const isDriverOffline = driver.status === "offline";
-      const isDriverHidden = Boolean(driver.isHidden);
-
-      if (matchingStore) {
-        storeToSave = {
-          ...matchingStore,
-          name: storeName,
-          contactPhone: driver.phone,
-          ownerPhone: driver.phone,
-          ownerName: driver.name,
-          ownerPin: driver.pin || matchingStore.ownerPin || "1111",
-          status: isDriverOffline ? "closed" : "open",
-          isHidden: isDriverHidden,
-          featuredProduct: driver.vehicle ? `توصيل سريع (${driver.vehicle})` : matchingStore.featuredProduct,
-          description: `كابتن توصيل سريع معتمد في القرية (${driver.vehicle || "دراجة نارية"}). متاح لتوصيل الطلبات والمشاوير الخاصة.`
-        };
-      } else {
-        storeToSave = {
-          id: driverStoreId,
-          name: storeName,
-          category: "drivers",
-          image: "https://images.unsplash.com/photo-1558981403-c5f9899a28bc?w=500&auto=format&fit=crop&q=60",
-          rating: driver.rating !== undefined && driver.rating !== null ? driver.rating : 0,
-          deliveryTime: "طلب فوري",
-          deliveryFee: 0,
-          locationNode: "center",
-          featuredProduct: driver.vehicle ? `توصيل سريع (${driver.vehicle})` : "توصيل طلبات ومشاوير فورية",
-          contactPhone: driver.phone,
-          ownerPhone: driver.phone,
-          ownerName: driver.name,
-          ownerPin: driver.pin || "1111",
-          status: isDriverOffline ? "closed" : "open",
-          isHidden: isDriverHidden,
-          isApproved: true,
-          isService: true,
-          description: `كابتن توصيل سريع معتمد في القرية (${driver.vehicle || "دراجة نارية"}). متاح لتوصيل الطلبات والمشاوير الخاصة.`,
-          priority: 1
-        };
-      }
-
-      // Filter out all previous instances of this driver's store to eliminate duplicates
-      const nextStores = prev.filter(s => {
-        if (s.id === driverStoreId || (driver.id === "driver_hamza" && s.id === "service_hamza_oweir")) return false;
-        if (s.id === `service_driver_${driver.id}`) return false;
+      const filtered = prev.filter(s => {
+        if (s.id === driverStoreId) return false;
+        if (driver.id === "driver_hamza" && s.id === "service_hamza_oweir") return false;
+        if (s.id.startsWith("service_driver_") && s.id.includes(driver.id)) return false;
         if (s.category === "drivers" && targetPhone && cleanP(s.contactPhone) === targetPhone) return false;
         return true;
       });
-
-      const finalStores = [storeToSave, ...nextStores];
       try {
-        localStorage.setItem("tw_stores", JSON.stringify(finalStores));
+        localStorage.setItem("tw_stores", JSON.stringify(filtered));
       } catch {}
-      return finalStores;
+      return filtered;
     });
 
     // Contextual toast notifications for driver changes:
     if (driver.isHidden === true && (!prevDriver || !prevDriver.isHidden)) {
       addToastNotification({
         title: "تم إخفاء الكابتن 🔒",
-        message: `تم إخفاء الكابتن "${driver.name}" عن المنصة والزبائن ولن يستقبل طلبات جديدة.`,
+        message: `تم إخفاء الكابتن "${driver.name}" عن المنصة ولن يستقبل طلبات جديدة.`,
         type: "warning"
       });
     } else if (!driver.isHidden && prevDriver?.isHidden === true) {
       addToastNotification({
-        title: "تم إظهار الكابتن للزبائن 👁️",
-        message: `تم إظهار الكابتن "${driver.name}" وأصبح مرئياً ومتاحاً في أسطول التوصيل.`,
+        title: "تم إظهار الكابتن 👁️",
+        message: `تم تفعيل ظهور الكابتن "${driver.name}" وأصبح مرئياً ومتاحاً في أسطول التوصيل.`,
         type: "info"
       });
     } else if (driver.status === "offline" && prevDriver?.status !== "offline") {
@@ -1431,12 +1396,10 @@ export default function App() {
 
     const tasks: Promise<any>[] = [
       saveDriverToFirestore(driver),
-      updateDriverOnServer(driver)
+      updateDriverOnServer(driver),
+      deleteStoreFromFirestore(driverStoreId).catch(() => {}),
+      deleteStoreOnServer(driverStoreId).catch(() => {})
     ];
-    if (storeToSave) {
-      tasks.push(saveStoreToFirestore(storeToSave));
-      tasks.push(registerStoreOnServer(storeToSave));
-    }
     await Promise.allSettled(tasks);
   };
 
@@ -1495,7 +1458,7 @@ export default function App() {
 
     addToastNotification({
       title: "تم حذف الكابتن بنجاح 🗑️",
-      message: "تم حذف الكابتن نهائياً وإزالة بطاقة خدمته من المنصة.",
+      message: "تم حذف الكابتن نهائياً وإزالته من أسطول التوصيل.",
       type: "info"
     });
 
@@ -2925,6 +2888,8 @@ export default function App() {
   // Filtered Stores
   const visibleStores = stores.filter((store) => {
     if (!store || store.isApproved === false || store.isHidden === true) return false;
+    // Fleet delivery captains are internal platform staff and should never appear in driver services
+    if (store.id.startsWith("service_driver_") || store.id === "service_hamza_oweir") return false;
     const matchesCategory =
       selectedCategory === "all" ||
       store.category === selectedCategory ||

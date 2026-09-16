@@ -49,6 +49,8 @@ export function ensureInitialStoresPreserved(currentStores: Store[]): Store[] {
   for (const rawS of currentStores) {
     if (deletedIds.includes(rawS.id)) continue;
     if (seenIds.has(rawS.id)) continue;
+    // Fleet captains should never appear as marketplace stores in driver services
+    if (rawS.id.startsWith("service_driver_") || rawS.id === "service_hamza_oweir") continue;
 
     // For driver services, prevent multiple store cards with the same phone number
     if (rawS.category === "drivers" && rawS.contactPhone) {
