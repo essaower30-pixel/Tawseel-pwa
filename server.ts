@@ -318,6 +318,13 @@ function readServerData() {
         }
 
         let storeObj = s;
+        if (storeObj.id === "store_gypsum_decor" || storeObj.id === "store-gypsum-board") {
+          storeObj = {
+            ...storeObj,
+            isApproved: true,
+            status: storeObj.status === "closed" && storeObj.isApproved === false ? "open" : (storeObj.status || "open")
+          };
+        }
         if (storeObj.isApproved !== false && storeObj.description && (storeObj.description.includes("بانتظار اعتماد") || storeObj.description.includes("بانتظار الاعتماد"))) {
           const isFood = storeObj.category === "food" || (storeObj.name && (storeObj.name.includes("مواد") || storeObj.name.includes("سوبرماركت")));
           storeObj = {

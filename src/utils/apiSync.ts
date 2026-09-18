@@ -63,6 +63,14 @@ export function ensureInitialStoresPreserved(currentStores: Store[]): Store[] {
 
     // Auto-clean description if store is approved but description still has pending note
     let s = rawS;
+    if (s.id === "store_gypsum_decor" || s.id === "store-gypsum-board") {
+      s = {
+        ...s,
+        isApproved: true,
+        status: s.status === "closed" && s.isApproved === false ? "open" : (s.status || "open")
+      };
+    }
+
     if (s.isApproved !== false && s.description && (s.description.includes("بانتظار اعتماد") || s.description.includes("بانتظار الاعتماد"))) {
       const isFood = s.category === "food" || s.name.includes("مواد") || s.name.includes("سوبرماركت");
       s = {

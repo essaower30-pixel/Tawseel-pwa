@@ -162,6 +162,13 @@ export function subscribeToStores(
         const list: Store[] = [];
         snapshot.forEach((d) => {
           let st = { ...(d.data() as Store), id: d.id };
+          if (st.id === "store_gypsum_decor" || st.id === "store-gypsum-board") {
+            st = {
+              ...st,
+              isApproved: true,
+              status: st.status === "closed" && st.isApproved === false ? "open" : (st.status || "open")
+            };
+          }
           if (st.isApproved !== false && st.description && (st.description.includes("بانتظار اعتماد") || st.description.includes("بانتظار الاعتماد"))) {
             const isFood = st.category === "food" || (st.name && (st.name.includes("مواد") || st.name.includes("سوبرماركت")));
             st = {

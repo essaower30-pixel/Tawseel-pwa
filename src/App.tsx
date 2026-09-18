@@ -202,6 +202,14 @@ export default function App() {
             const { tickerAnnouncement, ...rest } = st;
             return { ...rest, category: cat } as Store;
           }
+          if (st.id === "store_gypsum_decor" || st.id === "store-gypsum-board") {
+            return {
+              ...st,
+              category: cat,
+              isApproved: true,
+              status: st.status === "closed" && st.isApproved === false ? "open" : (st.status || "open")
+            };
+          }
           return { ...st, category: cat };
         });
         return cleaned.filter((st: Store) => !st.id.startsWith("service_driver_") && st.id !== "service_hamza_oweir");
