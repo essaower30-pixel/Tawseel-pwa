@@ -74,6 +74,8 @@ interface DashboardProps {
   onAddDriver?: (driver: DriverMember) => void;
   onUpdateDriver?: (driver: DriverMember) => void;
   onDeleteDriver?: (driverId: string) => void;
+  isEmergencyRush?: boolean;
+  onToggleEmergencyRush?: () => void;
 }
 
 export const Dashboard: React.FC<DashboardProps> = ({
@@ -108,17 +110,25 @@ export const Dashboard: React.FC<DashboardProps> = ({
   driversList: propDriversList,
   onAddDriver: propOnAddDriver,
   onUpdateDriver: propOnUpdateDriver,
-  onDeleteDriver: propOnDeleteDriver
+  onDeleteDriver: propOnDeleteDriver,
+  isEmergencyRush: propIsEmergencyRush,
+  onToggleEmergencyRush: propOnToggleEmergencyRush
 }) => {
-  // Persistent Emergency Rush Mode
-  const [isEmergencyRush, setIsEmergencyRush] = useState<boolean>(() => {
+  // Emergency Rush Mode (Driven by App.tsx with fallback to local state)
+  const [localEmergencyRush, setLocalEmergencyRush] = useState<boolean>(() => {
     return localStorage.getItem("tw_emergency_rush") === "true";
   });
 
+  const isEmergencyRush = propIsEmergencyRush !== undefined ? propIsEmergencyRush : localEmergencyRush;
+
   const handleToggleEmergencyRush = () => {
-    const nextVal = !isEmergencyRush;
-    setIsEmergencyRush(nextVal);
-    localStorage.setItem("tw_emergency_rush", nextVal.toString());
+    if (propOnToggleEmergencyRush) {
+      propOnToggleEmergencyRush();
+    } else {
+      const nextVal = !localEmergencyRush;
+      setLocalEmergencyRush(nextVal);
+      localStorage.setItem("tw_emergency_rush", nextVal.toString());
+    }
   };
 
   // Staff Members State

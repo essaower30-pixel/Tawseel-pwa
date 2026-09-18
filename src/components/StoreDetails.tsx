@@ -29,6 +29,7 @@ interface StoreDetailsProps {
   reviews?: StoreReview[];
   onAddReview?: (review: Omit<StoreReview, "id" | "createdAt">) => void;
   userOrders?: Order[];
+  isEmergencyRush?: boolean;
 }
 
 export const StoreDetails: React.FC<StoreDetailsProps> = ({
@@ -45,7 +46,8 @@ export const StoreDetails: React.FC<StoreDetailsProps> = ({
   currentLandmark = "دوار الساعة (وسط البلد)",
   reviews = [],
   onAddReview,
-  userOrders = []
+  userOrders = [],
+  isEmergencyRush
 }) => {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
@@ -212,6 +214,10 @@ export const StoreDetails: React.FC<StoreDetailsProps> = ({
   const totalCartCount = cartItems.reduce((sum, item) => sum + item.quantity, 0);
 
   const handleOpenCustomization = (product: Product) => {
+    if (isEmergencyRush) {
+      alert("عذراً، تم تجميد استقبال الطلبات مؤقتاً بسبب ضغط العمل العالي. لا يمكن إضافة أصناف للسلة حالياً.");
+      return;
+    }
     if ((product.sizes && product.sizes.length > 0) || (product.additions && product.additions.length > 0)) {
       setSelectedProduct(product);
       setSelectedSize(product.sizes && product.sizes.length > 0 ? product.sizes[0] : null);
@@ -230,6 +236,10 @@ export const StoreDetails: React.FC<StoreDetailsProps> = ({
   };
 
   const confirmCustomizationAdd = () => {
+    if (isEmergencyRush) {
+      alert("عذراً، تم تجميد استقبال الطلبات مؤقتاً بسبب ضغط العمل العالي.");
+      return;
+    }
     if (selectedProduct) {
       onAddToCart(selectedProduct, selectedSize || undefined, selectedAdditions);
       setSelectedProduct(null);
@@ -393,6 +403,29 @@ export const StoreDetails: React.FC<StoreDetailsProps> = ({
               )}
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Emergency Rush Freeze Notice Banner */}
+      {isEmergencyRush && (
+        <div
+          className="bg-red-600 text-white p-4 sm:p-5 rounded-2xl sm:rounded-3xl shadow-xl flex items-center justify-between gap-4 border border-red-500 text-right animate-pulse"
+          dir="rtl"
+        >
+          <div className="flex items-center gap-3">
+            <span className="text-3xl shrink-0">🚨</span>
+            <div>
+              <h4 className="font-black text-sm sm:text-base">
+                تنبيه: تم تجميد استقبال الطلبات مؤقتاً بسبب ضغط العمل العالي
+              </h4>
+              <p className="text-xs text-red-100 mt-1 leading-relaxed">
+                نعمل بكامل طاقتنا لتجهيز وتوصيل الطلبات الحالية. إضافة منتجات للسلة وإرسال الطلبات معطّل مؤقتاً لحين انتهاء الضغط واستئناف الخدمة قريباً.
+              </p>
+            </div>
+          </div>
+          <span className="bg-white/20 text-white text-[11px] font-black px-3 py-1.5 rounded-xl shrink-0 whitespace-nowrap">
+            وضع الضغط
+          </span>
         </div>
       )}
 
@@ -694,11 +727,25 @@ export const StoreDetails: React.FC<StoreDetailsProps> = ({
                 </div>
                 <button
                   type="button"
-                  onClick={() => setShowCustomOrderModal(true)}
-                  className="w-full sm:w-auto bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white font-black text-xs py-3 px-5 rounded-2xl shadow-md shadow-orange-500/25 transition-all cursor-pointer whitespace-nowrap flex items-center justify-center gap-2 active:scale-95 shrink-0"
+                  onClick={() => {
+                    if (isEmergencyRush) {
+                      alert("عذراً، تم تجميد استقبال الطلبات مؤقتاً بسبب ضغط العمل العالي لدى المحلات وأسطول التوصيل. يرجى المحاولة لاحقاً بعد انتهاء الضغط.");
+                      return;
+                    }
+                    setShowCustomOrderModal(true);
+                  }}
+                  className={`w-full sm:w-auto text-white font-black text-xs py-3 px-5 rounded-2xl shadow-md transition-all cursor-pointer whitespace-nowrap flex items-center justify-center gap-2 active:scale-95 shrink-0 ${
+                    isEmergencyRush
+                      ? "bg-red-600/90 hover:bg-red-700"
+                      : "bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 shadow-orange-500/25"
+                  }`}
                 >
                   <Edit3 className="w-4 h-4" />
-                  <span>اطلب منتج غير معروض الآن 🚀</span>
+                  <span>
+                    {isEmergencyRush
+                      ? "🚨 استقبال الطلبات مجمّد حالياً"
+                      : "اطلب منتج غير معروض الآن 🚀"}
+                  </span>
                 </button>
               </div>
 
@@ -1552,6 +1599,7 @@ export const StoreDetails: React.FC<StoreDetailsProps> = ({
         userProfile={customerUser}
         landmarks={landmarks}
         currentLandmark={currentLandmark}
+        isEmergencyRush={isEmergencyRush}
         onSubmit={(orderData) => {
           if (onSubmitCustomOrder) {
             onSubmitCustomOrder(orderData);

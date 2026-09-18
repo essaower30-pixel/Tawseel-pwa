@@ -695,3 +695,51 @@ export async function deleteCategoryFromFirestore(categoryId: string): Promise<v
     console.warn("Could not delete category from Firestore:", err);
   }
 }
+
+// -------------------------------------------------------------
+// EMERGENCY RUSH / SYSTEM FREEZE (Real-time synchronization)
+// -------------------------------------------------------------
+export async function saveEmergencyRushToFirestore(isRush: boolean): Promise<void> {
+  try {
+    const docRef = doc(db, "settings", "systemStatus");
+    await setDoc(
+      docRef,
+      {
+        emergencyRush: isRush,
+        updatedAt: new Date().toISOString()
+      },
+      { merge: true }
+    );
+  } catch (err) {
+    console.warn("Could not save emergencyRush to Firestore:", err);
+  }
+}
+
+export function subscribeToEmergencyRush(
+  onRushUpdated: (isRush: boolean) => void,
+  onError?: (err: Error) => void
+): () => void {
+  try {
+    const docRef = doc(db, "settings", "systemStatus");
+    const unsub = onSnapshot(
+      docRef,
+      (snapshot) => {
+        if (snapshot.exists()) {
+          const data = snapshot.data();
+          if (data && typeof data.emergencyRush === "boolean") {
+            onRushUpdated(data.emergencyRush);
+          }
+        }
+      },
+      (err) => {
+        console.warn("Emergency rush subscription error:", err);
+        if (onError) onError(err);
+      }
+    );
+    return unsub;
+  } catch (err) {
+    console.warn("Could not subscribe to emergency rush in Firestore:", err);
+    return () => {};
+  }
+}
+

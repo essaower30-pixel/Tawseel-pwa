@@ -472,3 +472,32 @@ export async function deleteCategoryOnServer(categoryId: string): Promise<boolea
   }
 }
 
+// -------------------------------------------------------------
+// Emergency Rush / Freeze Status API Helpers
+// -------------------------------------------------------------
+export async function saveSystemStatusOnServer(emergencyRush: boolean): Promise<boolean> {
+  try {
+    const res = await fetch(`${API_BASE}/api/system-status`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ emergencyRush })
+    });
+    return res.ok;
+  } catch (err) {
+    console.warn("Failed to save system status on server:", err);
+    return false;
+  }
+}
+
+export async function fetchSystemStatusFromServer(): Promise<{ emergencyRush: boolean } | null> {
+  try {
+    const res = await fetch(`${API_BASE}/api/system-status`);
+    if (res.ok) {
+      return await res.json();
+    }
+  } catch (err) {
+    console.warn("Failed to fetch system status from server:", err);
+  }
+  return null;
+}
+

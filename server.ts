@@ -382,6 +382,20 @@ app.get("/api/health", (req, res) => {
   res.json({ status: "ok", timestamp: new Date().toISOString() });
 });
 
+// 1.1 API: System Freeze / Emergency Rush Status
+app.get("/api/system-status", (req, res) => {
+  const data = readServerData();
+  res.json({ emergencyRush: Boolean(data.emergencyRush) });
+});
+
+app.post("/api/system-status", (req, res) => {
+  const { emergencyRush } = req.body;
+  const data = readServerData();
+  data.emergencyRush = Boolean(emergencyRush);
+  writeServerData(data);
+  res.json({ success: true, emergencyRush: data.emergencyRush });
+});
+
 // 2. API: Unified Full Sync Endpoint
 app.get("/api/sync", (req, res) => {
   const data = readServerData();
@@ -613,6 +627,14 @@ app.get("/api/orders", (req, res) => {
 app.post("/api/orders", (req, res) => {
   const newOrder = req.body;
   const data = readServerData();
+
+  if (data.emergencyRush) {
+    return res.status(403).json({
+      error: "تم تجميد استقبال الطلبات مؤقتاً بسبب ضغط العمل العالي",
+      emergencyRush: true
+    });
+  }
+
   data.orders = [newOrder, ...(data.orders || []).filter((o: any) => o.id !== newOrder.id)];
 
   // Deduct product stock on server with each sale until out of stock

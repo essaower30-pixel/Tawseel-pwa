@@ -17,6 +17,7 @@ interface CartCheckoutProps {
   stores: Store[];
   customerUser: UserProfile | null;
   coupons?: Coupon[];
+  isEmergencyRush?: boolean;
 }
 
 export const CartCheckout: React.FC<CartCheckoutProps> = ({
@@ -31,7 +32,8 @@ export const CartCheckout: React.FC<CartCheckoutProps> = ({
   mapNodes,
   stores,
   customerUser,
-  coupons
+  coupons,
+  isEmergencyRush
 }) => {
   const [customerName, setCustomerName] = useState(customerUser?.name || "");
   const [customerPhone, setCustomerPhone] = useState(customerUser?.phone || "");
@@ -125,6 +127,11 @@ export const CartCheckout: React.FC<CartCheckoutProps> = ({
     e.preventDefault();
     if (cartItems.length === 0) return;
 
+    if (isEmergencyRush) {
+      alert("عذراً، تم تجميد استقبال الطلبات مؤقتاً في التطبيق بسبب ضغط العمل العالي لدى المحلات وأسطول التوصيل. يرجى المحاولة لاحقاً بعد استئناف الاستقبال.");
+      return;
+    }
+
     if (!customerName.trim() || !customerPhone.trim()) {
       alert("الرجاء إدخال الاسم ورقم الهاتف للتوصيل.");
       return;
@@ -177,6 +184,29 @@ export const CartCheckout: React.FC<CartCheckoutProps> = ({
           </button>
         )}
       </div>
+
+      {/* Emergency Rush Freeze Notice Banner */}
+      {isEmergencyRush && (
+        <div
+          className="bg-red-600 text-white p-4 sm:p-5 rounded-2xl sm:rounded-3xl shadow-xl flex items-center justify-between gap-4 border border-red-500 text-right animate-pulse"
+          dir="rtl"
+        >
+          <div className="flex items-center gap-3">
+            <span className="text-3xl shrink-0">🚨</span>
+            <div>
+              <h4 className="font-black text-sm sm:text-base">
+                تنبيه: تم تجميد استقبال الطلبات مؤقتاً بسبب ضغط العمل العالي
+              </h4>
+              <p className="text-xs text-red-100 mt-1 leading-relaxed">
+                نعمل بكامل طاقتنا لتجهيز وتوصيل الطلبات الحالية. إرسال وتأكيد الطلبات معطّل مؤقتاً لحين انتهاء الضغط واستئناف الخدمة قريباً.
+              </p>
+            </div>
+          </div>
+          <span className="bg-white/20 text-white text-[11px] font-black px-3 py-1.5 rounded-xl shrink-0 whitespace-nowrap">
+            وضع الضغط
+          </span>
+        </div>
+      )}
 
       {cartItems.length === 0 ? (
         <div className="bg-white rounded-3xl p-12 text-center border border-slate-200/80 shadow-sm space-y-4">
@@ -542,9 +572,16 @@ export const CartCheckout: React.FC<CartCheckoutProps> = ({
               <button
                 type="submit"
                 form="checkout-form"
-                className="w-full bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white font-black text-xs py-3.5 rounded-2xl shadow-lg shadow-orange-500/25 cursor-pointer active:scale-98 transition-all text-center"
+                disabled={Boolean(isEmergencyRush)}
+                className={`w-full font-black text-xs py-3.5 rounded-2xl shadow-lg transition-all text-center ${
+                  isEmergencyRush
+                    ? "bg-red-600/90 text-white cursor-not-allowed shadow-red-500/20 border border-red-700"
+                    : "bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white shadow-orange-500/25 cursor-pointer active:scale-98"
+                }`}
               >
-                تأكيد وإرسال الطلب فوراً 🚀
+                {isEmergencyRush
+                  ? "🚨 استقبال الطلبات مجمّد حالياً (وضع الضغط)"
+                  : "تأكيد وإرسال الطلب فوراً 🚀"}
               </button>
 
               <p className="text-[10px] text-slate-400 text-center font-bold">

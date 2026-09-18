@@ -31,6 +31,7 @@ interface CustomStoreOrderModalProps {
   landmarks: string[];
   currentLandmark: string;
   currency?: string;
+  isEmergencyRush?: boolean;
   onSubmit: (data: {
     storeId: string;
     storeName: string;
@@ -56,6 +57,7 @@ export const CustomStoreOrderModal: React.FC<CustomStoreOrderModalProps> = ({
   landmarks,
   currentLandmark,
   currency = "ل.س",
+  isEmergencyRush,
   onSubmit
 }) => {
   // Available stores (excluding closed or hidden if desired, but displaying open status)
@@ -220,6 +222,11 @@ export const CustomStoreOrderModal: React.FC<CustomStoreOrderModalProps> = ({
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
+    if (isEmergencyRush) {
+      alert("عذراً، استقبال الطلبات مجمّد حالياً في التطبيق بسبب ضغط العمل العالي. يرجى المحاولة لاحقاً بعد انتهاء الضغط واستئناف الخدمة.");
+      return;
+    }
+
     if (!selectedStore) {
       alert("يرجى اختيار المتجر المطلوب أولاً.");
       return;
@@ -317,6 +324,29 @@ export const CustomStoreOrderModal: React.FC<CustomStoreOrderModalProps> = ({
 
         {/* Scrollable Form Body */}
         <form onSubmit={handleSubmit} className="space-y-4 overflow-y-auto pr-1 flex-1 text-xs">
+          {/* Emergency Rush Freeze Notice Banner */}
+          {isEmergencyRush && (
+            <div
+              className="bg-red-600 text-white p-3.5 sm:p-4 rounded-2xl shadow-md flex items-center justify-between gap-3 border border-red-500 text-right animate-pulse"
+              dir="rtl"
+            >
+              <div className="flex items-center gap-2.5">
+                <span className="text-2xl shrink-0">🚨</span>
+                <div>
+                  <h4 className="font-black text-xs sm:text-sm">
+                    تنبيه: تم تجميد استقبال الطلبات مؤقتاً
+                  </h4>
+                  <p className="text-[11px] text-red-100 mt-0.5 leading-tight">
+                    إرسال الطلبات المخصصة معطّل حالياً للسيطرة على ضغط العمل وسنعاود الخدمة قريباً.
+                  </p>
+                </div>
+              </div>
+              <span className="bg-white/20 text-white text-[10px] font-black px-2 py-1 rounded-lg shrink-0 whitespace-nowrap">
+                وضع الضغط
+              </span>
+            </div>
+          )}
+
           {/* STORE SELECTOR & PREVIEW */}
           <div className="bg-slate-50 border border-slate-200 rounded-2xl p-3.5 space-y-2.5">
             <div className="flex items-center justify-between">
@@ -611,11 +641,19 @@ export const CustomStoreOrderModal: React.FC<CustomStoreOrderModalProps> = ({
           <div className="pt-2">
             <button
               type="submit"
-              disabled={isCompressing}
-              className="w-full bg-orange-600 hover:bg-orange-700 text-white font-black text-sm py-3.5 rounded-2xl shadow-lg shadow-orange-600/25 transition-all cursor-pointer flex items-center justify-center gap-2 active:scale-98 disabled:opacity-50"
+              disabled={isCompressing || Boolean(isEmergencyRush)}
+              className={`w-full font-black text-sm py-3.5 rounded-2xl shadow-lg transition-all flex items-center justify-center gap-2 ${
+                isEmergencyRush
+                  ? "bg-red-600/90 text-white cursor-not-allowed shadow-red-500/20 border border-red-700"
+                  : "bg-orange-600 hover:bg-orange-700 text-white shadow-orange-600/25 cursor-pointer active:scale-98 disabled:opacity-50"
+              }`}
             >
               <Send className="w-4 h-4" />
-              <span>إرسال الطلب الخاص للمتجر فوراً 🛍️</span>
+              <span>
+                {isEmergencyRush
+                  ? "🚨 استقبال الطلبات مجمّد حالياً (وضع الضغط)"
+                  : "إرسال الطلب الخاص للمتجر فوراً 🛍️"}
+              </span>
             </button>
           </div>
         </form>

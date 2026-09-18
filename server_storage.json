@@ -497,7 +497,7 @@
     }
   ],
   "notifications": [],
-  "lastUpdated": 1788906758295,
+  "lastUpdated": 1789727539654,
   "deletedDriverIds": [],
   "deletedStoreIds": [],
   "categories": [
@@ -559,5 +559,6 @@
   ],
   "deletedCategoryIds": [
     "cat_mtuj2s13ho2"
-  ]
+  ],
+  "emergencyRush": false
 }

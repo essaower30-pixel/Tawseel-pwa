@@ -121,7 +121,9 @@ import {
   reorderCategoriesOnServer,
   deleteCategoryOnServer,
   cleanSlateOnServer,
-  restoreDefaultsOnServer
+  restoreDefaultsOnServer,
+  saveSystemStatusOnServer,
+  fetchSystemStatusFromServer
 } from "./utils/apiSync";
 import {
   seedInitialFirestoreData,
@@ -146,7 +148,9 @@ import {
   saveReviewToFirestore,
   saveBroadcastToFirestore,
   cleanSlateFirestore,
-  reseedFirestoreDemoData
+  reseedFirestoreDemoData,
+  saveEmergencyRushToFirestore,
+  subscribeToEmergencyRush
 } from "./services/firebaseService";
 import { testFirestoreConnection } from "./firebase";
 import { CategoryIcon } from "./components/CategoryIcon";
@@ -481,6 +485,66 @@ export default function App() {
       localStorage.removeItem("tw_current_store_id");
     }
   }, [currentStoreId]);
+
+  // Real-time synchronization for emergency rush freeze status across devices and sessions
+  useEffect(() => {
+    const unsub = subscribeToEmergencyRush((isRush) => {
+      setEmergencyRush(isRush);
+      try {
+        localStorage.setItem("tw_emergency_rush", String(isRush));
+      } catch {}
+    });
+
+    fetchSystemStatusFromServer()
+      .then((res) => {
+        if (res && typeof res.emergencyRush === "boolean") {
+          setEmergencyRush(res.emergencyRush);
+          try {
+            localStorage.setItem("tw_emergency_rush", String(res.emergencyRush));
+          } catch {}
+        }
+      })
+      .catch(() => {});
+
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === "tw_emergency_rush" && e.newValue !== null) {
+        setEmergencyRush(e.newValue === "true");
+      }
+    };
+    window.addEventListener("storage", handleStorageChange);
+
+    return () => {
+      unsub();
+      window.removeEventListener("storage", handleStorageChange);
+    };
+  }, []);
+
+  const handleToggleEmergencyRush = async () => {
+    const nextRush = !emergencyRush;
+    setEmergencyRush(nextRush);
+    try {
+      localStorage.setItem("tw_emergency_rush", String(nextRush));
+    } catch {}
+
+    if (nextRush) {
+      addToastNotification({
+        title: "تم تجميد استقبال الطلبات في التطبيق 🚨",
+        message: "تم تفعيل وضع الضغط وتجميد استقبال الطلبات بنجاح. تم إيقاف استقبال الطلبات على مستوى الخادم والتطبيق.",
+        type: "warning"
+      });
+    } else {
+      addToastNotification({
+        title: "تم استئناف استقبال الطلبات ✅",
+        message: "تم فك التجميد بنجاح، التطبيق جاهز ومتاح لاستقبال طلبات الزبائن.",
+        type: "success"
+      });
+    }
+
+    await Promise.allSettled([
+      saveEmergencyRushToFirestore(nextRush),
+      saveSystemStatusOnServer(nextRush)
+    ]);
+  };
 
   // Automatic cleanup of legacy auto-generated driver service cards for fleet captains
   useEffect(() => {
@@ -2442,6 +2506,16 @@ export default function App() {
 
   // Handlers for Cart
   const handleAddToCart = (product: Product, selectedSize?: StoreSize, selectedAdditions: StoreAddition[] = []) => {
+    // Check if emergency rush / freeze mode is active
+    if (emergencyRush) {
+      addToastNotification({
+        title: "استقبال الطلبات مجمّد حالياً 🚨",
+        message: "تم تجميد استقبال الطلبات مؤقتاً للسيطرة على ضغط العمل. لا يمكن إضافة أصناف جديدة للسلة حتى يتم فك التجميد.",
+        type: "warning"
+      });
+      return;
+    }
+
     // 1. Check if product is out of stock
     const isOutOfStock = product.isAvailable === false || product.inStock === false || (product.stock !== undefined && product.stock <= 0);
     if (isOutOfStock) {
@@ -2540,6 +2614,15 @@ export default function App() {
   };
 
   const handleCheckout = async (orderData: any) => {
+    if (emergencyRush) {
+      addToastNotification({
+        title: "عذراً، استقبال الطلبات مجمّد حالياً 🚨",
+        message: "تم تجميد استقبال الطلبات مؤقتاً للسيطرة على ضغط العمل. لا يمكن إتمام الطلب في الوقت الحالي.",
+        type: "warning"
+      });
+      return;
+    }
+
     const store = stores.find((s) => s.id === orderData.storeId);
     const subtotal = cartItems.reduce((sum, item) => sum + item.product.price * item.quantity, 0);
     const deliveryFee = orderData.deliveryFee !== undefined && orderData.deliveryFee !== null
@@ -2651,6 +2734,15 @@ export default function App() {
   };
 
   const handleCustomOrder = async (customData: any) => {
+    if (emergencyRush) {
+      addToastNotification({
+        title: "عذراً، استقبال الطلبات مجمّد حالياً 🚨",
+        message: "تم تجميد استقبال الطلبات مؤقتاً للسيطرة على ضغط العمل. لا يمكن إرسال طلب مخصص في الوقت الحالي.",
+        type: "warning"
+      });
+      return;
+    }
+
     const orderId = "tw-" + Math.floor(Math.random() * 90000 + 10000);
     const deliveryOtp = customData.deliveryOtp || String(Math.floor(1000 + Math.random() * 9000));
     const newOrder: Order = {
@@ -3234,6 +3326,8 @@ export default function App() {
                   onResendBroadcast={handleResendBroadcast}
                   onCleanSlateData={handleCleanSlateData}
                   onLogout={handleLogout}
+                  isEmergencyRush={emergencyRush}
+                  onToggleEmergencyRush={handleToggleEmergencyRush}
                 />
               </React.Suspense>
             </motion.div>
@@ -3299,6 +3393,7 @@ export default function App() {
                 mapNodes={mapNodes}
                 stores={stores}
                 coupons={coupons}
+                isEmergencyRush={emergencyRush}
               />
             </motion.div>
           ) : selectedStore ? (
@@ -3327,6 +3422,7 @@ export default function App() {
                   currentLandmark={selectedLandmark}
                   reviews={reviews}
                   onAddReview={handleAddReview}
+                  isEmergencyRush={emergencyRush}
                   userOrders={allOrders.filter((o) => {
                     if (!userProfile) return true;
                     return o.customerPhone === userProfile.phone || o.customerName === userProfile.name;
@@ -4090,6 +4186,7 @@ export default function App() {
         userProfile={userProfile}
         landmarks={mapNodes.map((n) => n.arabicName || n.name)}
         currentLandmark={selectedLandmark}
+        isEmergencyRush={emergencyRush}
         onSubmit={handleCustomOrder}
       />
 
