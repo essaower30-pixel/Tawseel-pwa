@@ -77,6 +77,7 @@ interface DashboardProps {
   onDeleteDriver?: (driverId: string) => void;
   isEmergencyRush?: boolean;
   onToggleEmergencyRush?: () => void;
+  onBackToCustomerView?: () => void;
 }
 
 export const Dashboard: React.FC<DashboardProps> = ({
@@ -113,7 +114,8 @@ export const Dashboard: React.FC<DashboardProps> = ({
   onUpdateDriver: propOnUpdateDriver,
   onDeleteDriver: propOnDeleteDriver,
   isEmergencyRush: propIsEmergencyRush,
-  onToggleEmergencyRush: propOnToggleEmergencyRush
+  onToggleEmergencyRush: propOnToggleEmergencyRush,
+  onBackToCustomerView
 }) => {
   // Emergency Rush Mode (Driven by App.tsx with fallback to local state)
   const [localEmergencyRush, setLocalEmergencyRush] = useState<boolean>(() => {
@@ -470,6 +472,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
         onSelectStaff={handleSelectStaff}
         onLogout={onLogout}
         onOpenAccount={() => setShowAccountModal(true)}
+        onBackToCustomerView={onBackToCustomerView}
         pendingStoresCount={pendingStoresCount}
         pendingProductsCount={pendingProductsCount}
       />

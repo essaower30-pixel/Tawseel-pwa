@@ -298,10 +298,11 @@ export const DriverPortal: React.FC<DriverPortalProps> = ({
               <button
                 type="button"
                 onClick={onBackToCustomerView}
-                className="py-2 px-3.5 rounded-xl border border-slate-700 bg-slate-800 hover:bg-slate-700 text-xs font-bold text-slate-200 transition-all cursor-pointer flex items-center gap-1.5"
+                className="py-2 px-4 rounded-xl border border-orange-400/80 bg-gradient-to-r from-orange-600 via-amber-600 to-orange-500 hover:from-orange-500 hover:to-amber-500 text-xs font-black text-white transition-all cursor-pointer flex items-center gap-1.5 shadow-lg shadow-orange-950/40 active:scale-95"
+                title="الانتقال الفوري لتصفح المنصة والتسوق كزبون"
               >
-                <ArrowRight className="w-4 h-4 text-orange-400" />
-                <span>واجهة الزبون</span>
+                <ShoppingBag className="w-4 h-4 text-amber-200" />
+                <span>تصفح كزبون 🛍️</span>
               </button>
             )}
             <button

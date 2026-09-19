@@ -3162,6 +3162,62 @@ export default function App() {
         </div>
       )}
 
+      {/* Driver / Captain Customer Shopping Mode Floating Banner */}
+      {userRole === "driver" && !isDriverMode && (
+        <div className="bg-slate-900 text-white px-3 sm:px-6 py-2 flex items-center justify-between shadow-md sticky top-0 z-50 border-b border-blue-500/40">
+          <div className="flex items-center gap-2">
+            <span className="relative flex h-2.5 w-2.5">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-blue-500"></span>
+            </span>
+            <span className="text-xs sm:text-sm font-bold text-slate-100">
+              🛍️ تتصفح كزبون متسوق (حساب الكابتن {userProfile?.name} نشط ومتاح في الخلفية)
+            </span>
+          </div>
+          <button
+            type="button"
+            onClick={() => {
+              setSelectedStore(null);
+              setIsViewingCart(false);
+              setIsDriverMode(true);
+              localStorage.setItem("tw_viewing_driver", "true");
+            }}
+            className="bg-blue-600 hover:bg-blue-500 active:scale-95 text-white font-black text-xs px-3 sm:px-3.5 py-1 rounded-xl transition-all shadow-xs flex items-center gap-1.5 cursor-pointer shrink-0"
+          >
+            <Bike className="w-3.5 h-3.5" />
+            <span>🚴 العودة للوحة الكابتن</span>
+          </button>
+        </div>
+      )}
+
+      {/* Admin / Staff Customer Shopping Mode Floating Banner */}
+      {userRole === "admin" && !isAdminMode && (
+        <div className="bg-slate-900 text-white px-3 sm:px-6 py-2 flex items-center justify-between shadow-md sticky top-0 z-50 border-b border-amber-500/40">
+          <div className="flex items-center gap-2">
+            <span className="relative flex h-2.5 w-2.5">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-amber-500"></span>
+            </span>
+            <span className="text-xs sm:text-sm font-bold text-slate-100">
+              🛍️ تتصفح كزبون متسوق (حساب الإدارة {userProfile?.name} نشط)
+            </span>
+          </div>
+          <button
+            type="button"
+            onClick={() => {
+              setSelectedStore(null);
+              setIsViewingCart(false);
+              setIsAdminMode(true);
+              localStorage.setItem("tw_viewing_admin", "true");
+            }}
+            className="bg-amber-500 hover:bg-amber-400 active:scale-95 text-slate-950 font-black text-xs px-3 sm:px-3.5 py-1 rounded-xl transition-all shadow-xs flex items-center gap-1.5 cursor-pointer shrink-0"
+          >
+            <ShieldCheck className="w-3.5 h-3.5" />
+            <span>🛡️ العودة للوحة الإدارة</span>
+          </button>
+        </div>
+      )}
+
       {/* Top Application Header */}
       <header className="w-full bg-white/90 backdrop-blur-md border-b border-slate-200/80 py-3 px-3 sm:px-6 sticky top-0 z-50 shadow-xs select-none">
         <div className="max-w-7xl mx-auto w-full flex items-center justify-between gap-2 sm:gap-4">
@@ -3279,45 +3335,146 @@ export default function App() {
                 <span>تسجيل الدخول</span>
               </button>
             ) : (
-              <div className="flex items-center gap-1.5">
-                {/* Direct quick button to go to Admin Panel if logged in as Admin and browsing as customer */}
-                {userRole === "admin" && !isAdminMode && (
+              <div className="flex items-center gap-1.5 sm:gap-2">
+                {/* 1. Store Owner & Craftsmen Button: "تصفح كزبون 🛍️" / "إدارة متجري 🏪" */}
+                {userRole === "store_owner" && (
                   <button
                     type="button"
                     onClick={() => {
-                      setSelectedStore(null);
-                      setIsViewingCart(false);
-                      setIsAdminMode(true);
-                      setIsDriverMode(false);
-                      localStorage.setItem("tw_viewing_admin", "true");
-                      localStorage.setItem("tw_viewing_driver", "false");
+                      if (!isStoreOwnerBrowsingAsCustomer) {
+                        handleToggleStoreOwnerCustomerBrowsing(true);
+                        addToastNotification({
+                          title: "وضع التصفح كزبون 🛍️",
+                          message: "أنت الآن تتصفح وتتسوق كزبون. يمكنك الطلب والتجول بحرية، ومتجرك ما زال نشطاً في الخلفية.",
+                          type: "success"
+                        });
+                      } else {
+                        setSelectedStore(null);
+                        setIsViewingCart(false);
+                        handleToggleStoreOwnerCustomerBrowsing(false);
+                      }
                     }}
-                    className="py-1.5 px-2.5 sm:px-3.5 rounded-xl border border-slate-700 bg-slate-900 hover:bg-slate-800 text-white transition-all cursor-pointer flex items-center justify-center gap-1.5 text-xs font-black shadow-sm active:scale-95 whitespace-nowrap animate-fade-in"
-                    title="العودة المباشرة إلى لوحة الإدارة"
+                    className={`py-1.5 px-2.5 sm:px-3.5 rounded-xl border font-black text-xs transition-all cursor-pointer flex items-center justify-center gap-1.5 shadow-md active:scale-95 whitespace-nowrap animate-fade-in ${
+                      isStoreOwnerBrowsingAsCustomer
+                        ? "border-emerald-500/60 bg-gradient-to-r from-emerald-800 via-emerald-700 to-emerald-800 hover:from-emerald-700 text-white shadow-emerald-950/25"
+                        : "border-orange-400 bg-gradient-to-r from-orange-600 via-amber-600 to-orange-500 hover:from-orange-500 hover:to-amber-500 text-white shadow-orange-950/30 ring-2 ring-orange-400/30"
+                    }`}
+                    title={
+                      isStoreOwnerBrowsingAsCustomer
+                        ? "العودة إلى لوحة إدارة متجري / مهنتي"
+                        : "الانتقال الفوري لتصفح المنصة والتسوق كزبون"
+                    }
                   >
-                    <ShieldCheck className="w-3.5 h-3.5 text-amber-400 shrink-0" />
-                    <span className="hidden sm:inline">لوحة الإدارة 🛡️</span>
-                    <span className="sm:hidden">الإدارة 🛡️</span>
+                    {isStoreOwnerBrowsingAsCustomer ? (
+                      <>
+                        <StoreIcon className="w-3.5 h-3.5 text-emerald-300 shrink-0" />
+                        <span className="hidden xs:inline">إدارة متجري 🏪</span>
+                        <span className="xs:hidden">متجري 🏪</span>
+                      </>
+                    ) : (
+                      <>
+                        <ShoppingBag className="w-3.5 h-3.5 text-amber-200 shrink-0" />
+                        <span>تصفح كزبون 🛍️</span>
+                      </>
+                    )}
                   </button>
                 )}
 
-                {/* Direct quick button for driver if on home view */}
-                {userRole === "driver" && !isDriverMode && (
+                {/* 2. Driver / Captain Button: "تصفح كزبون 🛍️" / "لوحة الكابتن 🚴" */}
+                {userRole === "driver" && (
                   <button
                     type="button"
                     onClick={() => {
-                      setSelectedStore(null);
-                      setIsViewingCart(false);
-                      setIsDriverMode(true);
-                      setIsAdminMode(false);
-                      localStorage.setItem("tw_viewing_driver", "true");
-                      localStorage.setItem("tw_viewing_admin", "false");
+                      if (isDriverMode) {
+                        setIsDriverMode(false);
+                        localStorage.setItem("tw_viewing_driver", "false");
+                        addToastNotification({
+                          title: "وضع التصفح كزبون 🛍️",
+                          message: "أنت الآن تتصفح المنصة كزبون ويمكنك الطلب من المتاجر. حساب الكابتن يبقى متاحاً.",
+                          type: "success"
+                        });
+                      } else {
+                        setSelectedStore(null);
+                        setIsViewingCart(false);
+                        setIsDriverMode(true);
+                        setIsAdminMode(false);
+                        localStorage.setItem("tw_viewing_driver", "true");
+                        localStorage.setItem("tw_viewing_admin", "false");
+                      }
                     }}
-                    className="py-1.5 px-2.5 sm:px-3.5 rounded-xl border border-blue-700 bg-blue-900 hover:bg-blue-800 text-white transition-all cursor-pointer flex items-center justify-center gap-1.5 text-xs font-black shadow-sm active:scale-95 whitespace-nowrap animate-fade-in"
-                    title="العودة المباشرة إلى لوحة الكابتن"
+                    className={`py-1.5 px-2.5 sm:px-3.5 rounded-xl border font-black text-xs transition-all cursor-pointer flex items-center justify-center gap-1.5 shadow-md active:scale-95 whitespace-nowrap animate-fade-in ${
+                      isDriverMode
+                        ? "border-orange-400 bg-gradient-to-r from-orange-600 via-amber-600 to-orange-500 hover:from-orange-500 hover:to-amber-500 text-white shadow-orange-950/30 ring-2 ring-orange-400/30"
+                        : "border-blue-700 bg-gradient-to-r from-blue-900 via-blue-800 to-blue-900 hover:from-blue-800 text-white shadow-blue-950/25"
+                    }`}
+                    title={
+                      isDriverMode
+                        ? "الانتقال الفوري لتصفح المنصة كزبون"
+                        : "العودة المباشرة إلى لوحة الكابتن"
+                    }
                   >
-                    <Bike className="w-3.5 h-3.5 text-blue-300 shrink-0" />
-                    <span>الكابتن 🚴</span>
+                    {isDriverMode ? (
+                      <>
+                        <ShoppingBag className="w-3.5 h-3.5 text-amber-200 shrink-0" />
+                        <span>تصفح كزبون 🛍️</span>
+                      </>
+                    ) : (
+                      <>
+                        <Bike className="w-3.5 h-3.5 text-blue-300 shrink-0" />
+                        <span className="hidden sm:inline">لوحة الكابتن 🚴</span>
+                        <span className="sm:hidden">الكابتن 🚴</span>
+                      </>
+                    )}
+                  </button>
+                )}
+
+                {/* 3. Admin / Staff Button: "تصفح كزبون 🛍️" / "لوحة الإدارة 🛡️" */}
+                {userRole === "admin" && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (isAdminMode) {
+                        setSelectedStore(null);
+                        setIsViewingCart(false);
+                        setIsAdminMode(false);
+                        localStorage.setItem("tw_viewing_admin", "false");
+                        addToastNotification({
+                          title: "وضع التصفح كزبون 🛍️",
+                          message: "أنت الآن تتصفح المنصة كزبون عادي لتجربة تجربة المستخدم والطلب.",
+                          type: "success"
+                        });
+                      } else {
+                        setSelectedStore(null);
+                        setIsViewingCart(false);
+                        setIsAdminMode(true);
+                        setIsDriverMode(false);
+                        localStorage.setItem("tw_viewing_admin", "true");
+                        localStorage.setItem("tw_viewing_driver", "false");
+                      }
+                    }}
+                    className={`py-1.5 px-2.5 sm:px-3.5 rounded-xl border font-black text-xs transition-all cursor-pointer flex items-center justify-center gap-1.5 shadow-md active:scale-95 whitespace-nowrap animate-fade-in ${
+                      isAdminMode
+                        ? "border-orange-400 bg-gradient-to-r from-orange-600 via-amber-600 to-orange-500 hover:from-orange-500 hover:to-amber-500 text-white shadow-orange-950/30 ring-2 ring-orange-400/30"
+                        : "border-slate-700 bg-slate-900 hover:bg-slate-800 text-white shadow-slate-950/25"
+                    }`}
+                    title={
+                      isAdminMode
+                        ? "الانتقال المباشر لتصفح المنصة كزبون"
+                        : "العودة المباشرة إلى لوحة الإدارة"
+                    }
+                  >
+                    {isAdminMode ? (
+                      <>
+                        <ShoppingBag className="w-3.5 h-3.5 text-amber-200 shrink-0" />
+                        <span>تصفح كزبون 🛍️</span>
+                      </>
+                    ) : (
+                      <>
+                        <ShieldCheck className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                        <span className="hidden sm:inline">لوحة الإدارة 🛡️</span>
+                        <span className="sm:hidden">الإدارة 🛡️</span>
+                      </>
+                    )}
                   </button>
                 )}
 
@@ -3453,6 +3610,17 @@ export default function App() {
                   onLogout={handleLogout}
                   isEmergencyRush={emergencyRush}
                   onToggleEmergencyRush={handleToggleEmergencyRush}
+                  onBackToCustomerView={() => {
+                    setSelectedStore(null);
+                    setIsViewingCart(false);
+                    setIsAdminMode(false);
+                    localStorage.setItem("tw_viewing_admin", "false");
+                    addToastNotification({
+                      title: "وضع التصفح كزبون 🛍️",
+                      message: "أنت الآن تتصفح وتتسوق كزبون. يمكنك العودة إلى لوحة الإدارة في أي وقت عبر البنر العلوي.",
+                      type: "success"
+                    });
+                  }}
                 />
               </React.Suspense>
             </motion.div>
@@ -3474,8 +3642,15 @@ export default function App() {
                   onAssignDriver={handleAssignDriverToOrder}
                   onLogout={handleLogout}
                   onBackToCustomerView={() => {
+                    setSelectedStore(null);
+                    setIsViewingCart(false);
                     setIsDriverMode(false);
-                    setUserRole("customer");
+                    localStorage.setItem("tw_viewing_driver", "false");
+                    addToastNotification({
+                      title: "وضع التصفح كزبون 🛍️",
+                      message: "أنت الآن تتصفح المنصة كزبون ويمكنك الطلب من المتاجر. حساب الكابتن يبقى متاحاً في الخلفية.",
+                      type: "success"
+                    });
                   }}
                   currency="ل.س"
                 />
@@ -4325,9 +4500,12 @@ export default function App() {
       />
 
       {/* Universal Bottom Navigation for Customer & Guest View */}
-      {(userRole === "customer" || userRole === "guest") && !isAdminMode && !isDriverMode && (
+      {((userRole === "customer" || userRole === "guest") ||
+        (userRole === "store_owner" && isStoreOwnerBrowsingAsCustomer) ||
+        (userRole === "driver" && !isDriverMode) ||
+        (userRole === "admin" && !isAdminMode)) && (
         <BottomNavigation
-          userRole={userRole === "guest" ? "customer" : "customer"}
+          userRole="customer"
           activeTab={
             isViewingCart
               ? "cart"

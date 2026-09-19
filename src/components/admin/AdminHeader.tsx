@@ -26,7 +26,8 @@ import {
   Shield,
   Volume2,
   VolumeX,
-  Sparkles
+  Sparkles,
+  ShoppingBag
 } from "lucide-react";
 import { StaffMember, StaffPermission } from "../../types";
 import { playOrderAlertSound, isSoundEnabled, setSoundEnabled } from "../../utils/soundNotifications";
@@ -59,6 +60,7 @@ interface AdminHeaderProps {
   onSelectStaff: (staff: StaffMember) => void;
   onLogout: () => void;
   onOpenAccount?: () => void;
+  onBackToCustomerView?: () => void;
   pendingStoresCount?: number;
   pendingProductsCount?: number;
 }
@@ -73,6 +75,7 @@ export const AdminHeader: React.FC<AdminHeaderProps> = ({
   onSelectStaff,
   onLogout,
   onOpenAccount,
+  onBackToCustomerView,
   pendingStoresCount = 0,
   pendingProductsCount = 0
 }) => {
@@ -243,6 +246,18 @@ export const AdminHeader: React.FC<AdminHeaderProps> = ({
             >
               <ShieldCheck className="w-3.5 h-3.5 text-purple-400" />
               <span>حسابي 👤</span>
+            </button>
+          )}
+
+          {onBackToCustomerView && (
+            <button
+              type="button"
+              onClick={onBackToCustomerView}
+              className="px-3.5 py-1.5 bg-gradient-to-r from-orange-600 via-amber-600 to-orange-500 hover:from-orange-500 text-white font-black text-xs rounded-2xl transition-all flex items-center gap-1.5 cursor-pointer shadow-md shadow-orange-950/40 active:scale-95 border border-orange-400/50"
+              title="الانتقال المباشر لتصفح المنصة والتسوق كزبون"
+            >
+              <ShoppingBag className="w-3.5 h-3.5 text-amber-200" />
+              <span>تصفح كزبون 🛍️</span>
             </button>
           )}
 
