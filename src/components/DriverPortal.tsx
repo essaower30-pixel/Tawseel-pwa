@@ -283,17 +283,6 @@ export const DriverPortal: React.FC<DriverPortalProps> = ({
               <span>{soundAlerts ? "تنبيه الرنين مفعّل 🔔" : "الصوت مكتوم"}</span>
             </button>
 
-            {/* Account Settings Button */}
-            <button
-              type="button"
-              onClick={() => setShowAccountModal(true)}
-              className="py-2 px-3.5 rounded-xl border border-emerald-500/30 bg-emerald-500/10 hover:bg-emerald-500/20 text-xs font-black text-emerald-400 transition-all cursor-pointer flex items-center gap-1.5"
-              title="إعدادات الحساب وتعديل بيانات الكابتن"
-            >
-              <User className="w-4 h-4 text-emerald-400" />
-              <span>حسابي</span>
-            </button>
-
             {onBackToCustomerView && (
               <button
                 type="button"

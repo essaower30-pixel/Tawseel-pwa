@@ -3477,18 +3477,6 @@ export default function App() {
                     )}
                   </button>
                 )}
-
-                <button
-                  type="button"
-                  onClick={() => setShowAccountModal(true)}
-                  className="py-1.5 px-2.5 sm:px-3.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-800 transition-all cursor-pointer flex items-center justify-center gap-1.5 text-xs font-black shadow-xs active:scale-95 whitespace-nowrap"
-                  title="إعدادات الحساب والملف الشخصي وتبديل الحساب"
-                >
-                  <div className="w-6 h-6 rounded-full bg-orange-100 text-orange-600 flex items-center justify-center shrink-0">
-                    <User className="w-3.5 h-3.5" />
-                  </div>
-                  <span className="max-w-[85px] sm:max-w-[130px] truncate">{userProfile.name}</span>
-                </button>
               </div>
             )}
 

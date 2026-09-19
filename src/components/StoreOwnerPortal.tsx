@@ -501,17 +501,6 @@ export const StoreOwnerPortal: React.FC<StoreOwnerPortalProps> = ({
               <span>{isOpen ? "إغلاق المتجر مؤقتاً" : "فتح المتجر للزبائن"}</span>
             </button>
 
-            {/* Account Settings Button */}
-            <button
-              type="button"
-              onClick={() => setShowAccountModal(true)}
-              className="py-2 px-3.5 rounded-xl border border-orange-500/30 bg-orange-500/10 hover:bg-orange-500/20 text-xs font-black text-orange-400 transition-all cursor-pointer flex items-center gap-1.5"
-              title="إعدادات الحساب وتعديل بيانات المتجر"
-            >
-              <User className="w-4 h-4 text-orange-400" />
-              <span>حسابي</span>
-            </button>
-
             {onBackToCustomerView && (
               <button
                 type="button"

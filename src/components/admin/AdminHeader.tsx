@@ -237,18 +237,6 @@ export const AdminHeader: React.FC<AdminHeaderProps> = ({
             </span>
           </div>
 
-          {onOpenAccount && (
-            <button
-              type="button"
-              onClick={onOpenAccount}
-              className="px-3.5 py-1.5 bg-purple-500/20 hover:bg-purple-500/30 text-purple-300 border border-purple-500/40 font-black text-xs rounded-2xl transition-all flex items-center gap-1.5 cursor-pointer shadow-sm active:scale-95"
-              title="إعدادات الحساب وتغيير الاسم، رقم الهاتف، والرمز السري"
-            >
-              <ShieldCheck className="w-3.5 h-3.5 text-purple-400" />
-              <span>حسابي 👤</span>
-            </button>
-          )}
-
           {onBackToCustomerView && (
             <button
               type="button"
