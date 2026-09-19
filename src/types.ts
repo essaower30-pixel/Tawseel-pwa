@@ -98,6 +98,7 @@ export interface UserProfile {
   staffId?: string;
   role?: string;
   permissions?: StaffPermission[];
+  avatar?: string;
 }
 
 export interface RegisteredCustomer {
@@ -110,6 +111,7 @@ export interface RegisteredCustomer {
   addressLandmark?: string;
   addressDetails?: string;
   notes?: string;
+  avatar?: string;
   registeredBy?: string; // e.g. "المدير العام"
   registeredAt: string;
   totalOrdersCount?: number;
@@ -200,6 +202,7 @@ export interface StaffMember {
   password?: string;
   permissions?: StaffPermission[];
   isActive?: boolean;
+  avatar?: string;
   createdAt?: string;
   notes?: string;
 }
@@ -216,6 +219,7 @@ export interface DriverMember {
   earnings?: number;
   rating?: number;
   vehicle?: string;
+  avatar?: string;
   notes?: string;
   createdAt?: string;
   isHidden?: boolean;
@@ -228,6 +232,7 @@ export interface Craftsman {
   phone: string;
   neighborhood: string;
   description?: string;
+  avatar?: string;
   availability?: "available" | "busy" | "offline";
   rating?: number;
 }
