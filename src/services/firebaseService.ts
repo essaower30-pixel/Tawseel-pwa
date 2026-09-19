@@ -23,7 +23,8 @@ import {
   StoreBroadcast,
   Coupon,
   AppSettings,
-  Category
+  Category,
+  StaffMember
 } from "../types";
 import {
   initialStores,
@@ -31,7 +32,7 @@ import {
   initialCategories,
   initialMapNodes
 } from "../data/initialData";
-import { initialOrders, initialDrivers, initialCoupons } from "../data/adminInitialData";
+import { initialOrders, initialDrivers, initialCoupons, initialStaff } from "../data/adminInitialData";
 
 // Helper to remove undefined values before Firestore writes
 function sanitizeForFirestore<T>(data: T): Record<string, any> {
@@ -131,7 +132,11 @@ export function subscribeToOrders(
       (snapshot) => {
         const list: Order[] = [];
         snapshot.forEach((d) => {
-          list.push({ ...(d.data() as Order), id: d.id });
+          const data = d.data() as Order;
+          const deliveryOtp = (data.deliveryOtp && String(data.deliveryOtp).trim().length >= 3)
+            ? String(data.deliveryOtp).trim()
+            : (d.id ? d.id.replace(/\D/g, "").slice(-4).padStart(4, "7") : "1234");
+          list.push({ ...(data as Order), id: d.id, deliveryOtp });
         });
         // Sort newest first
         list.sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
@@ -331,6 +336,45 @@ export function subscribeToBroadcasts(
   }
 }
 
+export function subscribeToStaff(
+  onStaffUpdated: (staff: StaffMember[]) => void,
+  onError?: (err: Error) => void
+): () => void {
+  try {
+    const staffRef = collection(db, "staff");
+    const unsub = onSnapshot(
+      staffRef,
+      (snapshot) => {
+        if (snapshot.empty) {
+          // If Firestore is empty for staff, pass initialStaff
+          onStaffUpdated(initialStaff);
+          return;
+        }
+        const list: StaffMember[] = [];
+        snapshot.forEach((d) => {
+          list.push({ ...(d.data() as StaffMember), id: d.id });
+        });
+        // Merge with initialStaff to make sure core staff like manager and om_milad are always present
+        const staffIds = new Set(list.map(s => s.id));
+        for (const base of initialStaff) {
+          if (!staffIds.has(base.id)) {
+            list.push(base);
+          }
+        }
+        onStaffUpdated(list);
+      },
+      (err) => {
+        console.warn("Staff subscription error:", err);
+        if (onError) onError(err);
+      }
+    );
+    return unsub;
+  } catch (err) {
+    console.warn("Failed to attach staff listener:", err);
+    return () => {};
+  }
+}
+
 // -------------------------------------------------------------
 // DIRECT MUTATIONS (Writes directly to Firestore)
 // -------------------------------------------------------------
@@ -338,8 +382,12 @@ export function subscribeToBroadcasts(
 export async function saveOrderToFirestore(order: Order): Promise<boolean> {
   try {
     const docRef = doc(db, "orders", order.id);
+    const deliveryOtp = (order.deliveryOtp && String(order.deliveryOtp).trim().length >= 3)
+      ? String(order.deliveryOtp).trim()
+      : (order.id ? order.id.replace(/\D/g, "").slice(-4).padStart(4, "7") : "1234");
     await setDoc(docRef, sanitizeForFirestore({
       ...order,
+      deliveryOtp,
       syncedAt: new Date().toISOString()
     }), { merge: true });
     return true;
@@ -488,6 +536,28 @@ export async function saveCustomerToFirestore(customer: RegisteredCustomer): Pro
     return true;
   } catch (err) {
     console.error("Error saving customer to Firestore:", err);
+    return false;
+  }
+}
+
+export async function saveStaffToFirestore(staff: StaffMember): Promise<boolean> {
+  try {
+    const docRef = doc(db, "staff", staff.id);
+    await setDoc(docRef, sanitizeForFirestore(staff), { merge: true });
+    return true;
+  } catch (err) {
+    console.error("Error saving staff to Firestore:", err);
+    return false;
+  }
+}
+
+export async function deleteStaffFromFirestore(staffId: string): Promise<boolean> {
+  try {
+    const docRef = doc(db, "staff", staffId);
+    await deleteDoc(docRef);
+    return true;
+  } catch (err) {
+    console.error("Error deleting staff from Firestore:", err);
     return false;
   }
 }

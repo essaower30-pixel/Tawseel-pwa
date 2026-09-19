@@ -40,6 +40,7 @@ import { OrdersArchiveReportsTab } from "./admin/OrdersArchiveReportsTab";
 import { PlatformFeaturesTab } from "./admin/PlatformFeaturesTab";
 import { BottomNavigation } from "./BottomNavigation";
 import { AccountSettingsModal } from "./AccountSettingsModal";
+import { saveStaffToFirestore, deleteStaffFromFirestore, subscribeToStaff } from "../services/firebaseService";
 
 interface DashboardProps {
   userRole: "admin" | "store_owner" | "driver";
@@ -135,11 +136,29 @@ export const Dashboard: React.FC<DashboardProps> = ({
   const [staffList, setStaffList] = useState<StaffMember[]>(() => {
     try {
       const saved = localStorage.getItem("tw_staff_members");
-      return saved ? JSON.parse(saved) : initialStaff;
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          const ids = new Set(parsed.map((p: any) => p.id || p.username));
+          const missing = initialStaff.filter((s) => !ids.has(s.id) && !ids.has(s.username));
+          return [...parsed, ...missing];
+        }
+      }
+      return initialStaff;
     } catch {
       return initialStaff;
     }
   });
+
+  useEffect(() => {
+    const unsub = subscribeToStaff((remoteStaff) => {
+      if (remoteStaff && remoteStaff.length > 0) {
+        setStaffList(remoteStaff);
+        localStorage.setItem("tw_staff_members", JSON.stringify(remoteStaff));
+      }
+    });
+    return () => unsub();
+  }, []);
 
   const [currentStaff, setCurrentStaff] = useState<StaffMember | null>(() => {
     const activeStaffId = localStorage.getItem("tw_active_staff_id") || userProfile?.staffId;
@@ -199,18 +218,21 @@ export const Dashboard: React.FC<DashboardProps> = ({
     const next = [...staffList, staff];
     setStaffList(next);
     localStorage.setItem("tw_staff_members", JSON.stringify(next));
+    saveStaffToFirestore(staff).catch(() => {});
   };
 
   const handleUpdateStaff = (staff: StaffMember) => {
     const next = staffList.map(s => s.id === staff.id ? staff : s);
     setStaffList(next);
     localStorage.setItem("tw_staff_members", JSON.stringify(next));
+    saveStaffToFirestore(staff).catch(() => {});
   };
 
   const handleDeleteStaff = (staffId: string) => {
     const next = staffList.filter(s => s.id !== staffId);
     setStaffList(next);
     localStorage.setItem("tw_staff_members", JSON.stringify(next));
+    deleteStaffFromFirestore(staffId).catch(() => {});
   };
 
   // Drivers Fleet State (Synchronized with App root and local cache)

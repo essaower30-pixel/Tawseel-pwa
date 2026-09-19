@@ -80,6 +80,7 @@ export const DriverPortal: React.FC<DriverPortalProps> = ({
   const [soundAlerts, setSoundAlerts] = useState<boolean>(() => isSoundEnabled());
   const [zoomedImage, setZoomedImage] = useState<string | null>(null);
   const [showAccountModal, setShowAccountModal] = useState(false);
+  const [showExitWarning, setShowExitWarning] = useState(false);
 
   // Delivery Verification Modal State (Supports OTP or Customer Phone Verification as a secure fallback)
   const [verifyingOrder, setVerifyingOrder] = useState<Order | null>(null);
@@ -143,26 +144,39 @@ export const DriverPortal: React.FC<DriverPortalProps> = ({
     onUpdateOrderStatus(orderIdToDeliver, "delivered");
   };
 
-  // Close internal modal or zoomed image on mobile back button tap without leaving driver portal
+  // Prevent mobile back button from exiting app and destroying background notifications
   useEffect(() => {
-    const handleBack = (e: Event) => {
+    // Request browser notifications permission if not already decided
+    if ("Notification" in window && Notification.permission === "default") {
+      Notification.requestPermission().catch(() => {});
+    }
+
+    // Push initial history state
+    window.history.pushState({ tw_portal: "driver" }, "");
+
+    const handlePopState = () => {
+      // Keep state in history to trap subsequent back presses
+      window.history.pushState({ tw_portal: "driver" }, "");
+
       if (verifyingOrder) {
         setVerifyingOrder(null);
         setEnteredOtp("");
         setEnteredPhone("");
         setOtpError(null);
-        e.preventDefault();
       } else if (zoomedImage) {
         setZoomedImage(null);
-        e.preventDefault();
       } else if (showAccountModal) {
         setShowAccountModal(false);
-        e.preventDefault();
+      } else {
+        setShowExitWarning(true);
       }
     };
-    window.addEventListener("tw_back_button_pressed", handleBack);
-    return () => window.removeEventListener("tw_back_button_pressed", handleBack);
-  }, [zoomedImage, showAccountModal, verifyingOrder]);
+
+    window.addEventListener("popstate", handlePopState);
+    return () => {
+      window.removeEventListener("popstate", handlePopState);
+    };
+  }, [verifyingOrder, zoomedImage, showAccountModal]);
 
   const handleProfileUpdate = async (updatedProfile: UserProfile, extraData?: any) => {
     const updatedDriver: DriverMember = {
@@ -541,8 +555,13 @@ export const DriverPortal: React.FC<DriverPortalProps> = ({
                         <div className="divide-y divide-slate-200 text-slate-700">
                           {order.items.map((it, idx) => (
                             <div key={idx} className="py-1 flex items-center justify-between">
-                              <span>{it.quantity}x {it.product.name} {it.selectedSize ? `(${it.selectedSize.name})` : ""}</span>
-                              <span className="font-mono font-bold">{it.totalItemPrice.toLocaleString()} {currency}</span>
+                              <span>{it.quantity}x {it.product?.name || "صنف"} {it.selectedSize ? `(${it.selectedSize.name})` : ""}</span>
+                              <span className="font-mono font-bold">
+                                {it.totalItemPrice !== undefined
+                                  ? it.totalItemPrice.toLocaleString()
+                                  : ((it.product?.price || 0) * (it.quantity || 1)).toLocaleString()}{" "}
+                                {currency}
+                              </span>
                             </div>
                           ))}
                         </div>
@@ -1026,6 +1045,58 @@ export const DriverPortal: React.FC<DriverPortalProps> = ({
           onUpdateProfile={handleProfileUpdate}
           onLogout={onLogout}
         />
+      )}
+
+      {/* Captain Exit / Background Warning Modal */}
+      {showExitWarning && (
+        <div className="fixed inset-0 z-50 bg-slate-900/80 backdrop-blur-xs flex items-center justify-center p-4" dir="rtl">
+          <div className="bg-white rounded-3xl max-w-md w-full p-5 sm:p-6 shadow-2xl text-center space-y-4 border border-slate-100 animate-in fade-in zoom-in-95 duration-200">
+            <div className="w-14 h-14 rounded-2xl bg-amber-100 text-amber-600 flex items-center justify-center mx-auto text-2xl shadow-inner">
+              🛵
+            </div>
+            <div>
+              <h3 className="text-base sm:text-lg font-black text-slate-900">
+                تنبيه هام للكابتن ({currentDriver.name})
+              </h3>
+              <p className="text-slate-600 text-xs sm:text-sm font-semibold mt-2 leading-relaxed">
+                للبقاء متصلاً واستلام رنين وتنبيهات طلبات الإدارة والتوصيل لحظة بلحظة، يُرجى تصغير التطبيق بزر الشاشة الرئيسية (Home) بدلاً من الخروج بزر الرجوع.
+              </p>
+            </div>
+
+            <div className="p-3 bg-amber-50 rounded-2xl border border-amber-200 text-right space-y-1 text-xs text-amber-950 font-bold">
+              <div className="flex items-center gap-1.5 font-black text-amber-900">
+                <ShieldAlert className="w-4 h-4 text-amber-600" />
+                <span>نصائح لضمان استلام التنبيهات:</span>
+              </div>
+              <p className="text-[11px] text-amber-800">1. تصغير التطبيق يبقيه نشطاً لتلقي الإشعارات الصوتية والرنين.</p>
+              <p className="text-[11px] text-amber-800">2. زر الرجوع يغلق الصفحة في المتصفح مما قد يوقف التنبيهات.</p>
+            </div>
+
+            <div className="flex flex-col gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => setShowExitWarning(false)}
+                className="w-full py-3 px-4 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-black text-xs sm:text-sm rounded-2xl shadow-md transition-all cursor-pointer flex items-center justify-center gap-2"
+              >
+                <CheckCircle2 className="w-4 h-4" />
+                <span>البقاء متصلاً ومتابعة العمل 🛵</span>
+              </button>
+
+              {onBackToCustomerView && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowExitWarning(false);
+                    onBackToCustomerView();
+                  }}
+                  className="w-full py-2.5 px-4 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-2xl transition-all cursor-pointer"
+                >
+                  التبديل إلى تصفح المنصة كزبون 🛍️
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

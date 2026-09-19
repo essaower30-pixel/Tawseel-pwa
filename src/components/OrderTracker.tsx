@@ -123,14 +123,14 @@ export const OrderTracker: React.FC<OrderTrackerProps> = ({
                   </span>
                 ) : (
                   <span className="text-[10px] bg-amber-500/20 text-amber-300 font-bold px-2 py-0.5 rounded-full border border-amber-500/30 animate-pulse">
-                    أعطه للكابتن عند الباب
+                    أعطه للكابتن عند باب منزلك فقط
                   </span>
                 )}
               </div>
               <p className="text-slate-400 text-xs font-medium mt-0.5">
                 {order.status === "delivered"
                   ? "تم تسليم الطلب للزبون بنجاح ومطابقة كود الأمان."
-                  : "لحمايتك وضمان وصول طلبك لشخصك الكريم، اطلب من الكابتن الكود أو أعطه إياه عند الاستلام."}
+                  : "هذا الرمز سري وخاص بك وحدك لضمان عدم تسليم الطلب وهمياً أو لغير صاحبه. أعطه للكابتن عند الاستلام الفعلي باليد."}
               </p>
             </div>
           </div>
@@ -162,10 +162,10 @@ export const OrderTracker: React.FC<OrderTrackerProps> = ({
 
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-[11px] text-slate-300 bg-slate-800/60 px-3 py-2 rounded-xl border border-slate-700/50">
           <div className="flex items-center gap-1.5">
-            <span className="text-amber-400 font-bold">ℹ️ تنبيه:</span>
-            <span>أعطِ هذا الكود للكابتن عند الباب لاستلام طلبك باليد.</span>
+            <span className="text-amber-400 font-bold">ℹ️ تنبيه أمان:</span>
+            <span>هذا الرمز محجوب عن الكابتن تماماً — أعطه إياه عند بابك فقط لتأكيد استلامك باليد ومنع أي تسليم وهمي.</span>
           </div>
-          <span className="text-slate-400 text-[10px]">في حال تعذر قراءة الكود، يمكن للكابتن تأكيد التسليم برقم هاتفك المسجل.</span>
+          <span className="text-slate-400 text-[10px]">في حال تعذر قراءة الكود، يمكن للكابتن كخيار بديل تأكيد التسليم برقم هاتفك المسجل.</span>
         </div>
       </div>
 

@@ -41,6 +41,8 @@ interface AccountSettingsModalProps {
   onGoToAdmin?: () => void;
   onGoToStore?: () => void;
   onGoToDriver?: () => void;
+  isStoreOwnerBrowsingAsCustomer?: boolean;
+  onToggleStoreOwnerCustomerBrowsing?: () => void;
 }
 
 export const AccountSettingsModal: React.FC<AccountSettingsModalProps> = ({
@@ -56,7 +58,9 @@ export const AccountSettingsModal: React.FC<AccountSettingsModalProps> = ({
   appSettings,
   onGoToAdmin,
   onGoToStore,
-  onGoToDriver
+  onGoToDriver,
+  isStoreOwnerBrowsingAsCustomer,
+  onToggleStoreOwnerCustomerBrowsing
 }) => {
   const [name, setName] = useState(userProfile?.name || "");
   const [phone, setPhone] = useState(userProfile?.phone || "");
@@ -672,18 +676,35 @@ export const AccountSettingsModal: React.FC<AccountSettingsModalProps> = ({
               </button>
             )}
 
-            {/* Direct button to enter Store Owner Dashboard under Logout */}
-            {userRole === "store_owner" && onGoToStore && (
+            {/* Direct button for Store Owner: Toggle between Store Management & Customer Shopping */}
+            {userRole === "store_owner" && (
               <button
                 type="button"
                 onClick={() => {
                   onClose();
-                  onGoToStore();
+                  if (onToggleStoreOwnerCustomerBrowsing) {
+                    onToggleStoreOwnerCustomerBrowsing();
+                  } else if (onGoToStore) {
+                    onGoToStore();
+                  }
                 }}
-                className="w-full py-3.5 px-4 bg-gradient-to-r from-emerald-900 via-emerald-800 to-emerald-900 hover:from-emerald-800 hover:to-emerald-700 active:scale-98 text-white rounded-2xl text-xs sm:text-sm font-black shadow-lg shadow-emerald-900/20 flex items-center justify-center gap-2.5 cursor-pointer transition-all border border-emerald-700"
+                className={`w-full py-3.5 px-4 active:scale-98 text-white rounded-2xl text-xs sm:text-sm font-black shadow-lg flex items-center justify-center gap-2.5 cursor-pointer transition-all border ${
+                  isStoreOwnerBrowsingAsCustomer
+                    ? "bg-gradient-to-r from-emerald-900 via-emerald-800 to-emerald-900 hover:from-emerald-800 hover:to-emerald-700 shadow-emerald-900/20 border-emerald-700"
+                    : "bg-gradient-to-r from-orange-600 via-amber-600 to-orange-600 hover:from-orange-500 hover:to-amber-500 shadow-orange-900/20 border-orange-500"
+                }`}
               >
-                <StoreIcon className="w-4 h-4 text-emerald-300" />
-                <span>الدخول إلى لوحة إدارة متجري 🏪</span>
+                {isStoreOwnerBrowsingAsCustomer ? (
+                  <>
+                    <StoreIcon className="w-4 h-4 text-emerald-300" />
+                    <span>العودة إلى لوحة إدارة متجري 🏪</span>
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="w-4 h-4 text-amber-200" />
+                    <span>التسوق كزبون متسوق في المنصة 🛍️</span>
+                  </>
+                )}
               </button>
             )}
 

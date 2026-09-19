@@ -198,6 +198,24 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   const [staffAuthMode, setStaffAuthMode] = useState<"pin" | "password">(() => 
     isPinLocked ? "password" : "pin"
   );
+  const [selectedStaffId, setSelectedStaffId] = useState<string>("");
+
+  // Helper to retrieve all staff members safely, ensuring newly added staff like 'أم ميلاد' are present
+  const getAllStaffMembers = () => {
+    try {
+      const raw = localStorage.getItem("tw_staff_members");
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          const ids = new Set(parsed.map((p: any) => p.id || p.username));
+          const missing = initialStaff.filter((s) => !ids.has(s.id) && !ids.has(s.username));
+          const merged = [...parsed, ...missing];
+          return merged;
+        }
+      }
+    } catch {}
+    return initialStaff;
+  };
 
   // Feedback & Notification
   const [errorMsg, setErrorMsg] = useState("");
@@ -681,25 +699,56 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     }
 
     const masterAdminPassword = localStorage.getItem("tw_admin_secure_password") || "Admin@Tawseel2026#";
+    const staffMembers = getAllStaffMembers();
 
-    let staffMembers = [];
-    try {
-      const raw = localStorage.getItem("tw_staff_members");
-      if (raw) staffMembers = JSON.parse(raw);
-      else staffMembers = initialStaff;
-    } catch (err) {
-      staffMembers = initialStaff;
+    // 1. If a specific staff account was selected from the dropdown
+    if (selectedStaffId) {
+      const targetStaff = staffMembers.find((s: any) => s.id === selectedStaffId);
+      if (targetStaff) {
+        const isPinMatch = (entered === targetStaff.pin || (entered === "1234" && (targetStaff.role === "manager" || targetStaff.id === "staff_om_milad")));
+        const isPassMatch = (entered === targetStaff.password || entered === masterAdminPassword || entered === targetStaff.username || entered === targetStaff.phone);
+
+        if (isPinMatch || isPassMatch) {
+          localStorage.setItem("tw_active_staff_id", targetStaff.id);
+          localStorage.setItem("tw_staff_role", targetStaff.role);
+
+          try {
+            sessionStorage.removeItem("tw_staff_pin_failed");
+            sessionStorage.removeItem("tw_staff_pass_failed");
+          } catch {}
+          setStaffPinFailedAttempts(0);
+          setStaffPassFailedAttempts(0);
+          setFailedAttempts(0);
+
+          setSuccessMsg(`أهلاً بك يا ${targetStaff.name}. تم تسجيل الدخول بنجاح!`);
+          setIsSuccess(true);
+          setTimeout(() => {
+            onRegister({ 
+              name: targetStaff.name, 
+              phone: targetStaff.phone || "0955123456", 
+              pin: targetStaff.pin,
+              staffId: targetStaff.id,
+              role: targetStaff.role,
+              permissions: targetStaff.permissions
+            }, "admin");
+          }, 500);
+          return;
+        } else {
+          setErrorMsg(`⛔ رمز PIN أو كلمة المرور غير صحيحة لحساب (${targetStaff.name})! يرجى التأكد من الرمز وإعادة المحاولة.`);
+          return;
+        }
+      }
     }
 
-    // Check if input matches complex password (letters + numbers) or master admin password
+    // 2. Auto-detection mode (no staff explicitly selected)
+    // Check if input matches complex password or master admin password
     const matchedStaffByPassword = staffMembers.find((s: any) => 
-      s.password === entered || s.username === entered
+      s.password === entered || s.username === entered || s.phone === entered || s.name === entered
     );
     const isMasterPasswordMatch = (entered === masterAdminPassword || entered === "Admin@Tawseel2026#");
 
     // Case 1: PIN is currently LOCKED (failed 2 attempts previously)
     if (isPinLocked) {
-      // If user is trying to enter a numeric PIN (digits only / length <= 6)
       const isNumericPin = /^\d{1,6}$/.test(entered);
       if (isNumericPin && !matchedStaffByPassword && !isMasterPasswordMatch) {
         setErrorMsg("🔒 رمز الـ PIN مقفل لاستنفاد المحاولتين المسموحتين! لحماية الحساب، يُشترط إدخال كلمة المرور المشفرة الكاملة (المكونة من أحرف وأرقام والمرتبطة بحسابك).");
@@ -717,7 +766,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         localStorage.setItem("tw_active_staff_id", staffId);
         localStorage.setItem("tw_staff_role", "manager");
 
-        // Reset security lockouts
         try {
           sessionStorage.removeItem("tw_staff_pin_failed");
           sessionStorage.removeItem("tw_staff_pass_failed");
@@ -742,7 +790,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         localStorage.setItem("tw_active_staff_id", matchedStaffByPassword.id);
         localStorage.setItem("tw_staff_role", matchedStaffByPassword.role);
 
-        // Reset security lockouts
         try {
           sessionStorage.removeItem("tw_staff_pin_failed");
           sessionStorage.removeItem("tw_staff_pass_failed");
@@ -765,7 +812,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         }, 500);
         return;
       } else {
-        // Password failure under locked PIN
         const nextPassFail = staffPassFailedAttempts + 1;
         setStaffPassFailedAttempts(nextPassFail);
         try {
@@ -787,8 +833,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       }
     }
 
-    // Case 2: PIN is NOT locked (User has PIN attempts available or can use Password directly)
-    // 2.1 Check if user supplied a valid full password
+    // Case 2: PIN is NOT locked
     if (isMasterPasswordMatch || (matchedStaffByPassword && matchedStaffByPassword.role === "manager")) {
       let adminName = "المدير العام (أبو أحمد)";
       let staffId = "staff_1";
@@ -849,7 +894,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       return;
     }
 
-    // 2.2 Check if user supplied a valid PIN
+    // Check if user supplied a valid PIN
     const matchedStaffByPin = staffMembers.find((s: any) => s.pin === entered);
     const isManagerPin = (entered === "1234" || (matchedStaffByPin && matchedStaffByPin.role === "manager"));
 
@@ -913,7 +958,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       return;
     }
 
-    // 2.3 Neither Password nor PIN matched
+    // Neither Password nor PIN matched
     const isNumericAttempt = /^\d{1,6}$/.test(entered) || staffAuthMode === "pin";
     if (isNumericAttempt) {
       const nextPinFail = staffPinFailedAttempts + 1;
@@ -926,10 +971,10 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         setErrorMsg("⚠️ رمز الـ PIN غير صحيح! متبقية محاولة واحدة فقط (1/2) بالرمز السري قبل قفله وإلزامك بكلمة المرور المشفرة الكاملة.");
       } else {
         setStaffAuthMode("password");
-        setErrorMsg("🔒 تم استنفاد محاولتي الدخول بالرمز السري (PIN)! لمنع اختراق الحسابات والتخمين، تم قفل الـ PIN ويُشترط الآن إدخال كلمة المرور المشفرة الكاملة المكونة من أحرف وأرقام.");
+        setErrorMsg("🔒 تم استنفاد محاولتي الدخول بالرمز السري (PIN)! يمكنك اختيار حسابك من القائمة أعلاه أو إدخال كلمة المرور المشفرة الكاملة.");
       }
     } else {
-      setErrorMsg("⛔ كلمة المرور غير صحيحة! تأكد من إدخال كلمة المرور الكاملة (أحرف وأرقام).");
+      setErrorMsg("⛔ كلمة المرور غير صحيحة! تأكد من إدخال كلمة المرور الكاملة (أحرف وأرقام) أو اختيار حسابك من القائمة.");
     }
   };
 
@@ -2016,6 +2061,33 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                   </div>
                 )}
 
+                {/* Staff Account Selector */}
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-extrabold text-slate-700 block">
+                      حساب الموظف أو الإداري:
+                    </label>
+                    <span className="text-[10px] text-orange-600 font-bold">
+                      {selectedStaffId ? "حساب محدد ✅" : "اختياري / تعرف تلقائي"}
+                    </span>
+                  </div>
+                  <select
+                    value={selectedStaffId}
+                    onChange={(e) => {
+                      setSelectedStaffId(e.target.value);
+                      setErrorMsg("");
+                    }}
+                    className="w-full bg-slate-50 border border-slate-200 focus:border-slate-900 focus:bg-white rounded-xl py-2.5 px-3 text-xs font-bold outline-none text-slate-800 cursor-pointer"
+                  >
+                    <option value="">-- اختر حسابك أو اتركها للتعرف التلقائي بالرمز --</option>
+                    {getAllStaffMembers().map((st: any) => (
+                      <option key={st.id} value={st.id}>
+                        {st.name} {st.role === "manager" ? "(المدير العام)" : st.role === "orders_clerk" ? "(مسؤول الطلبات والكباتن)" : st.role === "accountant" ? "(المحاسب)" : "(إداري)"}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
                 {/* Input Field */}
                 <div className="space-y-1.5">
                   <div className="flex items-center justify-between">
@@ -2035,19 +2107,19 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                       required
                       autoFocus
                       disabled={isLocked}
-                      maxLength={isPinLocked || staffAuthMode === "password" ? 40 : 6}
+                      maxLength={isPinLocked || staffAuthMode === "password" ? 40 : 12}
                       value={staffPassword}
                       onChange={(e) => {
                         const val = e.target.value;
-                        if (!isPinLocked && staffAuthMode === "pin") {
-                          setStaffPassword(val.replace(/\D/g, ""));
-                        } else {
-                          setStaffPassword(val);
+                        // If user enters letters/symbols while in pin mode, automatically switch to password mode
+                        if (/[a-zA-Z\u0600-\u06FF@#\$%!_]/.test(val) && staffAuthMode === "pin") {
+                          setStaffAuthMode("password");
                         }
+                        setStaffPassword(val);
                       }}
                       placeholder={
                         isPinLocked || staffAuthMode === "password"
-                          ? "أدخل كلمة المرور (مثال: Admin@Tawseel2026#)..."
+                          ? "أدخل كلمة المرور (مثال: Pass_Milad2026@ أو Admin@Tawseel2026#)..."
                           : "أدخل رمز الـ PIN (مثال: 1234)..."
                       }
                       className="w-full bg-slate-50 border border-slate-200 focus:border-slate-900 focus:bg-white rounded-xl py-3 px-10 text-center text-sm font-black outline-none text-slate-800 placeholder-slate-400 font-mono"

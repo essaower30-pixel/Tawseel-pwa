@@ -185,17 +185,56 @@ export const CustomerOrdersArchiveModal: React.FC<CustomerOrdersArchiveModalProp
                     </div>
                   </div>
 
-                  {/* Order Items Preview */}
-                  <div className="text-xs text-slate-600 bg-white p-2.5 rounded-xl border border-slate-200/70 space-y-1">
-                    <div className="font-bold text-slate-800 text-[11px]">محتويات الطلب:</div>
-                    <div className="space-y-0.5">
-                      {order.items?.map((item, idx) => (
-                        <div key={idx} className="flex justify-between items-center text-[11px]">
-                          <span>{item.quantity}x {item.product?.name}</span>
-                          <span className="font-bold text-slate-900">{item.totalItemPrice?.toLocaleString()} {currency}</span>
+                  {/* Order Items & Custom Order Preview */}
+                  <div className="text-xs text-slate-600 bg-white p-2.5 rounded-xl border border-slate-200/70 space-y-2">
+                    {/* Custom Store Order Banner & Text */}
+                    {(order.isCustomStoreOrder || order.customOrderText || order.customOrderImage) && (
+                      <div className="bg-orange-50 border border-orange-200/80 p-2 rounded-lg space-y-1.5">
+                        <div className="flex items-center gap-1.5 font-black text-orange-950 text-[11px]">
+                          <ShoppingBag className="w-3.5 h-3.5 text-orange-600" />
+                          <span>تفاصيل الطلب الخاص من المتجر:</span>
                         </div>
-                      ))}
-                    </div>
+                        {order.customOrderText && (
+                          <div className="text-[11px] text-slate-800 bg-white p-2 rounded border border-orange-100 font-semibold whitespace-pre-line">
+                            {order.customOrderText}
+                          </div>
+                        )}
+                        {order.customOrderImage && (
+                          <div className="rounded-lg overflow-hidden border border-orange-200 bg-slate-900 h-28 flex items-center justify-center">
+                            <img
+                              src={order.customOrderImage}
+                              alt="صورة الطلب الخاص"
+                              className="w-full h-full object-contain"
+                            />
+                          </div>
+                        )}
+                        {order.estimatedBudget !== undefined && order.estimatedBudget > 0 && (
+                          <div className="flex justify-between items-center text-[10px] text-slate-600 font-bold">
+                            <span>الميزانية المقترحة:</span>
+                            <span className="font-mono text-emerald-700">{order.estimatedBudget.toLocaleString()} {currency}</span>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {order.items && order.items.length > 0 && (
+                      <div>
+                        <div className="font-bold text-slate-800 text-[11px] mb-1">الأصناف المسجلة:</div>
+                        <div className="space-y-0.5">
+                          {order.items.map((item, idx) => (
+                            <div key={idx} className="flex justify-between items-center text-[11px]">
+                              <span>{item.quantity}x {item.product?.name}</span>
+                              <span className="font-bold text-slate-900">
+                                {item.totalItemPrice !== undefined
+                                  ? item.totalItemPrice.toLocaleString()
+                                  : ((item.product?.price || 0) * (item.quantity || 1)).toLocaleString()}{" "}
+                                {currency}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </div>
 
                   {/* Pricing and Captain Info */}

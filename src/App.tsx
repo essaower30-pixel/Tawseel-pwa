@@ -338,6 +338,25 @@ export default function App() {
     }
   });
 
+  // Seamless customer shopping for store owners without logging out
+  const [isStoreOwnerBrowsingAsCustomer, setIsStoreOwnerBrowsingAsCustomer] = useState<boolean>(() => {
+    try {
+      return sessionStorage.getItem("tw_store_browsing_customer") === "true";
+    } catch {
+      return false;
+    }
+  });
+
+  const handleToggleStoreOwnerCustomerBrowsing = (forceValue?: boolean) => {
+    setIsStoreOwnerBrowsingAsCustomer((prev) => {
+      const next = typeof forceValue === "boolean" ? forceValue : !prev;
+      try {
+        sessionStorage.setItem("tw_store_browsing_customer", String(next));
+      } catch {}
+      return next;
+    });
+  };
+
   const [userProfile, setUserProfile] = useState<UserProfile | null>(() => {
     try {
       const raw = localStorage.getItem("tw_customer_user") || localStorage.getItem("tw_user_profile");
@@ -1725,6 +1744,10 @@ export default function App() {
         const prevMap = new Map(prev.map((o) => [o.id, o]));
         let hasChanges = false;
         const newOrders: Order[] = [];
+        const newlyAssignedDriverOrders: Order[] = [];
+
+        const cleanPhone = (p?: string) => (p || "").replace(/[^0-9]/g, "");
+        const uPhone = cleanPhone(userProfile?.phone);
 
         for (const co of cloudOrders) {
           const existing = prevMap.get(co.id);
@@ -1740,6 +1763,22 @@ export default function App() {
             existing.driverName !== co.driverName
           ) {
             hasChanges = true;
+
+            // Check if this order was assigned to the logged-in driver by the administration
+            const isMeDriver = (userRole === "driver" || isDriverMode) && (
+              (co.driverPhone && cleanPhone(co.driverPhone) === uPhone) ||
+              (co.driverName && userProfile?.name && (co.driverName.includes(userProfile.name) || userProfile.name.includes(co.driverName))) ||
+              (userProfile?.id && co.driverId === userProfile.id)
+            );
+            const wasAssignedToMeBefore = existing && (
+              (existing.driverPhone && cleanPhone(existing.driverPhone) === uPhone) ||
+              (existing.driverName && userProfile?.name && existing.driverName.includes(userProfile.name)) ||
+              (userProfile?.id && existing.driverId === userProfile.id)
+            );
+
+            if (isMeDriver && !wasAssignedToMeBefore && co.driverId) {
+              newlyAssignedDriverOrders.push(co);
+            }
           }
         }
 
@@ -1747,12 +1786,28 @@ export default function App() {
           return prev;
         }
 
+        // Process newly assigned orders directly to the captain
+        if (newlyAssignedDriverOrders.length > 0) {
+          newlyAssignedDriverOrders.forEach((assignedOrd) => {
+            playOrderAlertSound("ringtone");
+            triggerOrderVibration();
+            flashTabTitle(`🛵 (طلب توصيل مسند لك #${assignedOrd.id})`);
+            showSystemNotification(`🛵 تم إسناد طلب جديد إليك من الإدارة!`, {
+              body: `طلب #${assignedOrd.id} من (${assignedOrd.storeName}) للتوصيل إلى (${assignedOrd.addressLandmark || "الزبون"}) - يتم تأكيد التسليم عند استلام كود الزبون`
+            });
+            addToastNotification({
+              order: assignedOrd,
+              title: "🛵 تم إسناد طلب جديد إليك من الإدارة!",
+              message: `طلب #${assignedOrd.id} من متجر (${assignedOrd.storeName}) موجه إليك الآن للتوصيل.`,
+              type: "driver_assigned",
+              targetRole: "driver"
+            });
+          });
+        }
+
         // Process newly incoming orders notifications
         if (newOrders.length > 0) {
           newOrders.forEach((newOrd) => {
-            const cleanPhone = (p?: string) => (p || "").replace(/[^0-9]/g, "");
-            const uPhone = cleanPhone(userProfile?.phone);
-
             if (userRole === "store_owner") {
               const isMyStoreOrder =
                 newOrd.storeId === currentStoreId ||
@@ -1761,6 +1816,9 @@ export default function App() {
               if (isMyStoreOrder) {
                 playOrderAlertSound("ringtone");
                 triggerOrderVibration();
+                showSystemNotification(`🏪 طلب جديد وارد لمتجرك #${newOrd.id}!`, {
+                  body: `بقيمة ${newOrd.total.toLocaleString()} ل.س من الزبون ${newOrd.customerName}`
+                });
                 addToastNotification({
                   order: newOrd,
                   title: "🏪 طلب جديد وارد لمتجرك! 🛍️",
@@ -1770,6 +1828,9 @@ export default function App() {
               }
             } else if (isAdminMode || userRole === "admin") {
               playOrderAlertSound("ringtone");
+              showSystemNotification(`🔔 طلب جديد وارد للإدارة #${newOrd.id}!`, {
+                body: `متجر: ${newOrd.storeName} | الزبون: ${newOrd.customerName} | ${newOrd.total} ل.س`
+              });
               addToastNotification({
                 order: newOrd,
                 title: "🔔 طلب جديد وارد للإدارة! 🛍️",
@@ -1777,7 +1838,11 @@ export default function App() {
                 type: "new_order"
               });
             } else if (isDriverMode || userRole === "driver") {
-              playOrderAlertSound("chime");
+              playOrderAlertSound("ringtone");
+              triggerOrderVibration();
+              showSystemNotification(`🛵 طلب توصيل جديد متاح للكابتن #${newOrd.id}!`, {
+                body: `من (${newOrd.storeName}) للتوصيل إلى (${newOrd.addressLandmark || "القرية"})`
+              });
               addToastNotification({
                 order: newOrd,
                 title: "🛵 طلب توصيل جديد متاح للكابتن!",
@@ -2753,20 +2818,49 @@ export default function App() {
 
     const orderId = "tw-" + Math.floor(Math.random() * 90000 + 10000);
     const deliveryOtp = customData.deliveryOtp || String(Math.floor(1000 + Math.random() * 9000));
+    
+    // Synthesize structured items so custom orders display full item details just like standard orders!
+    const customItems = (customData.items && customData.items.length > 0)
+      ? customData.items
+      : [{
+          product: {
+            id: `custom_item_${Date.now()}`,
+            name: customData.customOrderText ? `طلب خاص: ${customData.customOrderText.slice(0, 45)}${customData.customOrderText.length > 45 ? "..." : ""}` : "طلب خاص مخصص",
+            nameAr: customData.customOrderText ? `طلب خاص: ${customData.customOrderText.slice(0, 45)}${customData.customOrderText.length > 45 ? "..." : ""}` : "طلب خاص مخصص",
+            description: customData.customOrderText || "تفاصيل ومواصفات الطلب الخاص المرسل من الزبون للمتجر",
+            price: customData.estimatedBudget || 0,
+            imageUrl: customData.customOrderImage || "https://images.unsplash.com/photo-1544717305-2782549b5136?w=500&auto=format&fit=crop&q=60",
+            category: "طلبات خاصة",
+            storeId: customData.storeId || "custom_order"
+          },
+          quantity: 1,
+          notes: customData.notes || customData.customOrderText || "طلب خاص"
+        }];
+
+    const estimatedBudget = customData.estimatedBudget !== undefined && customData.estimatedBudget !== null ? Number(customData.estimatedBudget) : 0;
+    const deliveryFee = customData.deliveryFee !== undefined && customData.deliveryFee !== null ? Number(customData.deliveryFee) : 0;
+    const calculatedTotal = customData.total !== undefined ? Number(customData.total) : (estimatedBudget + deliveryFee);
+
     const newOrder: Order = {
       id: orderId,
       status: "pending",
       createdAt: new Date().toISOString(),
-      items: [],
-      subtotal: 0,
-      deliveryFee: customData.deliveryFee !== undefined && customData.deliveryFee !== null ? Number(customData.deliveryFee) : 0,
-      total: customData.total !== undefined ? Number(customData.total) : (customData.deliveryFee !== undefined && customData.deliveryFee !== null ? Number(customData.deliveryFee) : 0),
+      items: customItems,
+      subtotal: estimatedBudget,
+      deliveryFee: deliveryFee,
+      total: calculatedTotal,
       storeId: customData.storeId || "custom_order",
-      storeName: customData.storeName || "طلب مخصص",
-      customerName: customData.customerName || userProfile?.name || "زبون القرية",
+      storeName: customData.storeName || "طلب خاص من المتجر",
+      customerName: customData.customerName || userProfile?.name || "زبون المنصة",
       customerPhone: customData.customerPhone || userProfile?.phone || "09xxxxxxxx",
-      addressLandmark: selectedLandmark,
+      addressLandmark: customData.addressLandmark || selectedLandmark,
+      addressDetails: customData.addressDetails,
       deliveryOtp,
+      notes: customData.notes || customData.customOrderText,
+      customOrderText: customData.customOrderText,
+      customOrderImage: customData.customOrderImage,
+      estimatedBudget: estimatedBudget > 0 ? estimatedBudget : undefined,
+      isCustomStoreOrder: true,
       ...customData
     };
 
@@ -2864,6 +2958,8 @@ export default function App() {
     localStorage.removeItem("tw_current_store_id");
     localStorage.removeItem("tw_viewing_admin");
     localStorage.removeItem("tw_viewing_driver");
+    sessionStorage.removeItem("tw_store_browsing_customer");
+    setIsStoreOwnerBrowsingAsCustomer(false);
     setUserProfile(null);
     setUserRole("guest");
     setCurrentStoreId(null);
@@ -3043,6 +3139,28 @@ export default function App() {
     <div className="min-h-screen w-full max-w-full overflow-x-hidden bg-slate-50 text-slate-800 flex flex-col items-center font-sans selection:bg-orange-500 selection:text-slate-950 pb-12" dir="rtl">
       {/* Offline Connectivity Status Banner */}
       <OfflineBanner />
+
+      {/* Seamless Customer Shopping Mode for Store Owners Banner */}
+      {userRole === "store_owner" && isStoreOwnerBrowsingAsCustomer && (
+        <div className="bg-slate-900 text-white px-3 sm:px-6 py-2 flex items-center justify-between shadow-md sticky top-0 z-50 border-b border-orange-500/40">
+          <div className="flex items-center gap-2">
+            <span className="relative flex h-2.5 w-2.5">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
+            </span>
+            <span className="text-xs sm:text-sm font-bold text-slate-100">
+              🛍️ تتصفح كزبون متسوق (حساب متجرك نشط في الخلفية)
+            </span>
+          </div>
+          <button
+            type="button"
+            onClick={() => handleToggleStoreOwnerCustomerBrowsing(false)}
+            className="bg-orange-500 hover:bg-orange-600 active:scale-95 text-slate-950 font-black text-xs px-3 sm:px-3.5 py-1 rounded-xl transition-all shadow-xs flex items-center gap-1.5 cursor-pointer shrink-0"
+          >
+            <span>🏪 العودة لإدارة متجري</span>
+          </button>
+        </div>
+      )}
 
       {/* Top Application Header */}
       <header className="w-full bg-white/90 backdrop-blur-md border-b border-slate-200/80 py-3 px-3 sm:px-6 sticky top-0 z-50 shadow-xs select-none">
@@ -3243,7 +3361,7 @@ export default function App() {
       <main className="max-w-7xl mx-auto px-4 sm:px-6 py-6 pb-28 flex-1 w-full relative min-h-[500px]">
         {/* Router Views with Smooth Transition */}
         <AnimatePresence mode="wait">
-          {userRole === "store_owner" ? (
+          {userRole === "store_owner" && !isStoreOwnerBrowsingAsCustomer ? (
             <motion.div
               key={`store_owner_${currentStoreId || userProfile?.storeId || "owner"}`}
               initial={{ opacity: 0, y: 8 }}
@@ -3284,8 +3402,7 @@ export default function App() {
                     onAcknowledgeBroadcast={handleAcknowledgeBroadcast}
                     onLogout={handleLogout}
                     onBackToCustomerView={() => {
-                      setUserRole("customer");
-                      setCurrentStoreId(null);
+                      handleToggleStoreOwnerCustomerBrowsing(true);
                     }}
                     currency="ل.س"
                   />
@@ -4323,11 +4440,14 @@ export default function App() {
             localStorage.setItem("tw_viewing_driver", "false");
           }}
           onGoToStore={() => {
-            if (currentStoreId) {
-              const matched = stores.find(s => s.id === currentStoreId);
-              if (matched) setSelectedStore(matched);
-            }
+            setSelectedStore(null);
+            setIsViewingCart(false);
+            setIsAdminMode(false);
+            setIsDriverMode(false);
+            handleToggleStoreOwnerCustomerBrowsing(false);
           }}
+          isStoreOwnerBrowsingAsCustomer={isStoreOwnerBrowsingAsCustomer}
+          onToggleStoreOwnerCustomerBrowsing={() => handleToggleStoreOwnerCustomerBrowsing()}
           onGoToDriver={() => {
             setSelectedStore(null);
             setIsViewingCart(false);

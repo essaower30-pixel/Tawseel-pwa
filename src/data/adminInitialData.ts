@@ -78,6 +78,19 @@ export const initialStaff: StaffMember[] = [
     createdAt: "2025-01-01" 
   },
   { 
+    id: "staff_om_milad", 
+    name: "أم ميلاد (مسؤولة الطلبات والكباتن)", 
+    role: "orders_clerk", 
+    username: "om_milad", 
+    password: "Pass_Milad2026@", 
+    pin: "1234", 
+    phone: "0955123456", 
+    permissions: ["orders", "drivers", "customers", "landmarks", "archive_reports"],
+    notes: "مسؤولة عن الطلبات والكباتن وتوجيه ومتابعة عمليات التوصيل الميدانية",
+    isActive: true, 
+    createdAt: "2025-02-20" 
+  },
+  { 
     id: "staff_2", 
     name: "أحمد علي (مسؤول الطلبات)", 
     role: "orders_clerk", 

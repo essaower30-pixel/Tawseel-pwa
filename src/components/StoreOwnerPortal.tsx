@@ -735,15 +735,6 @@ export const StoreOwnerPortal: React.FC<StoreOwnerPortalProps> = ({
                       </div>
 
                       <div className="flex items-center gap-2">
-                        {order.deliveryOtp && (
-                          <span
-                            className="inline-flex items-center gap-1 text-[11px] font-mono font-black px-2.5 py-1 rounded-xl bg-amber-50 text-amber-900 border border-amber-300 shadow-xs"
-                            title="كود تسليم واستلام الطلبية مع الكابتن"
-                          >
-                            <KeyRound className="w-3.5 h-3.5 text-amber-600" />
-                            <span>كود التسليم: {order.deliveryOtp}</span>
-                          </span>
-                        )}
                         <span
                           className={`px-3 py-1 rounded-full text-xs font-black border ${
                             order.status === "pending"
@@ -800,20 +791,83 @@ export const StoreOwnerPortal: React.FC<StoreOwnerPortalProps> = ({
                         )}
                       </div>
 
-                      {/* Items / Prescription */}
+                      {/* Items / Prescription / Custom Store Orders */}
                       <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100 space-y-2">
                         <span className="font-black text-slate-800 block">الأصناف المطلوبة للتحضير:</span>
                         {order.items && order.items.length > 0 ? (
-                          <div className="divide-y divide-slate-200 text-slate-700 space-y-1 max-h-28 overflow-y-auto">
+                          <div className="divide-y divide-slate-200 text-slate-700 space-y-1 max-h-32 overflow-y-auto">
                             {order.items.map((it, idx) => (
                               <div key={idx} className="pt-1 flex items-center justify-between font-bold">
-                                <span>{it.quantity}x {it.product.name} {it.selectedSize ? `(${it.selectedSize.name})` : ""}</span>
-                                <span className="font-mono">{it.totalItemPrice.toLocaleString()} {currency}</span>
+                                <span>{it.quantity}x {it.product?.name || "صنف"} {it.selectedSize ? `(${it.selectedSize.name})` : ""}</span>
+                                <span className="font-mono">
+                                  {it.totalItemPrice !== undefined
+                                    ? it.totalItemPrice.toLocaleString()
+                                    : ((it.product?.price || 0) * (it.quantity || 1)).toLocaleString()}{" "}
+                                  {currency}
+                                </span>
                               </div>
                             ))}
                           </div>
                         ) : (
                           <p className="text-slate-400 text-xs italic">طلب خاص / راشيتة طبية</p>
+                        )}
+
+                        {/* Custom Store Order Details for Store Owner */}
+                        {(order.isCustomStoreOrder || (order.customOrderText && !order.prescriptionNotes) || order.customOrderImage) && (
+                          <div className="mt-2 pt-2 border-t border-orange-200 bg-orange-50/70 p-3 rounded-2xl space-y-2 text-xs">
+                            <div className="flex items-center justify-between">
+                              <span className="font-black text-orange-950 flex items-center gap-1.5">
+                                <ShoppingBag className="w-4 h-4 text-orange-600" />
+                                <span>تفاصيل ومواصفات الطلب الخاص:</span>
+                              </span>
+                              {order.customOrderImage && (
+                                <button
+                                  type="button"
+                                  onClick={() => setZoomedImage(order.customOrderImage || null)}
+                                  className="text-[10px] font-black bg-orange-600 text-white px-2.5 py-1 rounded-xl hover:bg-orange-700 cursor-pointer flex items-center gap-1 shadow-xs active:scale-95"
+                                >
+                                  <ZoomIn className="w-3 h-3" />
+                                  <span>تكبير صورة الطلب 🔍</span>
+                                </button>
+                              )}
+                            </div>
+
+                            {order.customOrderText && (
+                              <div className="text-slate-800 text-xs font-bold bg-white p-3 rounded-xl border border-orange-200/80 whitespace-pre-line leading-relaxed shadow-2xs">
+                                <span className="text-[10px] text-orange-700 font-extrabold block mb-1">المطلوب من الزبون:</span>
+                                {order.customOrderText}
+                              </div>
+                            )}
+
+                            {order.customOrderImage && (
+                              <div 
+                                onClick={() => setZoomedImage(order.customOrderImage || null)}
+                                className="relative rounded-xl overflow-hidden border border-orange-300 bg-slate-900 h-36 cursor-pointer group shadow-inner"
+                              >
+                                <img
+                                  src={order.customOrderImage}
+                                  alt="صورة الطلب الخاص"
+                                  className="w-full h-full object-contain group-hover:scale-105 transition-transform"
+                                />
+                                <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 flex items-center justify-center text-white text-xs font-bold transition-opacity">
+                                  اضغط للتكبير 🔍
+                                </div>
+                              </div>
+                            )}
+
+                            {order.estimatedBudget !== undefined && order.estimatedBudget > 0 && (
+                              <div className="flex items-center justify-between bg-white px-3 py-1.5 rounded-xl border border-orange-100 text-slate-700 font-bold">
+                                <span>الميزانية التقريبية المقترحة من الزبون:</span>
+                                <span className="font-mono text-emerald-700 font-black">{order.estimatedBudget.toLocaleString()} {currency}</span>
+                              </div>
+                            )}
+
+                            {order.notes && order.notes !== order.customOrderText && (
+                              <div className="text-[11px] bg-amber-50 p-2 rounded-xl border border-amber-200 text-amber-900 font-bold">
+                                <span className="font-black">ملاحظات إضافية: </span>{order.notes}
+                              </div>
+                            )}
+                          </div>
                         )}
 
                         {/* Prescription Info for Pharmacists & Doctors */}
