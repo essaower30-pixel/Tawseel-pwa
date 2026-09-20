@@ -3336,146 +3336,195 @@ export default function App() {
               </button>
             ) : (
               <div className="flex items-center gap-1.5 sm:gap-2">
-                {/* 1. Store Owner & Craftsmen Button: "تصفح كزبون 🛍️" / "إدارة متجري 🏪" */}
+                {/* 1. Store Owner & Craftsmen: Store/Owner Name Badge + "تصفح كزبون 🛍️" Button */}
                 {userRole === "store_owner" && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (!isStoreOwnerBrowsingAsCustomer) {
-                        handleToggleStoreOwnerCustomerBrowsing(true);
-                        addToastNotification({
-                          title: "وضع التصفح كزبون 🛍️",
-                          message: "أنت الآن تتصفح وتتسوق كزبون. يمكنك الطلب والتجول بحرية، ومتجرك ما زال نشطاً في الخلفية.",
-                          type: "success"
-                        });
-                      } else {
-                        setSelectedStore(null);
-                        setIsViewingCart(false);
-                        handleToggleStoreOwnerCustomerBrowsing(false);
+                  <>
+                    <div 
+                      className="py-1.5 px-2.5 sm:px-3 rounded-xl border border-slate-200/90 bg-slate-100 text-slate-800 text-xs font-black flex items-center gap-1.5 shadow-xs whitespace-nowrap select-none"
+                      title={`صاحب المتجر: ${userProfile.name}`}
+                    >
+                      <StoreIcon className="w-3.5 h-3.5 text-orange-600 shrink-0" />
+                      <span className="truncate max-w-[95px] xs:max-w-[130px] sm:max-w-[170px]">
+                        {userProfile.name || stores.find((s) => s.id === currentStoreId || (userProfile?.phone && s.ownerPhone === userProfile.phone))?.name || "صاحب المتجر"}
+                      </span>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (!isStoreOwnerBrowsingAsCustomer) {
+                          handleToggleStoreOwnerCustomerBrowsing(true);
+                          addToastNotification({
+                            title: "وضع التصفح كزبون 🛍️",
+                            message: "أنت الآن تتصفح وتتسوق كزبون. يمكنك الطلب والتجول بحرية، ومتجرك ما زال نشطاً في الخلفية.",
+                            type: "success"
+                          });
+                        } else {
+                          setSelectedStore(null);
+                          setIsViewingCart(false);
+                          handleToggleStoreOwnerCustomerBrowsing(false);
+                        }
+                      }}
+                      className={`py-1.5 px-2.5 sm:px-3.5 rounded-xl border font-black text-xs transition-all cursor-pointer flex items-center justify-center gap-1.5 shadow-md active:scale-95 whitespace-nowrap animate-fade-in ${
+                        isStoreOwnerBrowsingAsCustomer
+                          ? "border-emerald-500/60 bg-gradient-to-r from-emerald-800 via-emerald-700 to-emerald-800 hover:from-emerald-700 text-white shadow-emerald-950/25"
+                          : "border-orange-400 bg-gradient-to-r from-orange-600 via-amber-600 to-orange-500 hover:from-orange-500 hover:to-amber-500 text-white shadow-orange-950/30 ring-2 ring-orange-400/30"
+                      }`}
+                      title={
+                        isStoreOwnerBrowsingAsCustomer
+                          ? "العودة إلى لوحة إدارة متجري / مهنتي"
+                          : "الانتقال الفوري لتصفح المنصة والتسوق كزبون"
                       }
-                    }}
-                    className={`py-1.5 px-2.5 sm:px-3.5 rounded-xl border font-black text-xs transition-all cursor-pointer flex items-center justify-center gap-1.5 shadow-md active:scale-95 whitespace-nowrap animate-fade-in ${
-                      isStoreOwnerBrowsingAsCustomer
-                        ? "border-emerald-500/60 bg-gradient-to-r from-emerald-800 via-emerald-700 to-emerald-800 hover:from-emerald-700 text-white shadow-emerald-950/25"
-                        : "border-orange-400 bg-gradient-to-r from-orange-600 via-amber-600 to-orange-500 hover:from-orange-500 hover:to-amber-500 text-white shadow-orange-950/30 ring-2 ring-orange-400/30"
-                    }`}
-                    title={
-                      isStoreOwnerBrowsingAsCustomer
-                        ? "العودة إلى لوحة إدارة متجري / مهنتي"
-                        : "الانتقال الفوري لتصفح المنصة والتسوق كزبون"
-                    }
-                  >
-                    {isStoreOwnerBrowsingAsCustomer ? (
-                      <>
-                        <StoreIcon className="w-3.5 h-3.5 text-emerald-300 shrink-0" />
-                        <span className="hidden xs:inline">إدارة متجري 🏪</span>
-                        <span className="xs:hidden">متجري 🏪</span>
-                      </>
-                    ) : (
-                      <>
-                        <ShoppingBag className="w-3.5 h-3.5 text-amber-200 shrink-0" />
-                        <span>تصفح كزبون 🛍️</span>
-                      </>
-                    )}
-                  </button>
+                    >
+                      {isStoreOwnerBrowsingAsCustomer ? (
+                        <>
+                          <StoreIcon className="w-3.5 h-3.5 text-emerald-300 shrink-0" />
+                          <span className="hidden xs:inline">إدارة متجري 🏪</span>
+                          <span className="xs:hidden">متجري 🏪</span>
+                        </>
+                      ) : (
+                        <>
+                          <ShoppingBag className="w-3.5 h-3.5 text-amber-200 shrink-0" />
+                          <span>تصفح كزبون 🛍️</span>
+                        </>
+                      )}
+                    </button>
+                  </>
                 )}
 
-                {/* 2. Driver / Captain Button: "تصفح كزبون 🛍️" / "لوحة الكابتن 🚴" */}
+                {/* 2. Driver / Captain: Captain Name Badge + "تصفح كزبون 🛍️" Button */}
                 {userRole === "driver" && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (isDriverMode) {
-                        setIsDriverMode(false);
-                        localStorage.setItem("tw_viewing_driver", "false");
-                        addToastNotification({
-                          title: "وضع التصفح كزبون 🛍️",
-                          message: "أنت الآن تتصفح المنصة كزبون ويمكنك الطلب من المتاجر. حساب الكابتن يبقى متاحاً.",
-                          type: "success"
-                        });
-                      } else {
-                        setSelectedStore(null);
-                        setIsViewingCart(false);
-                        setIsDriverMode(true);
-                        setIsAdminMode(false);
-                        localStorage.setItem("tw_viewing_driver", "true");
-                        localStorage.setItem("tw_viewing_admin", "false");
+                  <>
+                    <div 
+                      className="py-1.5 px-2.5 sm:px-3 rounded-xl border border-slate-200/90 bg-slate-100 text-slate-800 text-xs font-black flex items-center gap-1.5 shadow-xs whitespace-nowrap select-none"
+                      title={`الكابتن: ${userProfile.name}`}
+                    >
+                      <Bike className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                      <span className="truncate max-w-[95px] xs:max-w-[130px] sm:max-w-[170px]">
+                        {userProfile.name || "كابتن التوصيل"}
+                      </span>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (isDriverMode) {
+                          setIsDriverMode(false);
+                          localStorage.setItem("tw_viewing_driver", "false");
+                          addToastNotification({
+                            title: "وضع التصفح كزبون 🛍️",
+                            message: "أنت الآن تتصفح المنصة كزبون ويمكنك الطلب من المتاجر. حساب الكابتن يبقى متاحاً.",
+                            type: "success"
+                          });
+                        } else {
+                          setSelectedStore(null);
+                          setIsViewingCart(false);
+                          setIsDriverMode(true);
+                          setIsAdminMode(false);
+                          localStorage.setItem("tw_viewing_driver", "true");
+                          localStorage.setItem("tw_viewing_admin", "false");
+                        }
+                      }}
+                      className={`py-1.5 px-2.5 sm:px-3.5 rounded-xl border font-black text-xs transition-all cursor-pointer flex items-center justify-center gap-1.5 shadow-md active:scale-95 whitespace-nowrap animate-fade-in ${
+                        isDriverMode
+                          ? "border-orange-400 bg-gradient-to-r from-orange-600 via-amber-600 to-orange-500 hover:from-orange-500 hover:to-amber-500 text-white shadow-orange-950/30 ring-2 ring-orange-400/30"
+                          : "border-blue-700 bg-gradient-to-r from-blue-900 via-blue-800 to-blue-900 hover:from-blue-800 text-white shadow-blue-950/25"
+                      }`}
+                      title={
+                        isDriverMode
+                          ? "الانتقال الفوري لتصفح المنصة كزبون"
+                          : "العودة المباشرة إلى لوحة الكابتن"
                       }
-                    }}
-                    className={`py-1.5 px-2.5 sm:px-3.5 rounded-xl border font-black text-xs transition-all cursor-pointer flex items-center justify-center gap-1.5 shadow-md active:scale-95 whitespace-nowrap animate-fade-in ${
-                      isDriverMode
-                        ? "border-orange-400 bg-gradient-to-r from-orange-600 via-amber-600 to-orange-500 hover:from-orange-500 hover:to-amber-500 text-white shadow-orange-950/30 ring-2 ring-orange-400/30"
-                        : "border-blue-700 bg-gradient-to-r from-blue-900 via-blue-800 to-blue-900 hover:from-blue-800 text-white shadow-blue-950/25"
-                    }`}
-                    title={
-                      isDriverMode
-                        ? "الانتقال الفوري لتصفح المنصة كزبون"
-                        : "العودة المباشرة إلى لوحة الكابتن"
-                    }
-                  >
-                    {isDriverMode ? (
-                      <>
-                        <ShoppingBag className="w-3.5 h-3.5 text-amber-200 shrink-0" />
-                        <span>تصفح كزبون 🛍️</span>
-                      </>
-                    ) : (
-                      <>
-                        <Bike className="w-3.5 h-3.5 text-blue-300 shrink-0" />
-                        <span className="hidden sm:inline">لوحة الكابتن 🚴</span>
-                        <span className="sm:hidden">الكابتن 🚴</span>
-                      </>
-                    )}
-                  </button>
+                    >
+                      {isDriverMode ? (
+                        <>
+                          <ShoppingBag className="w-3.5 h-3.5 text-amber-200 shrink-0" />
+                          <span>تصفح كزبون 🛍️</span>
+                        </>
+                      ) : (
+                        <>
+                          <Bike className="w-3.5 h-3.5 text-blue-300 shrink-0" />
+                          <span className="hidden sm:inline">لوحة الكابتن 🚴</span>
+                          <span className="sm:hidden">الكابتن 🚴</span>
+                        </>
+                      )}
+                    </button>
+                  </>
                 )}
 
-                {/* 3. Admin / Staff Button: "تصفح كزبون 🛍️" / "لوحة الإدارة 🛡️" */}
+                {/* 3. Admin / Staff: Staff Name Badge + "تصفح كزبون 🛍️" Button */}
                 {userRole === "admin" && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (isAdminMode) {
-                        setSelectedStore(null);
-                        setIsViewingCart(false);
-                        setIsAdminMode(false);
-                        localStorage.setItem("tw_viewing_admin", "false");
-                        addToastNotification({
-                          title: "وضع التصفح كزبون 🛍️",
-                          message: "أنت الآن تتصفح المنصة كزبون عادي لتجربة تجربة المستخدم والطلب.",
-                          type: "success"
-                        });
-                      } else {
-                        setSelectedStore(null);
-                        setIsViewingCart(false);
-                        setIsAdminMode(true);
-                        setIsDriverMode(false);
-                        localStorage.setItem("tw_viewing_admin", "true");
-                        localStorage.setItem("tw_viewing_driver", "false");
+                  <>
+                    <div 
+                      className="py-1.5 px-2.5 sm:px-3 rounded-xl border border-slate-200/90 bg-slate-100 text-slate-800 text-xs font-black flex items-center gap-1.5 shadow-xs whitespace-nowrap select-none"
+                      title={`الإدارة: ${userProfile.name}`}
+                    >
+                      <ShieldCheck className="w-3.5 h-3.5 text-purple-600 shrink-0" />
+                      <span className="truncate max-w-[95px] xs:max-w-[130px] sm:max-w-[170px]">
+                        {userProfile.name || "الإدارة"}
+                      </span>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (isAdminMode) {
+                          setSelectedStore(null);
+                          setIsViewingCart(false);
+                          setIsAdminMode(false);
+                          localStorage.setItem("tw_viewing_admin", "false");
+                          addToastNotification({
+                            title: "وضع التصفح كزبون 🛍️",
+                            message: "أنت الآن تتصفح المنصة كزبون عادي لتجربة تجربة المستخدم والطلب.",
+                            type: "success"
+                          });
+                        } else {
+                          setSelectedStore(null);
+                          setIsViewingCart(false);
+                          setIsAdminMode(true);
+                          setIsDriverMode(false);
+                          localStorage.setItem("tw_viewing_admin", "true");
+                          localStorage.setItem("tw_viewing_driver", "false");
+                        }
+                      }}
+                      className={`py-1.5 px-2.5 sm:px-3.5 rounded-xl border font-black text-xs transition-all cursor-pointer flex items-center justify-center gap-1.5 shadow-md active:scale-95 whitespace-nowrap animate-fade-in ${
+                        isAdminMode
+                          ? "border-orange-400 bg-gradient-to-r from-orange-600 via-amber-600 to-orange-500 hover:from-orange-500 hover:to-amber-500 text-white shadow-orange-950/30 ring-2 ring-orange-400/30"
+                          : "border-slate-700 bg-slate-900 hover:bg-slate-800 text-white shadow-slate-950/25"
+                      }`}
+                      title={
+                        isAdminMode
+                          ? "الانتقال المباشر لتصفح المنصة كزبون"
+                          : "العودة المباشرة إلى لوحة الإدارة"
                       }
-                    }}
-                    className={`py-1.5 px-2.5 sm:px-3.5 rounded-xl border font-black text-xs transition-all cursor-pointer flex items-center justify-center gap-1.5 shadow-md active:scale-95 whitespace-nowrap animate-fade-in ${
-                      isAdminMode
-                        ? "border-orange-400 bg-gradient-to-r from-orange-600 via-amber-600 to-orange-500 hover:from-orange-500 hover:to-amber-500 text-white shadow-orange-950/30 ring-2 ring-orange-400/30"
-                        : "border-slate-700 bg-slate-900 hover:bg-slate-800 text-white shadow-slate-950/25"
-                    }`}
-                    title={
-                      isAdminMode
-                        ? "الانتقال المباشر لتصفح المنصة كزبون"
-                        : "العودة المباشرة إلى لوحة الإدارة"
-                    }
+                    >
+                      {isAdminMode ? (
+                        <>
+                          <ShoppingBag className="w-3.5 h-3.5 text-amber-200 shrink-0" />
+                          <span>تصفح كزبون 🛍️</span>
+                        </>
+                      ) : (
+                        <>
+                          <ShieldCheck className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                          <span className="hidden sm:inline">لوحة الإدارة 🛡️</span>
+                          <span className="sm:hidden">الإدارة 🛡️</span>
+                        </>
+                      )}
+                    </button>
+                  </>
+                )}
+
+                {/* 4. Customer: Customer Name Badge */}
+                {userRole === "customer" && (
+                  <div 
+                    className="py-1.5 px-2.5 sm:px-3 rounded-xl border border-slate-200/90 bg-slate-100 text-slate-800 text-xs font-black flex items-center gap-1.5 shadow-xs whitespace-nowrap select-none"
+                    title={`الزبون: ${userProfile.name}`}
                   >
-                    {isAdminMode ? (
-                      <>
-                        <ShoppingBag className="w-3.5 h-3.5 text-amber-200 shrink-0" />
-                        <span>تصفح كزبون 🛍️</span>
-                      </>
-                    ) : (
-                      <>
-                        <ShieldCheck className="w-3.5 h-3.5 text-amber-400 shrink-0" />
-                        <span className="hidden sm:inline">لوحة الإدارة 🛡️</span>
-                        <span className="sm:hidden">الإدارة 🛡️</span>
-                      </>
-                    )}
-                  </button>
+                    <User className="w-3.5 h-3.5 text-orange-600 shrink-0" />
+                    <span className="truncate max-w-[100px] xs:max-w-[140px] sm:max-w-[180px]">
+                      {userProfile.name || "الزبون"}
+                    </span>
+                  </div>
                 )}
               </div>
             )}
@@ -4559,6 +4608,7 @@ export default function App() {
           }
           cartCount={cartItems.reduce((sum, item) => sum + item.quantity, 0)}
           userName={userProfile?.name}
+          userAvatar={userProfile?.avatar}
         />
       )}
 

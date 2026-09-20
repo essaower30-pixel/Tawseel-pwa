@@ -18,13 +18,15 @@ import {
   Send,
   Edit2,
   Eye,
-  EyeOff
+  EyeOff,
+  Camera
 } from "lucide-react";
 import { DriverMember } from "../../types";
 import { ContactActions } from "../ContactActions";
 import { openWhatsApp } from "../../utils/whatsapp";
 import { getAppUrl } from "../../utils/appUrl";
 import { cleanPhoneNumber, normalizeDigits } from "../../utils/driverAuth";
+import { ImageUploader } from "../ImageUploader";
 
 interface DriversTabProps {
   driversList: DriverMember[];
@@ -49,6 +51,7 @@ export const DriversTab: React.FC<DriversTabProps> = ({
   const [vehicle, setVehicle] = useState("دراجة نارية سوزوكي");
   const [pin, setPin] = useState("1111");
   const [rating, setRating] = useState<string | number>("0");
+  const [avatar, setAvatar] = useState("");
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
   const handleOpenAddModal = () => {
@@ -59,6 +62,7 @@ export const DriversTab: React.FC<DriversTabProps> = ({
     setVehicle("دراجة نارية سوزوكي");
     setPin("1111");
     setRating("0");
+    setAvatar("");
     setShowModal(true);
   };
 
@@ -70,6 +74,7 @@ export const DriversTab: React.FC<DriversTabProps> = ({
     setVehicle(driver.vehicle || "دراجة نارية سوزوكي");
     setPin(driver.pin || driver.password || "1111");
     setRating(driver.rating !== undefined && driver.rating !== null ? driver.rating : 0);
+    setAvatar(driver.avatar || "");
     setShowModal(true);
   };
 
@@ -95,7 +100,8 @@ export const DriversTab: React.FC<DriversTabProps> = ({
         phone: normalizedPhone,
         vehicle: vehicle.trim(),
         pin: normalizedPin,
-        rating: finalRating
+        rating: finalRating,
+        avatar: avatar.trim() || undefined
       });
     } else {
       onAddDriver({
@@ -109,6 +115,7 @@ export const DriversTab: React.FC<DriversTabProps> = ({
         totalDeliveries: 0,
         earnings: 0,
         rating: finalRating,
+        avatar: avatar.trim() || undefined,
         createdAt: new Date().toISOString()
       });
     }
@@ -184,8 +191,12 @@ export const DriversTab: React.FC<DriversTabProps> = ({
               <div>
                 <div className="flex items-start justify-between">
                   <div className="flex items-center gap-3">
-                    <div className="w-11 h-11 rounded-2xl bg-orange-50 text-orange-600 flex items-center justify-center font-black text-base shadow-xs">
-                      🛵
+                    <div className="w-11 h-11 rounded-2xl bg-orange-50 text-orange-600 flex items-center justify-center font-black text-base shadow-xs overflow-hidden border border-orange-200 shrink-0">
+                      {driver.avatar ? (
+                        <img src={driver.avatar} alt={driver.name} className="w-full h-full object-cover" />
+                      ) : (
+                        <span>🛵</span>
+                      )}
                     </div>
                     <div>
                       <h4 className="font-black text-sm text-slate-900">{driver.name}</h4>
@@ -467,6 +478,30 @@ export const DriversTab: React.FC<DriversTabProps> = ({
                   onChange={(e) => setRating(e.target.value)}
                   placeholder="0 أو فارغ (0 - 5)"
                   className="w-full py-2.5 px-3 bg-slate-50 border rounded-xl font-bold focus:outline-hidden focus:border-orange-500"
+                />
+              </div>
+
+              {/* Captain Profile Avatar Upload (Admin Managed) */}
+              <div className="p-3 bg-slate-50 border border-slate-200 rounded-2xl space-y-2">
+                <div className="flex items-center justify-between">
+                  <label className="font-black text-slate-800 flex items-center gap-1.5 text-xs">
+                    <Camera className="w-3.5 h-3.5 text-orange-500" />
+                    <span>صورة بروفايل الكابتن (اعتماد الإدارة)</span>
+                  </label>
+                  <span className="text-[10px] text-emerald-700 bg-emerald-100 font-bold px-2 py-0.5 rounded-full">
+                    حصري للإدارة 🔒
+                  </span>
+                </div>
+                <p className="text-[11px] text-slate-500 font-medium">
+                  اختر صورة الكابتن من استديو جهازك أو التقطها. تظهر هذه الصورة في بروفايل الكابتن وبطاقة التوصيل أمام الزبائن والمتاجر.
+                </p>
+                <ImageUploader
+                  value={avatar}
+                  onChange={setAvatar}
+                  label=""
+                  helperText="اختر صورة الكابتن من الاستديو أو الكاميرا"
+                  aspectRatio="square"
+                  maxDimension={400}
                 />
               </div>
 

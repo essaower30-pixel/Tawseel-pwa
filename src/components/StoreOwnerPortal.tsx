@@ -106,11 +106,20 @@ export const StoreOwnerPortal: React.FC<StoreOwnerPortalProps> = ({
   const [soundAlerts, setSoundAlerts] = useState<boolean>(() => isSoundEnabled());
   const [zoomedImage, setZoomedImage] = useState<string | null>(null);
   const [showAccountModal, setShowAccountModal] = useState(false);
+  const [showStoreImageModal, setShowStoreImageModal] = useState(false);
+  const [tempStoreImage, setTempStoreImage] = useState<string>(currentStore.image || "");
+
+  useEffect(() => {
+    if (currentStore.image) {
+      setTempStoreImage(currentStore.image);
+    }
+  }, [currentStore.image]);
 
   const handleProfileUpdate = async (updatedProfile: UserProfile, extraData?: any) => {
     const updatedStore: Store = {
       ...currentStore,
       name: extraData?.storeName || currentStore.name,
+      image: extraData?.storeImage || currentStore.image,
       ownerName: updatedProfile.name,
       ownerPhone: updatedProfile.phone,
       ownerPin: updatedProfile.pin,
@@ -129,6 +138,16 @@ export const StoreOwnerPortal: React.FC<StoreOwnerPortalProps> = ({
     localStorage.setItem("tw_saved_store_pin", updatedProfile.pin);
   };
 
+  const handleSaveStoreImage = () => {
+    if (!tempStoreImage) return;
+    const updatedStore: Store = {
+      ...currentStore,
+      image: tempStoreImage
+    };
+    onUpdateStore(updatedStore);
+    setShowStoreImageModal(false);
+  };
+
   // Product Modal State
   const [showProductModal, setShowProductModal] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
@@ -138,6 +157,9 @@ export const StoreOwnerPortal: React.FC<StoreOwnerPortalProps> = ({
     const handleBack = (e: Event) => {
       if (zoomedImage) {
         setZoomedImage(null);
+        e.preventDefault();
+      } else if (showStoreImageModal) {
+        setShowStoreImageModal(false);
         e.preventDefault();
       } else if (showProductModal) {
         setShowProductModal(false);
@@ -441,12 +463,44 @@ export const StoreOwnerPortal: React.FC<StoreOwnerPortalProps> = ({
       <div className="bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 border border-slate-700/80 rounded-3xl p-5 sm:p-7 text-white shadow-xl space-y-5">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div className="flex items-center gap-3.5">
-            <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center text-white text-3xl font-black shadow-lg shadow-orange-500/25 shrink-0">
-              🏪
+            <div className="relative group shrink-0">
+              <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center text-white text-3xl font-black shadow-lg shadow-orange-500/25 overflow-hidden border-2 border-amber-400/40">
+                {currentStore.image ? (
+                  <img
+                    src={currentStore.image}
+                    alt={currentStore.name}
+                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                  />
+                ) : (
+                  <span>🏪</span>
+                )}
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setTempStoreImage(currentStore.image || "");
+                  setShowStoreImageModal(true);
+                }}
+                className="absolute -bottom-1.5 -left-1.5 bg-orange-500 hover:bg-orange-600 active:scale-95 text-white p-1.5 rounded-xl shadow-md border border-white/40 flex items-center justify-center cursor-pointer transition-all"
+                title="تغيير صورة المتجر من الاستديو"
+              >
+                <Camera className="w-3.5 h-3.5" />
+              </button>
             </div>
             <div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
                 <h2 className="text-lg sm:text-xl font-black text-white">{currentStore.name}</h2>
+                {onBackToCustomerView && (
+                  <button
+                    type="button"
+                    onClick={onBackToCustomerView}
+                    className="py-1 px-3 rounded-xl border border-orange-400/80 bg-gradient-to-r from-orange-600 via-amber-600 to-orange-500 hover:from-orange-500 hover:to-amber-500 text-xs font-black text-white transition-all cursor-pointer inline-flex items-center gap-1.5 shadow-md shadow-orange-950/40 active:scale-95 whitespace-nowrap"
+                    title="تصفح المنصة والتسوق كزبون"
+                  >
+                    <ShoppingBag className="w-3.5 h-3.5 text-amber-200 shrink-0" />
+                    <span>تصفح كزبون 🛍️</span>
+                  </button>
+                )}
                 {currentStore.isApproved === false ? (
                   <span className="px-2.5 py-0.5 rounded-full text-[11px] font-black border bg-amber-500/20 text-amber-300 border-amber-500/40 flex items-center gap-1">
                     <span>⏳</span>
@@ -464,11 +518,22 @@ export const StoreOwnerPortal: React.FC<StoreOwnerPortalProps> = ({
                   </span>
                 )}
               </div>
-              <p className="text-slate-400 text-xs font-semibold mt-0.5 flex items-center gap-2">
+              <p className="text-slate-400 text-xs font-semibold mt-0.5 flex items-center gap-2 flex-wrap">
                 <span>هاتف المتجر: <strong className="font-mono text-slate-200">{currentStore.contactPhone || userProfile.phone}</strong></span>
                 <span>•</span>
                 <span>أجرة التوصيل: {currentStore.deliveryFee === 0 || currentStore.deliveryFee === undefined ? "توصيل مجاني (0)" : `${currentStore.deliveryFee.toLocaleString()} ${currency}`}</span>
               </p>
+              <button
+                type="button"
+                onClick={() => {
+                  setTempStoreImage(currentStore.image || "");
+                  setShowStoreImageModal(true);
+                }}
+                className="inline-flex items-center gap-1 text-[11px] font-black text-amber-400 hover:text-amber-300 mt-1 cursor-pointer transition-colors bg-white/5 hover:bg-white/10 px-2.5 py-0.5 rounded-lg border border-amber-400/30"
+              >
+                <Camera className="w-3 h-3" />
+                <span>تغيير صورة المتجر من الاستديو 📷</span>
+              </button>
             </div>
           </div>
 
@@ -1915,6 +1980,69 @@ export const StoreOwnerPortal: React.FC<StoreOwnerPortalProps> = ({
           </div>
         </div>
       )}
+      {/* Modal for Changing Store Image from Studio / Gallery */}
+      {showStoreImageModal && (
+        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4" dir="rtl">
+          <div className="bg-white rounded-3xl p-5 sm:p-6 max-w-md w-full border border-slate-200 shadow-2xl space-y-4 text-right my-auto">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div className="flex items-center gap-2">
+                <div className="w-9 h-9 rounded-2xl bg-orange-100 flex items-center justify-center text-orange-600 font-black text-lg">
+                  🏪
+                </div>
+                <div>
+                  <h3 className="font-black text-sm sm:text-base text-slate-900">
+                    تغيير صورة المتجر من الاستديو
+                  </h3>
+                  <p className="text-[11px] text-slate-400 font-medium">
+                    متجر: {currentStore.name}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowStoreImageModal(false)}
+                className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 font-bold flex items-center justify-center cursor-pointer transition-all"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <p className="text-xs text-slate-600 font-medium leading-relaxed">
+                اختر صورة جديدة لشعار أو واجهة متجرك <strong>"{currentStore.name}"</strong> من استديو جهازك أو التقط صورة بالكاميرا. ستظهر هذه الصورة للزبائن في قائمة المتاجر وصفحة المتجر.
+              </p>
+
+              <ImageUploader
+                value={tempStoreImage}
+                onChange={setTempStoreImage}
+                label="صورة واجهة وشعار المتجر"
+                helperText="يمكنك التقاط صورة أو رفعها مباشرة من استوديو الهاتف أو الحاسوب"
+                aspectRatio="wide"
+              />
+
+              <div className="flex items-center gap-2 pt-2 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={handleSaveStoreImage}
+                  disabled={!tempStoreImage}
+                  className="flex-1 py-3 px-4 bg-orange-600 hover:bg-orange-700 disabled:opacity-50 text-white rounded-xl text-xs sm:text-sm font-black shadow-md cursor-pointer transition-all active:scale-95 flex items-center justify-center gap-1.5"
+                >
+                  <CheckCircle2 className="w-4 h-4" />
+                  <span>حفظ صورة المتجر الجديدة وتطبيقها ✅</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowStoreImageModal(false)}
+                  className="py-3 px-4 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold cursor-pointer transition-all"
+                >
+                  إلغاء
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Universal Bottom Navigation for Store Owner */}
       <BottomNavigation
         userRole="store_owner"
@@ -1926,6 +2054,7 @@ export const StoreOwnerPortal: React.FC<StoreOwnerPortalProps> = ({
           (o) => o.status === "pending" || o.status === "accepted" || o.status === "preparing"
         ).length}
         userName={userProfile.name}
+        userAvatar={userProfile.avatar}
       />
 
       {/* Account Settings Modal */}

@@ -655,6 +655,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
           (o) => o.status === "pending" || o.status === "accepted" || o.status === "preparing"
         ).length}
         userName={currentStaff?.name || userProfile.name}
+        userAvatar={currentStaff?.avatar || userProfile.avatar}
       />
 
       {/* Account Settings Modal */}

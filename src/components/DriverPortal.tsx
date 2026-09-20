@@ -249,8 +249,19 @@ export const DriverPortal: React.FC<DriverPortalProps> = ({
               🛵
             </div>
             <div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
                 <h2 className="text-lg sm:text-xl font-black text-white">{currentDriver.name}</h2>
+                {onBackToCustomerView && (
+                  <button
+                    type="button"
+                    onClick={onBackToCustomerView}
+                    className="py-1 px-3 rounded-xl border border-orange-400/80 bg-gradient-to-r from-orange-600 via-amber-600 to-orange-500 hover:from-orange-500 hover:to-amber-500 text-xs font-black text-white transition-all cursor-pointer inline-flex items-center gap-1.5 shadow-md shadow-orange-950/40 active:scale-95 whitespace-nowrap"
+                    title="تصفح المنصة والتسوق كزبون"
+                  >
+                    <ShoppingBag className="w-3.5 h-3.5 text-amber-200 shrink-0" />
+                    <span>تصفح كزبون 🛍️</span>
+                  </button>
+                )}
                 <span className="px-2.5 py-0.5 rounded-full text-[11px] font-black bg-orange-500/20 text-orange-400 border border-orange-500/30">
                   كابتن أسطول التوصيل
                 </span>
@@ -763,6 +774,7 @@ export const DriverPortal: React.FC<DriverPortalProps> = ({
         onOpenAccount={() => setShowAccountModal(true)}
         activeOrdersCount={myOrders.length}
         userName={currentDriver.name}
+        userAvatar={currentDriver.avatar || userProfile.avatar}
       />
 
       {/* Delivery Handover OTP Verification Dialog for Captain */}

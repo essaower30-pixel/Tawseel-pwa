@@ -31,6 +31,7 @@ interface BottomNavigationProps {
   cartCount?: number;
   activeOrdersCount?: number;
   userName?: string;
+  userAvatar?: string;
 }
 
 export const BottomNavigation: React.FC<BottomNavigationProps> = ({
@@ -43,7 +44,8 @@ export const BottomNavigation: React.FC<BottomNavigationProps> = ({
   onSelectRoleTab,
   cartCount = 0,
   activeOrdersCount = 0,
-  userName = ""
+  userName = "",
+  userAvatar = ""
 }) => {
   // Render tabs depending on role
   const renderNavButtons = () => {
@@ -117,8 +119,12 @@ export const BottomNavigation: React.FC<BottomNavigationProps> = ({
             onClick={onOpenAccount}
             className="relative flex-1 py-1.5 px-2 flex flex-col items-center justify-center gap-0.5 rounded-xl text-slate-700 hover:text-orange-600 font-bold transition-all cursor-pointer group"
           >
-            <div className="w-6 h-6 rounded-full bg-orange-100 text-orange-700 flex items-center justify-center group-hover:bg-orange-600 group-hover:text-white transition-colors">
-              <User className="w-4 h-4" />
+            <div className="w-6 h-6 rounded-full bg-orange-100 text-orange-700 flex items-center justify-center group-hover:bg-orange-600 group-hover:text-white transition-colors overflow-hidden border border-orange-200">
+              {userAvatar ? (
+                <img src={userAvatar} alt={userName || "حسابي"} className="w-full h-full object-cover" />
+              ) : (
+                <User className="w-4 h-4" />
+              )}
             </div>
             <span className="text-[10px] font-black truncate max-w-[65px]">حسابي</span>
           </button>
@@ -213,8 +219,12 @@ export const BottomNavigation: React.FC<BottomNavigationProps> = ({
             onClick={onOpenAccount}
             className="relative flex-1 py-1.5 px-2 flex flex-col items-center justify-center gap-0.5 rounded-xl text-slate-700 hover:text-emerald-600 font-bold transition-all cursor-pointer group"
           >
-            <div className="w-6 h-6 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center group-hover:bg-emerald-600 group-hover:text-white transition-colors">
-              <User className="w-4 h-4" />
+            <div className="w-6 h-6 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center group-hover:bg-emerald-600 group-hover:text-white transition-colors overflow-hidden border border-emerald-200">
+              {userAvatar ? (
+                <img src={userAvatar} alt={userName || "حسابي"} className="w-full h-full object-cover" />
+              ) : (
+                <User className="w-4 h-4" />
+              )}
             </div>
             <span className="text-[10px] font-black truncate max-w-[65px]">حسابي</span>
           </button>
@@ -292,8 +302,12 @@ export const BottomNavigation: React.FC<BottomNavigationProps> = ({
             onClick={onOpenAccount}
             className="relative flex-1 py-1.5 px-2 flex flex-col items-center justify-center gap-0.5 rounded-xl text-slate-700 hover:text-purple-600 font-bold transition-all cursor-pointer group"
           >
-            <div className="w-6 h-6 rounded-full bg-purple-100 text-purple-700 flex items-center justify-center group-hover:bg-purple-600 group-hover:text-white transition-colors">
-              <User className="w-4 h-4" />
+            <div className="w-6 h-6 rounded-full bg-purple-100 text-purple-700 flex items-center justify-center group-hover:bg-purple-600 group-hover:text-white transition-colors overflow-hidden border border-purple-200">
+              {userAvatar ? (
+                <img src={userAvatar} alt={userName || "حسابي"} className="w-full h-full object-cover" />
+              ) : (
+                <User className="w-4 h-4" />
+              )}
             </div>
             <span className="text-[10px] font-black truncate max-w-[65px]">حسابي</span>
           </button>
@@ -390,8 +404,12 @@ export const BottomNavigation: React.FC<BottomNavigationProps> = ({
           onClick={onOpenAccount}
           className="relative flex-1 py-1.5 px-2 flex flex-col items-center justify-center gap-0.5 rounded-xl text-slate-700 hover:text-orange-600 font-bold transition-all cursor-pointer group"
         >
-          <div className="w-6 h-6 rounded-full bg-orange-100 text-orange-700 flex items-center justify-center group-hover:bg-orange-600 group-hover:text-white transition-colors">
-            <User className="w-4 h-4" />
+          <div className="w-6 h-6 rounded-full bg-orange-100 text-orange-700 flex items-center justify-center group-hover:bg-orange-600 group-hover:text-white transition-colors overflow-hidden border border-orange-200">
+            {userAvatar ? (
+              <img src={userAvatar} alt={userName || "حسابي"} className="w-full h-full object-cover" />
+            ) : (
+              <User className="w-4 h-4" />
+            )}
           </div>
           <span className="text-[10px] font-black truncate max-w-[65px]">حسابي</span>
         </button>

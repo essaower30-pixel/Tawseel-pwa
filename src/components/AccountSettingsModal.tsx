@@ -22,10 +22,14 @@ import {
   RefreshCw,
   Check,
   Scale,
-  FileText
+  FileText,
+  Camera,
+  Trash2,
+  Image as ImageIcon
 } from "lucide-react";
 import { UserProfile, Store, DriverMember, StaffMember, AppSettings } from "../types";
 import { TermsAgreementModal } from "./TermsAgreementModal";
+import { ImageUploader } from "./ImageUploader";
 
 interface AccountSettingsModalProps {
   isOpen: boolean;
@@ -75,6 +79,8 @@ export const AccountSettingsModal: React.FC<AccountSettingsModalProps> = ({
   const [storeDeliveryFee, setStoreDeliveryFee] = useState<string | number>(
     currentStore?.deliveryFee !== undefined && currentStore?.deliveryFee !== null ? currentStore.deliveryFee : 0
   );
+  const [storeImage, setStoreImage] = useState(currentStore?.image || "");
+  const [avatar, setAvatar] = useState(userProfile?.avatar || currentStaff?.avatar || currentDriver?.avatar || "");
   const [driverVehicle, setDriverVehicle] = useState(currentDriver?.vehicle || "دراجة نارية");
   const [customerAddress, setCustomerAddress] = useState(
     () => localStorage.getItem("tw_saved_customer_address") || "وسط البلد - بجانب المسجد الكبير"
@@ -93,33 +99,41 @@ export const AccountSettingsModal: React.FC<AccountSettingsModalProps> = ({
         setPhone(currentStaff.phone || userProfile?.phone || "");
         setPin(currentStaff.pin || userProfile?.pin || "1234");
         setStaffPassword(currentStaff.password || "Admin@Tawseel2026#");
+        setAvatar(currentStaff.avatar || userProfile?.avatar || "");
       } else if (userRole === "admin") {
         setName(userProfile?.name || "المدير العام");
         setPhone(userProfile?.phone || "0991234567");
         setPin(userProfile?.pin || "1234");
         const masterPass = localStorage.getItem("tw_admin_secure_password") || "Admin@Tawseel2026#";
         setStaffPassword(masterPass);
+        setAvatar(userProfile?.avatar || "");
       } else if (userRole === "store_owner" && currentStore) {
         setName(currentStore.ownerName || userProfile?.name || "");
         setPhone(currentStore.ownerPhone || currentStore.contactPhone || userProfile?.phone || "");
         setPin(currentStore.ownerPin || userProfile?.pin || "1234");
+        setStoreImage(currentStore.image || "");
+        setAvatar(userProfile?.avatar || "");
       } else if (userRole === "driver" && currentDriver) {
         setName(currentDriver.name || userProfile?.name || "");
         setPhone(currentDriver.phone || userProfile?.phone || "");
         setPin(currentDriver.pin || userProfile?.pin || "1234");
+        setAvatar(currentDriver.avatar || userProfile?.avatar || "");
       } else {
         setName(userProfile?.name || "");
         setPhone(userProfile?.phone || "");
         setPin(userProfile?.pin || "1234");
+        setAvatar(userProfile?.avatar || "");
       }
 
       if (currentStore) {
         setStoreName(currentStore.name || "");
         setStoreHours(currentStore.workingHours || "9:00 ص - 11:00 م");
         setStoreDeliveryFee(currentStore.deliveryFee !== undefined && currentStore.deliveryFee !== null ? currentStore.deliveryFee : 0);
+        setStoreImage(currentStore.image || "");
       }
       if (currentDriver) {
         setDriverVehicle(currentDriver.vehicle || "دراجة نارية");
+        setAvatar(currentDriver.avatar || userProfile?.avatar || "");
       }
       setSaveSuccess(false);
       setErrorMessage("");
@@ -183,7 +197,11 @@ export const AccountSettingsModal: React.FC<AccountSettingsModalProps> = ({
         name: name.trim(),
         phone: phone.trim(),
         pin: pin.trim(),
-        role: userRole
+        role: userRole,
+        // Captain profile picture cannot be changed by the driver directly:
+        avatar: userRole === "driver"
+          ? (currentDriver?.avatar || userProfile?.avatar || "")
+          : avatar.trim() || undefined
       };
 
       // Delivery fee is optional and handles 0: if left empty or 0, accepted as 0
@@ -194,6 +212,7 @@ export const AccountSettingsModal: React.FC<AccountSettingsModalProps> = ({
       const extraData: any = {
         storeName: storeName.trim(),
         storeHours: storeHours.trim(),
+        storeImage: storeImage.trim(),
         deliveryFee: finalDeliveryFee,
         driverVehicle: driverVehicle.trim(),
         customerAddress: customerAddress.trim()
@@ -211,14 +230,14 @@ export const AccountSettingsModal: React.FC<AccountSettingsModalProps> = ({
           if (currentStaff) {
             staffList = staffList.map((s: any) => 
               s.id === currentStaff.id 
-                ? { ...s, name: name.trim(), phone: phone.trim(), pin: pin.trim(), password: staffPassword.trim() }
+                ? { ...s, name: name.trim(), phone: phone.trim(), pin: pin.trim(), password: staffPassword.trim(), avatar: avatar.trim() || s.avatar }
                 : s
             );
           } else {
             // Update admin staff_1
             staffList = staffList.map((s: any) => 
               s.id === "staff_1" || s.role === "manager"
-                ? { ...s, name: name.trim(), phone: phone.trim(), pin: pin.trim(), password: staffPassword.trim() }
+                ? { ...s, name: name.trim(), phone: phone.trim(), pin: pin.trim(), password: staffPassword.trim(), avatar: avatar.trim() || s.avatar }
                 : s
             );
             localStorage.setItem("tw_admin_secure_password", staffPassword.trim());
@@ -327,8 +346,12 @@ export const AccountSettingsModal: React.FC<AccountSettingsModalProps> = ({
         {/* Header with Dark Premium Gradient */}
         <div className={`bg-gradient-to-r ${roleInfo.bg} p-5 text-white flex items-center justify-between shrink-0 relative overflow-hidden`}>
           <div className="flex items-center gap-3.5 relative z-10">
-            <div className="w-12 h-12 rounded-2xl bg-white/10 backdrop-blur-md flex items-center justify-center border border-white/20 shadow-inner">
-              {roleInfo.icon}
+            <div className="w-12 h-12 rounded-2xl bg-white/10 backdrop-blur-md flex items-center justify-center border border-white/20 shadow-inner overflow-hidden">
+              {avatar ? (
+                <img src={avatar} alt={name} className="w-full h-full object-cover" />
+              ) : (
+                roleInfo.icon
+              )}
             </div>
             <div>
               <div className="flex items-center gap-2">
@@ -509,7 +532,164 @@ export const AccountSettingsModal: React.FC<AccountSettingsModalProps> = ({
             </div>
           )}
 
-          {/* Role-Specific Fields */}
+          {/* Role-Specific Fields & Profile Media */}
+          {/* Customer Avatar (Optional) */}
+          {userRole === "customer" && (
+            <div className="p-3.5 bg-orange-50/50 border border-orange-200/80 rounded-2xl space-y-3">
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-black text-slate-800 flex items-center gap-1.5">
+                  <Camera className="w-3.5 h-3.5 text-orange-500" />
+                  <span>صورة البروفايل الشخصية</span>
+                  <span className="text-[10px] text-emerald-700 bg-emerald-100 font-bold px-2 py-0.5 rounded-full">
+                    (اختياري)
+                  </span>
+                </label>
+                {avatar && (
+                  <button
+                    type="button"
+                    onClick={() => setAvatar("")}
+                    className="text-[10px] text-red-500 hover:text-red-700 font-bold flex items-center gap-0.5 cursor-pointer"
+                  >
+                    <Trash2 className="w-3 h-3" />
+                    <span>حذف الصورة</span>
+                  </button>
+                )}
+              </div>
+
+              <div className="flex items-center gap-3">
+                <div className="w-16 h-16 rounded-2xl bg-white border-2 border-orange-300 shadow-xs overflow-hidden flex items-center justify-center shrink-0">
+                  {avatar ? (
+                    <img src={avatar} alt="صورة البروفايل" className="w-full h-full object-cover" />
+                  ) : (
+                    <div className="text-center p-1">
+                      <User className="w-7 h-7 text-orange-400 mx-auto" />
+                      <span className="text-[9px] text-slate-400 font-bold block">بدون صورة</span>
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex-1 space-y-1.5">
+                  <p className="text-[11px] text-slate-600 font-medium leading-relaxed">
+                    إضافة صورة لحسابك اختياري وتساعد مندوب التوصيل والمتجر في التعرف عليك بسهولة.
+                  </p>
+                  <ImageUploader
+                    value={avatar}
+                    onChange={(img) => setAvatar(img)}
+                    label=""
+                    helperText="اختر صورة من استديو جهازك أو التقطها بالكاميرا"
+                    aspectRatio="square"
+                    maxDimension={400}
+                  />
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Admin Staff Avatar (Optional) */}
+          {userRole === "admin" && (
+            <div className="p-3.5 bg-amber-50/50 border border-amber-200/80 rounded-2xl space-y-3">
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-black text-slate-900 flex items-center gap-1.5">
+                  <ShieldCheck className="w-3.5 h-3.5 text-amber-600" />
+                  <span>الصورة الشخصية لموظف الإدارة</span>
+                  <span className="text-[10px] text-amber-700 bg-amber-100 font-bold px-2 py-0.5 rounded-full">
+                    (اختياري)
+                  </span>
+                </label>
+                {avatar && (
+                  <button
+                    type="button"
+                    onClick={() => setAvatar("")}
+                    className="text-[10px] text-red-500 hover:text-red-700 font-bold flex items-center gap-0.5 cursor-pointer"
+                  >
+                    <Trash2 className="w-3 h-3" />
+                    <span>إزالة الصورة</span>
+                  </button>
+                )}
+              </div>
+
+              <div className="flex items-center gap-3">
+                <div className="w-16 h-16 rounded-2xl bg-white border-2 border-amber-300 shadow-xs overflow-hidden flex items-center justify-center shrink-0">
+                  {avatar ? (
+                    <img src={avatar} alt="صورة الموظف" className="w-full h-full object-cover" />
+                  ) : (
+                    <div className="text-center p-1">
+                      <Shield className="w-7 h-7 text-amber-500 mx-auto" />
+                      <span className="text-[9px] text-slate-400 font-bold block">إداري</span>
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex-1 space-y-1.5">
+                  <p className="text-[11px] text-slate-600 font-medium">
+                    يمكنك تغيير أو إضافة صورتك الشخصية لكادر الإدارة من استديو الصور أو الكاميرا.
+                  </p>
+                  <ImageUploader
+                    value={avatar}
+                    onChange={(img) => setAvatar(img)}
+                    label=""
+                    helperText="اختر صورة من الاستديو أو التقط صورة"
+                    aspectRatio="square"
+                    maxDimension={400}
+                  />
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Store Owner / Craftsman Personal Avatar (Optional) */}
+          {userRole === "store_owner" && (
+            <div className="p-3.5 bg-amber-50/50 border border-amber-200/80 rounded-2xl space-y-3">
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-black text-slate-800 flex items-center gap-1.5">
+                  <Camera className="w-3.5 h-3.5 text-amber-600" />
+                  <span>الصورة الشخصية لصاحب المتجر / المهنة</span>
+                  <span className="text-[10px] text-emerald-700 bg-emerald-100 font-bold px-2 py-0.5 rounded-full">
+                    (اختياري)
+                  </span>
+                </label>
+                {avatar && (
+                  <button
+                    type="button"
+                    onClick={() => setAvatar("")}
+                    className="text-[10px] text-red-500 hover:text-red-700 font-bold flex items-center gap-0.5 cursor-pointer"
+                  >
+                    <Trash2 className="w-3 h-3" />
+                    <span>حذف الصورة</span>
+                  </button>
+                )}
+              </div>
+
+              <div className="flex items-center gap-3">
+                <div className="w-16 h-16 rounded-2xl bg-white border-2 border-amber-300 shadow-xs overflow-hidden flex items-center justify-center shrink-0">
+                  {avatar ? (
+                    <img src={avatar} alt="صورة صاحب المتجر" className="w-full h-full object-cover" />
+                  ) : (
+                    <div className="text-center p-1">
+                      <User className="w-7 h-7 text-amber-500 mx-auto" />
+                      <span className="text-[9px] text-slate-400 font-bold block">صاحب المتجر</span>
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex-1 space-y-1.5">
+                  <p className="text-[11px] text-slate-600 font-medium leading-relaxed">
+                    إضافة صورتك الشخصية كصاحب متجر أو مهني اختياري، وتظهر في بيانات حسابك والشريط السفلي.
+                  </p>
+                  <ImageUploader
+                    value={avatar}
+                    onChange={(img) => setAvatar(img)}
+                    label=""
+                    helperText="اختر صورتك الشخصية من استديو جهازك أو التقطها بالكاميرا"
+                    aspectRatio="square"
+                    maxDimension={400}
+                  />
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Store Owner Fields & Store Image from Studio */}
           {userRole === "store_owner" && (
             <div className="p-3.5 bg-orange-50/50 border border-orange-200/60 rounded-2xl space-y-3">
               <h4 className="text-xs font-black text-orange-950 flex items-center gap-1.5">
@@ -525,6 +705,30 @@ export const AccountSettingsModal: React.FC<AccountSettingsModalProps> = ({
                   onChange={(e) => setStoreName(e.target.value)}
                   placeholder="اسم المحل أو المطعم"
                   className="w-full p-2.5 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-800"
+                />
+              </div>
+
+              {/* Store Cover / Logo from Studio */}
+              <div className="p-3 bg-white border border-orange-200 rounded-2xl space-y-2">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-black text-orange-950 flex items-center gap-1.5">
+                    <Camera className="w-3.5 h-3.5 text-orange-600" />
+                    <span>صورة واجهة وشعار المتجر من الاستديو</span>
+                    <span className="text-[10px] text-orange-600 bg-orange-50 font-bold px-2 py-0.5 rounded-full">
+                      تظهر للزبائن 🏪
+                    </span>
+                  </label>
+                </div>
+                <p className="text-[11px] text-slate-500 font-medium leading-relaxed">
+                  تغيير صورة متجرك المعروضة في قائمة المتاجر وصفحة متجرك. يمكنك استيرادها مباشرة من استديو جهازك.
+                </p>
+                <ImageUploader
+                  value={storeImage}
+                  onChange={(img) => setStoreImage(img)}
+                  label="صورة المتجر"
+                  helperText="اختر صورة المتجر من الاستديو أو التقط صورة بالكاميرا"
+                  aspectRatio="wide"
+                  maxDimension={700}
                 />
               </div>
 
@@ -560,27 +764,60 @@ export const AccountSettingsModal: React.FC<AccountSettingsModalProps> = ({
             </div>
           )}
 
+          {/* Driver: Locked profile avatar and vehicle details */}
           {userRole === "driver" && (
-            <div className="p-3.5 bg-emerald-50/50 border border-emerald-200/60 rounded-2xl space-y-3">
-              <h4 className="text-xs font-black text-emerald-950 flex items-center gap-1.5">
-                <Bike className="w-3.5 h-3.5 text-emerald-600" />
-                <span>بيانات مركبة كابتن التوصيل</span>
-              </h4>
+            <>
+              {/* Driver Profile Picture (Locked - Admin Controlled) */}
+              <div className="p-3.5 bg-emerald-50/60 border border-emerald-300/80 rounded-2xl space-y-2.5">
+                <div className="flex items-center gap-3">
+                  <div className="w-16 h-16 rounded-2xl bg-white border-2 border-emerald-400 shadow-sm overflow-hidden flex items-center justify-center shrink-0">
+                    {currentDriver?.avatar || userProfile?.avatar ? (
+                      <img
+                        src={currentDriver?.avatar || userProfile?.avatar}
+                        alt={name}
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <div className="text-center p-1">
+                        <Bike className="w-7 h-7 text-emerald-600 mx-auto" />
+                        <span className="text-[9px] text-slate-500 font-bold block">كابتن معتمد</span>
+                      </div>
+                    )}
+                  </div>
 
-              <div className="space-y-1">
-                <label className="text-[11px] font-bold text-slate-700">نوع المركبة:</label>
-                <select
-                  value={driverVehicle}
-                  onChange={(e) => setDriverVehicle(e.target.value)}
-                  className="w-full p-2.5 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-800"
-                >
-                  <option value="دراجة نارية">دراجة نارية (موتور) 🛵</option>
-                  <option value="سيارة">سيارة توصيل 🚗</option>
-                  <option value="بسكليت">دراجة هوائية 🚲</option>
-                  <option value="شاحنة صغيرة">شاحنة نقل وبضائع 🚚</option>
-                </select>
+                  <div className="flex-1">
+                    <div className="flex items-center gap-1.5 text-xs font-black text-slate-900">
+                      <ShieldCheck className="w-4 h-4 text-emerald-600" />
+                      <span>صورة بروفايل الكابتن (معتمدة من الإدارة)</span>
+                    </div>
+                    <p className="text-[11px] text-slate-600 mt-1 leading-relaxed font-medium">
+                      🔒 <strong>تغيير الصورة تابع لإدارة المنصة:</strong> لضمان الأمان والتحقق من شخصية الكباتن أمام الزبائن والمتاجر، لا يمكن تعديل الصورة من حساب الكابتن، بل يتم التعديل والاعتماد حصراً عبر لوحة إدارة المنصة.
+                    </p>
+                  </div>
+                </div>
               </div>
-            </div>
+
+              <div className="p-3.5 bg-emerald-50/50 border border-emerald-200/60 rounded-2xl space-y-3">
+                <h4 className="text-xs font-black text-emerald-950 flex items-center gap-1.5">
+                  <Bike className="w-3.5 h-3.5 text-emerald-600" />
+                  <span>بيانات مركبة كابتن التوصيل</span>
+                </h4>
+
+                <div className="space-y-1">
+                  <label className="text-[11px] font-bold text-slate-700">نوع المركبة:</label>
+                  <select
+                    value={driverVehicle}
+                    onChange={(e) => setDriverVehicle(e.target.value)}
+                    className="w-full p-2.5 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-800"
+                  >
+                    <option value="دراجة نارية">دراجة نارية (موتور) 🛵</option>
+                    <option value="سيارة">سيارة توصيل 🚗</option>
+                    <option value="بسكليت">دراجة هوائية 🚲</option>
+                    <option value="شاحنة صغيرة">شاحنة نقل وبضائع 🚚</option>
+                  </select>
+                </div>
+              </div>
+            </>
           )}
 
           {userRole === "customer" && (
