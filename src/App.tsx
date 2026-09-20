@@ -3850,6 +3850,9 @@ export default function App() {
                 setSelectedStore(store);
                 window.scrollTo({ top: 0, behavior: "smooth" });
               }}
+              onOpenOffers={() => {
+                setSelectedCategory("offers");
+              }}
             />
 
             {/* 4. Categories Selector */}
