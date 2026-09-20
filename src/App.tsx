@@ -3142,36 +3142,40 @@ export default function App() {
 
       {/* Seamless Customer Shopping Mode for Store Owners Banner */}
       {userRole === "store_owner" && isStoreOwnerBrowsingAsCustomer && (
-        <div className="bg-slate-900 text-white px-3 sm:px-6 py-2 flex items-center justify-between shadow-md sticky top-0 z-50 border-b border-orange-500/40">
-          <div className="flex items-center gap-2">
-            <span className="relative flex h-2.5 w-2.5">
+        <div className="bg-slate-900 text-white px-3 sm:px-6 py-2 flex items-center justify-between gap-2 shadow-md sticky top-0 z-50 border-b border-orange-500/40">
+          <div className="flex items-center gap-1.5 sm:gap-2 min-w-0">
+            <span className="relative flex h-2 w-2 sm:h-2.5 sm:w-2.5 shrink-0">
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
+              <span className="relative inline-flex rounded-full h-2 w-2 sm:h-2.5 sm:w-2.5 bg-emerald-500"></span>
             </span>
-            <span className="text-xs sm:text-sm font-bold text-slate-100">
-              🛍️ تتصفح كزبون متسوق (حساب متجرك نشط في الخلفية)
+            <span className="text-[11px] sm:text-sm font-bold text-slate-100 truncate">
+              <span className="hidden xs:inline">🛍️ تتصفح كزبون (متجرك نشط بالخلفية)</span>
+              <span className="xs:hidden">🛍️ وضع الزبون</span>
             </span>
           </div>
           <button
             type="button"
             onClick={() => handleToggleStoreOwnerCustomerBrowsing(false)}
-            className="bg-orange-500 hover:bg-orange-600 active:scale-95 text-slate-950 font-black text-xs px-3 sm:px-3.5 py-1 rounded-xl transition-all shadow-xs flex items-center gap-1.5 cursor-pointer shrink-0"
+            className="bg-orange-500 hover:bg-orange-600 active:scale-95 text-slate-950 font-black text-xs px-2.5 sm:px-3.5 py-1 rounded-xl transition-all shadow-xs flex items-center gap-1 cursor-pointer shrink-0"
           >
-            <span>🏪 العودة لإدارة متجري</span>
+            <StoreIcon className="w-3 h-3" />
+            <span className="hidden xs:inline">العودة لإدارة متجري</span>
+            <span className="xs:hidden">متجري</span>
           </button>
         </div>
       )}
 
       {/* Driver / Captain Customer Shopping Mode Floating Banner */}
       {userRole === "driver" && !isDriverMode && (
-        <div className="bg-slate-900 text-white px-3 sm:px-6 py-2 flex items-center justify-between shadow-md sticky top-0 z-50 border-b border-blue-500/40">
-          <div className="flex items-center gap-2">
-            <span className="relative flex h-2.5 w-2.5">
+        <div className="bg-slate-900 text-white px-3 sm:px-6 py-2 flex items-center justify-between gap-2 shadow-md sticky top-0 z-50 border-b border-blue-500/40">
+          <div className="flex items-center gap-1.5 sm:gap-2 min-w-0">
+            <span className="relative flex h-2 w-2 sm:h-2.5 sm:w-2.5 shrink-0">
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-blue-500"></span>
+              <span className="relative inline-flex rounded-full h-2 w-2 sm:h-2.5 sm:w-2.5 bg-blue-500"></span>
             </span>
-            <span className="text-xs sm:text-sm font-bold text-slate-100">
-              🛍️ تتصفح كزبون متسوق (حساب الكابتن {userProfile?.name} نشط ومتاح في الخلفية)
+            <span className="text-[11px] sm:text-sm font-bold text-slate-100 truncate">
+              <span className="hidden xs:inline">🛍️ تتصفح كزبون (حساب الكابتن متاح)</span>
+              <span className="xs:hidden">🛍️ وضع الزبون</span>
             </span>
           </div>
           <button
@@ -3182,24 +3186,26 @@ export default function App() {
               setIsDriverMode(true);
               localStorage.setItem("tw_viewing_driver", "true");
             }}
-            className="bg-blue-600 hover:bg-blue-500 active:scale-95 text-white font-black text-xs px-3 sm:px-3.5 py-1 rounded-xl transition-all shadow-xs flex items-center gap-1.5 cursor-pointer shrink-0"
+            className="bg-blue-600 hover:bg-blue-500 active:scale-95 text-white font-black text-xs px-2.5 sm:px-3.5 py-1 rounded-xl transition-all shadow-xs flex items-center gap-1 cursor-pointer shrink-0"
           >
             <Bike className="w-3.5 h-3.5" />
-            <span>🚴 العودة للوحة الكابتن</span>
+            <span className="hidden xs:inline">العودة للكابتن</span>
+            <span className="xs:hidden">الكابتن</span>
           </button>
         </div>
       )}
 
       {/* Admin / Staff Customer Shopping Mode Floating Banner */}
       {userRole === "admin" && !isAdminMode && (
-        <div className="bg-slate-900 text-white px-3 sm:px-6 py-2 flex items-center justify-between shadow-md sticky top-0 z-50 border-b border-amber-500/40">
-          <div className="flex items-center gap-2">
-            <span className="relative flex h-2.5 w-2.5">
+        <div className="bg-slate-900 text-white px-3 sm:px-6 py-2 flex items-center justify-between gap-2 shadow-md sticky top-0 z-50 border-b border-amber-500/40">
+          <div className="flex items-center gap-1.5 sm:gap-2 min-w-0">
+            <span className="relative flex h-2 w-2 sm:h-2.5 sm:w-2.5 shrink-0">
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-amber-500"></span>
+              <span className="relative inline-flex rounded-full h-2 w-2 sm:h-2.5 sm:w-2.5 bg-amber-500"></span>
             </span>
-            <span className="text-xs sm:text-sm font-bold text-slate-100">
-              🛍️ تتصفح كزبون متسوق (حساب الإدارة {userProfile?.name} نشط)
+            <span className="text-[11px] sm:text-sm font-bold text-slate-100 truncate">
+              <span className="hidden xs:inline">🛍️ تتصفح كزبون (حساب الإدارة نشط)</span>
+              <span className="xs:hidden">🛍️ وضع الزبون</span>
             </span>
           </div>
           <button
@@ -3210,17 +3216,18 @@ export default function App() {
               setIsAdminMode(true);
               localStorage.setItem("tw_viewing_admin", "true");
             }}
-            className="bg-amber-500 hover:bg-amber-400 active:scale-95 text-slate-950 font-black text-xs px-3 sm:px-3.5 py-1 rounded-xl transition-all shadow-xs flex items-center gap-1.5 cursor-pointer shrink-0"
+            className="bg-amber-500 hover:bg-amber-400 active:scale-95 text-slate-950 font-black text-xs px-2.5 sm:px-3.5 py-1 rounded-xl transition-all shadow-xs flex items-center gap-1 cursor-pointer shrink-0"
           >
             <ShieldCheck className="w-3.5 h-3.5" />
-            <span>🛡️ العودة للوحة الإدارة</span>
+            <span className="hidden xs:inline">العودة للإدارة</span>
+            <span className="xs:hidden">الإدارة</span>
           </button>
         </div>
       )}
 
       {/* Top Application Header */}
-      <header className="w-full bg-white/90 backdrop-blur-md border-b border-slate-200/80 py-3 px-3 sm:px-6 sticky top-0 z-50 shadow-xs select-none">
-        <div className="max-w-7xl mx-auto w-full flex items-center justify-between gap-2 sm:gap-4">
+      <header className="w-full bg-white/95 backdrop-blur-md border-b border-slate-200/80 py-2 sm:py-3 px-2.5 sm:px-6 sticky top-0 z-50 shadow-xs select-none">
+        <div className="max-w-7xl mx-auto w-full flex items-center justify-between gap-1.5 sm:gap-4">
           {/* Logo & Branding */}
           <div
             onClick={() => {
@@ -3231,13 +3238,13 @@ export default function App() {
                 setIsDriverMode(false);
               }
             }}
-            className="flex items-center gap-2 sm:gap-2.5 cursor-pointer shrink-0"
+            className="flex items-center gap-1.5 sm:gap-2.5 cursor-pointer shrink-0"
           >
-            <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-2xl bg-slate-900 text-orange-500 flex items-center justify-center shadow-md border border-slate-800 shrink-0">
-              <Bike className="w-5 h-5 sm:w-5.5 sm:h-5.5 animate-bounce-slow" />
+            <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl sm:rounded-2xl bg-slate-900 text-orange-500 flex items-center justify-center shadow-md border border-slate-800 shrink-0">
+              <Bike className="w-4.5 h-4.5 sm:w-5.5 sm:h-5.5 animate-bounce-slow" />
             </div>
             <div>
-              <h1 className="font-extrabold text-slate-900 text-sm sm:text-xl tracking-tight leading-none">
+              <h1 className="font-extrabold text-slate-900 text-xs sm:text-xl tracking-tight leading-none">
                 توصيل
               </h1>
               <p className="text-[9px] text-slate-400 font-bold leading-none mt-1 hidden xs:block">
@@ -3247,7 +3254,7 @@ export default function App() {
           </div>
 
           {/* Header Action Buttons */}
-          <div className="flex items-center flex-wrap justify-end gap-1.5 sm:gap-3">
+          <div className="flex items-center justify-end gap-1 sm:gap-2 shrink-0">
             {/* Real-time Offline Mode Indicator Badge */}
             {!isOnline && (
               <button
@@ -3259,30 +3266,28 @@ export default function App() {
                     type: "warning"
                   });
                 }}
-                className="py-1.5 px-2.5 sm:px-3 rounded-xl border border-amber-400/60 bg-amber-500/20 hover:bg-amber-500/30 text-amber-900 transition-all cursor-pointer flex items-center gap-1.5 text-xs font-black shadow-xs active:scale-95 shrink-0 select-none animate-pulse"
+                className="py-1.5 px-2 sm:px-3 rounded-xl border border-amber-400/60 bg-amber-500/20 hover:bg-amber-500/30 text-amber-900 transition-all cursor-pointer flex items-center gap-1 text-xs font-black shadow-xs active:scale-95 shrink-0 select-none animate-pulse"
                 title="أنت في وضع عدم الاتصال - التطبيق يعمل محلياً"
               >
                 <span className="w-2 h-2 rounded-full bg-amber-500 shrink-0" />
                 <WifiOff className="w-3.5 h-3.5 text-amber-600 shrink-0" />
-                <span className="hidden xs:inline">أوفلاين (بدون نت)</span>
-                <span className="xs:hidden">أوفلاين</span>
+                <span className="hidden sm:inline">أوفلاين</span>
               </button>
             )}
 
-            {/* App Update Notification Icon & Button (الايقونة تختفي بعد التحديث) */}
+            {/* App Update Notification Icon & Button */}
             {hasNewUpdate && (
               <button
                 type="button"
                 onClick={() => setShowUpdateModal(true)}
-                className="py-2 px-2.5 sm:px-3 rounded-xl border border-amber-300 bg-linear-to-r from-amber-100/95 via-orange-100/90 to-amber-50 hover:from-amber-200 hover:to-orange-200 text-amber-950 transition-all cursor-pointer flex items-center gap-1.5 text-xs font-black shadow-xs active:scale-95 animate-pulse shrink-0"
+                className="py-1.5 px-2 sm:px-3 rounded-xl border border-amber-300 bg-gradient-to-r from-amber-100/95 via-orange-100/90 to-amber-50 hover:from-amber-200 hover:to-orange-200 text-amber-950 transition-all cursor-pointer flex items-center gap-1.5 text-xs font-black shadow-xs active:scale-95 animate-pulse shrink-0"
                 title="يوجد تحديث وميزات جديدة للتطبيق - اضغط للتحديث"
               >
                 <div className="relative flex items-center justify-center">
-                  <Sparkles className="w-4 h-4 text-orange-600 animate-spin-slow shrink-0" />
+                  <Sparkles className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-orange-600 animate-spin-slow shrink-0" />
                   <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-orange-600 ring-2 ring-white animate-ping" />
                 </div>
-                <span className="hidden xs:inline text-orange-950 font-black">تحديث جديد 🚀</span>
-                <span className="xs:hidden text-[10px] text-orange-950 font-black">تحديث 🚀</span>
+                <span className="hidden sm:inline text-orange-950 font-black">تحديث جديد 🚀</span>
               </button>
             )}
 
@@ -3290,7 +3295,9 @@ export default function App() {
             <button
               type="button"
               onClick={() => setShowSoundModal(true)}
-              className={`py-2 px-2.5 sm:px-3 rounded-xl border transition-all cursor-pointer flex items-center gap-1.5 text-xs font-black shadow-xs active:scale-95 whitespace-nowrap ${
+              className={`p-1.5 sm:py-2 sm:px-2.5 rounded-xl border transition-all cursor-pointer flex items-center justify-center gap-1.5 text-xs font-black shadow-xs active:scale-95 shrink-0 ${
+                userRole !== "customer" && userRole !== "guest" ? "hidden sm:flex" : "flex"
+              } ${
                 soundEnabled
                   ? "border-emerald-200 bg-emerald-50 hover:bg-emerald-100 text-emerald-800"
                   : "border-slate-200 bg-slate-100 hover:bg-slate-200 text-slate-500"
@@ -3315,11 +3322,12 @@ export default function App() {
                   setIsViewingCart(false);
                   setIsAdminMode(false);
                 }}
-                className="bg-orange-500 text-white hover:bg-orange-600 font-extrabold text-xs py-2 px-3.5 sm:px-4 rounded-xl shadow-xs hover:shadow transition-all flex items-center gap-1.5 cursor-pointer animate-pulse"
+                className="bg-orange-500 text-white hover:bg-orange-600 font-extrabold text-xs py-1.5 px-2 sm:py-2 sm:px-3.5 rounded-xl shadow-xs hover:shadow transition-all flex items-center gap-1 cursor-pointer animate-pulse shrink-0"
                 title="متابعة وتتبع طلبك الحالي"
               >
-                <span className="w-2 h-2 rounded-full bg-white animate-ping inline-block" />
-                <span>تتبع طلبك الحالي</span>
+                <span className="w-2 h-2 rounded-full bg-white animate-ping inline-block shrink-0" />
+                <span className="hidden xs:inline">تتبع طلبك</span>
+                <span className="xs:hidden">طلبك</span>
               </button>
             )}
 
@@ -3328,24 +3336,24 @@ export default function App() {
               <button
                 type="button"
                 onClick={() => setShowAuthModal(true)}
-                className="py-2 px-3 sm:px-4 rounded-xl border border-orange-400/80 bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white transition-all cursor-pointer flex items-center justify-center gap-1.5 text-xs font-black shadow-md shadow-orange-500/20 active:scale-95 whitespace-nowrap"
+                className="py-1.5 px-2.5 sm:py-2 sm:px-4 rounded-xl border border-orange-400/80 bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white transition-all cursor-pointer flex items-center justify-center gap-1.5 text-xs font-black shadow-md shadow-orange-500/20 active:scale-95 whitespace-nowrap shrink-0"
                 title="تسجيل الدخول / تبديل الحساب"
               >
-                <LogIn className="w-4 h-4 text-white shrink-0" />
+                <LogIn className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-white shrink-0" />
                 <span>تسجيل الدخول</span>
               </button>
             ) : (
-              <div className="flex items-center gap-1.5 sm:gap-2">
+              <div className="flex items-center gap-1 sm:gap-2 shrink-0">
                 {/* 1. Store Owner & Craftsmen: Store/Owner Name Badge + "تصفح كزبون 🛍️" Button */}
                 {userRole === "store_owner" && (
                   <>
                     <div 
-                      className="py-1.5 px-2.5 sm:px-3 rounded-xl border border-slate-200/90 bg-slate-100 text-slate-800 text-xs font-black flex items-center gap-1.5 shadow-xs whitespace-nowrap select-none"
+                      className="py-1.5 px-2 sm:px-3 rounded-xl border border-slate-200/90 bg-slate-100 text-slate-800 text-xs font-black flex items-center gap-1 shadow-xs whitespace-nowrap select-none shrink-0"
                       title={`صاحب المتجر: ${userProfile.name}`}
                     >
                       <StoreIcon className="w-3.5 h-3.5 text-orange-600 shrink-0" />
-                      <span className="truncate max-w-[95px] xs:max-w-[130px] sm:max-w-[170px]">
-                        {userProfile.name || stores.find((s) => s.id === currentStoreId || (userProfile?.phone && s.ownerPhone === userProfile.phone))?.name || "صاحب المتجر"}
+                      <span className="truncate max-w-[70px] xs:max-w-[110px] sm:max-w-[170px]">
+                        {userProfile.name || stores.find((s) => s.id === currentStoreId || (userProfile?.phone && s.ownerPhone === userProfile.phone))?.name || "المتجر"}
                       </span>
                     </div>
 
@@ -3365,7 +3373,7 @@ export default function App() {
                           handleToggleStoreOwnerCustomerBrowsing(false);
                         }
                       }}
-                      className={`py-1.5 px-2.5 sm:px-3.5 rounded-xl border font-black text-xs transition-all cursor-pointer flex items-center justify-center gap-1.5 shadow-md active:scale-95 whitespace-nowrap animate-fade-in ${
+                      className={`py-1.5 px-2 sm:px-3 rounded-xl border font-black text-xs transition-all cursor-pointer flex items-center justify-center gap-1 shadow-md active:scale-95 whitespace-nowrap shrink-0 animate-fade-in ${
                         isStoreOwnerBrowsingAsCustomer
                           ? "border-emerald-500/60 bg-gradient-to-r from-emerald-800 via-emerald-700 to-emerald-800 hover:from-emerald-700 text-white shadow-emerald-950/25"
                           : "border-orange-400 bg-gradient-to-r from-orange-600 via-amber-600 to-orange-500 hover:from-orange-500 hover:to-amber-500 text-white shadow-orange-950/30 ring-2 ring-orange-400/30"
@@ -3385,7 +3393,8 @@ export default function App() {
                       ) : (
                         <>
                           <ShoppingBag className="w-3.5 h-3.5 text-amber-200 shrink-0" />
-                          <span>تصفح كزبون 🛍️</span>
+                          <span className="hidden xs:inline">تصفح كزبون 🛍️</span>
+                          <span className="xs:hidden">زبون 🛍️</span>
                         </>
                       )}
                     </button>
@@ -3396,12 +3405,12 @@ export default function App() {
                 {userRole === "driver" && (
                   <>
                     <div 
-                      className="py-1.5 px-2.5 sm:px-3 rounded-xl border border-slate-200/90 bg-slate-100 text-slate-800 text-xs font-black flex items-center gap-1.5 shadow-xs whitespace-nowrap select-none"
+                      className="py-1.5 px-2 sm:px-3 rounded-xl border border-slate-200/90 bg-slate-100 text-slate-800 text-xs font-black flex items-center gap-1 shadow-xs whitespace-nowrap select-none shrink-0"
                       title={`الكابتن: ${userProfile.name}`}
                     >
                       <Bike className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                      <span className="truncate max-w-[95px] xs:max-w-[130px] sm:max-w-[170px]">
-                        {userProfile.name || "كابتن التوصيل"}
+                      <span className="truncate max-w-[70px] xs:max-w-[110px] sm:max-w-[170px]">
+                        {userProfile.name || "الكابتن"}
                       </span>
                     </div>
 
@@ -3425,10 +3434,10 @@ export default function App() {
                           localStorage.setItem("tw_viewing_admin", "false");
                         }
                       }}
-                      className={`py-1.5 px-2.5 sm:px-3.5 rounded-xl border font-black text-xs transition-all cursor-pointer flex items-center justify-center gap-1.5 shadow-md active:scale-95 whitespace-nowrap animate-fade-in ${
+                      className={`py-1.5 px-2 sm:px-3 rounded-xl border font-black text-xs transition-all cursor-pointer flex items-center justify-center gap-1 shadow-md active:scale-95 whitespace-nowrap shrink-0 animate-fade-in ${
                         isDriverMode
                           ? "border-orange-400 bg-gradient-to-r from-orange-600 via-amber-600 to-orange-500 hover:from-orange-500 hover:to-amber-500 text-white shadow-orange-950/30 ring-2 ring-orange-400/30"
-                          : "border-blue-700 bg-gradient-to-r from-blue-900 via-blue-800 to-blue-900 hover:from-blue-800 text-white shadow-blue-950/25"
+                          : "border-blue-600 bg-blue-700 hover:bg-blue-600 text-white shadow-blue-950/25"
                       }`}
                       title={
                         isDriverMode
@@ -3439,7 +3448,8 @@ export default function App() {
                       {isDriverMode ? (
                         <>
                           <ShoppingBag className="w-3.5 h-3.5 text-amber-200 shrink-0" />
-                          <span>تصفح كزبون 🛍️</span>
+                          <span className="hidden xs:inline">تصفح كزبون 🛍️</span>
+                          <span className="xs:hidden">زبون 🛍️</span>
                         </>
                       ) : (
                         <>
@@ -3456,11 +3466,11 @@ export default function App() {
                 {userRole === "admin" && (
                   <>
                     <div 
-                      className="py-1.5 px-2.5 sm:px-3 rounded-xl border border-slate-200/90 bg-slate-100 text-slate-800 text-xs font-black flex items-center gap-1.5 shadow-xs whitespace-nowrap select-none"
+                      className="py-1.5 px-2 sm:px-3 rounded-xl border border-slate-200/90 bg-slate-100 text-slate-800 text-xs font-black flex items-center gap-1 shadow-xs whitespace-nowrap select-none shrink-0"
                       title={`الإدارة: ${userProfile.name}`}
                     >
                       <ShieldCheck className="w-3.5 h-3.5 text-purple-600 shrink-0" />
-                      <span className="truncate max-w-[95px] xs:max-w-[130px] sm:max-w-[170px]">
+                      <span className="truncate max-w-[70px] xs:max-w-[110px] sm:max-w-[170px]">
                         {userProfile.name || "الإدارة"}
                       </span>
                     </div>
@@ -3487,7 +3497,7 @@ export default function App() {
                           localStorage.setItem("tw_viewing_driver", "false");
                         }
                       }}
-                      className={`py-1.5 px-2.5 sm:px-3.5 rounded-xl border font-black text-xs transition-all cursor-pointer flex items-center justify-center gap-1.5 shadow-md active:scale-95 whitespace-nowrap animate-fade-in ${
+                      className={`py-1.5 px-2 sm:px-3 rounded-xl border font-black text-xs transition-all cursor-pointer flex items-center justify-center gap-1 shadow-md active:scale-95 whitespace-nowrap shrink-0 animate-fade-in ${
                         isAdminMode
                           ? "border-orange-400 bg-gradient-to-r from-orange-600 via-amber-600 to-orange-500 hover:from-orange-500 hover:to-amber-500 text-white shadow-orange-950/30 ring-2 ring-orange-400/30"
                           : "border-slate-700 bg-slate-900 hover:bg-slate-800 text-white shadow-slate-950/25"
@@ -3501,7 +3511,8 @@ export default function App() {
                       {isAdminMode ? (
                         <>
                           <ShoppingBag className="w-3.5 h-3.5 text-amber-200 shrink-0" />
-                          <span>تصفح كزبون 🛍️</span>
+                          <span className="hidden xs:inline">تصفح كزبون 🛍️</span>
+                          <span className="xs:hidden">زبون 🛍️</span>
                         </>
                       ) : (
                         <>
@@ -3517,11 +3528,11 @@ export default function App() {
                 {/* 4. Customer: Customer Name Badge */}
                 {userRole === "customer" && (
                   <div 
-                    className="py-1.5 px-2.5 sm:px-3 rounded-xl border border-slate-200/90 bg-slate-100 text-slate-800 text-xs font-black flex items-center gap-1.5 shadow-xs whitespace-nowrap select-none"
+                    className="py-1.5 px-2 sm:px-3 rounded-xl border border-slate-200/90 bg-slate-100 text-slate-800 text-xs font-black flex items-center gap-1 shadow-xs whitespace-nowrap select-none shrink-0"
                     title={`الزبون: ${userProfile.name}`}
                   >
                     <User className="w-3.5 h-3.5 text-orange-600 shrink-0" />
-                    <span className="truncate max-w-[100px] xs:max-w-[140px] sm:max-w-[180px]">
+                    <span className="truncate max-w-[85px] xs:max-w-[120px] sm:max-w-[180px]">
                       {userProfile.name || "الزبون"}
                     </span>
                   </div>
@@ -3529,22 +3540,21 @@ export default function App() {
               </div>
             )}
 
-            {/* Back to Home Button */}
-            {(isAdminMode || isDriverMode || selectedStore || isViewingCart) && (
+            {/* Back to Home Button - Only shown when viewing an individual store or viewing the cart */}
+            {(selectedStore || isViewingCart) && (
               <button
                 type="button"
                 onClick={() => {
                   setSelectedStore(null);
                   setIsViewingCart(false);
-                  setIsAdminMode(false);
-                  setIsDriverMode(false);
                   setActiveOrder(null);
                 }}
-                className="py-2 px-3 sm:px-4 rounded-xl border border-orange-200 bg-orange-50 hover:bg-orange-100 text-orange-600 transition-all cursor-pointer flex items-center gap-1.5 font-black text-xs sm:text-sm shadow-xs animate-fade-in"
+                className="py-1.5 px-2 sm:py-2 sm:px-3.5 rounded-xl border border-orange-200 bg-orange-50 hover:bg-orange-100 text-orange-600 transition-all cursor-pointer flex items-center gap-1 font-black text-xs shadow-xs animate-fade-in shrink-0"
                 title="الرجوع للقائمة الرئيسية"
               >
-                <ArrowLeft className="w-4 h-4 text-orange-600" />
-                <span>الرئيسية / عودة</span>
+                <ArrowLeft className="w-3.5 h-3.5 text-orange-600" />
+                <span className="hidden xs:inline">الرئيسية / عودة</span>
+                <span className="xs:hidden">عودة</span>
               </button>
             )}
           </div>

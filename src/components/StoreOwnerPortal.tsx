@@ -460,11 +460,11 @@ export const StoreOwnerPortal: React.FC<StoreOwnerPortalProps> = ({
   return (
     <div className="max-w-5xl mx-auto space-y-6 text-right font-sans pb-28" dir="rtl">
       {/* Merchant Header Banner */}
-      <div className="bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 border border-slate-700/80 rounded-3xl p-5 sm:p-7 text-white shadow-xl space-y-5">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div className="flex items-center gap-3.5">
+      <div className="bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 border border-slate-700/80 rounded-3xl p-4 sm:p-7 text-white shadow-xl space-y-4 sm:space-y-5">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3.5 sm:gap-4">
+          <div className="flex items-center gap-3 sm:gap-3.5">
             <div className="relative group shrink-0">
-              <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center text-white text-3xl font-black shadow-lg shadow-orange-500/25 overflow-hidden border-2 border-amber-400/40">
+              <div className="w-14 h-14 sm:w-20 sm:h-20 rounded-2xl bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center text-white text-2xl sm:text-3xl font-black shadow-lg shadow-orange-500/25 overflow-hidden border-2 border-amber-400/40">
                 {currentStore.image ? (
                   <img
                     src={currentStore.image}
@@ -487,41 +487,30 @@ export const StoreOwnerPortal: React.FC<StoreOwnerPortalProps> = ({
                 <Camera className="w-3.5 h-3.5" />
               </button>
             </div>
-            <div>
-              <div className="flex items-center gap-2 flex-wrap">
-                <h2 className="text-lg sm:text-xl font-black text-white">{currentStore.name}</h2>
-                {onBackToCustomerView && (
-                  <button
-                    type="button"
-                    onClick={onBackToCustomerView}
-                    className="py-1 px-3 rounded-xl border border-orange-400/80 bg-gradient-to-r from-orange-600 via-amber-600 to-orange-500 hover:from-orange-500 hover:to-amber-500 text-xs font-black text-white transition-all cursor-pointer inline-flex items-center gap-1.5 shadow-md shadow-orange-950/40 active:scale-95 whitespace-nowrap"
-                    title="تصفح المنصة والتسوق كزبون"
-                  >
-                    <ShoppingBag className="w-3.5 h-3.5 text-amber-200 shrink-0" />
-                    <span>تصفح كزبون 🛍️</span>
-                  </button>
-                )}
+            <div className="min-w-0">
+              <div className="flex flex-col xs:flex-row xs:items-center gap-1 sm:gap-2">
+                <h2 className="text-base sm:text-xl font-black text-white truncate">{currentStore.name}</h2>
                 {currentStore.isApproved === false ? (
-                  <span className="px-2.5 py-0.5 rounded-full text-[11px] font-black border bg-amber-500/20 text-amber-300 border-amber-500/40 flex items-center gap-1">
+                  <span className="px-2.5 py-0.5 rounded-full text-[11px] font-black border bg-amber-500/20 text-amber-300 border-amber-500/40 flex items-center gap-1 whitespace-nowrap shrink-0 w-fit">
                     <span>⏳</span>
-                    <span>بانتظار موافقة وتفعيل الإدارة</span>
+                    <span>بانتظار موافقة الإدارة</span>
                   </span>
                 ) : (
                   <span
-                    className={`px-2.5 py-0.5 rounded-full text-[11px] font-black border ${
+                    className={`px-2.5 py-0.5 rounded-full text-[11px] font-black border whitespace-nowrap shrink-0 w-fit ${
                       isOpen
                         ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/30"
                         : "bg-red-500/20 text-red-400 border-red-500/30"
                     }`}
                   >
-                    {isOpen ? "المتجر مفتوح لاستقبال الطلبات 🟢" : "المتجر مغلق حالياً 🔴"}
+                    {isOpen ? "المتجر مفتوح 🟢" : "المتجر مغلق 🔴"}
                   </span>
                 )}
               </div>
               <p className="text-slate-400 text-xs font-semibold mt-0.5 flex items-center gap-2 flex-wrap">
-                <span>هاتف المتجر: <strong className="font-mono text-slate-200">{currentStore.contactPhone || userProfile.phone}</strong></span>
+                <span>هاتف: <strong className="font-mono text-slate-200">{currentStore.contactPhone || userProfile.phone}</strong></span>
                 <span>•</span>
-                <span>أجرة التوصيل: {currentStore.deliveryFee === 0 || currentStore.deliveryFee === undefined ? "توصيل مجاني (0)" : `${currentStore.deliveryFee.toLocaleString()} ${currency}`}</span>
+                <span>أجرة التوصيل: {currentStore.deliveryFee === 0 || currentStore.deliveryFee === undefined ? "توصيل مجاني" : `${currentStore.deliveryFee.toLocaleString()} ${currency}`}</span>
               </p>
               <button
                 type="button"
@@ -529,51 +518,51 @@ export const StoreOwnerPortal: React.FC<StoreOwnerPortalProps> = ({
                   setTempStoreImage(currentStore.image || "");
                   setShowStoreImageModal(true);
                 }}
-                className="inline-flex items-center gap-1 text-[11px] font-black text-amber-400 hover:text-amber-300 mt-1 cursor-pointer transition-colors bg-white/5 hover:bg-white/10 px-2.5 py-0.5 rounded-lg border border-amber-400/30"
+                className="inline-flex items-center gap-1 text-[11px] font-black text-amber-400 hover:text-amber-300 mt-1 cursor-pointer transition-colors bg-white/5 hover:bg-white/10 px-2 py-0.5 rounded-lg border border-amber-400/30"
               >
                 <Camera className="w-3 h-3" />
-                <span>تغيير صورة المتجر من الاستديو 📷</span>
+                <span>تغيير صورة المتجر 📷</span>
               </button>
             </div>
           </div>
 
-          <div className="flex items-center gap-2 flex-wrap">
+          <div className="grid grid-cols-2 sm:flex sm:items-center gap-2 w-full sm:w-auto pt-2 sm:pt-0 border-t sm:border-t-0 border-slate-800">
             {/* Sound alert toggle for store orders */}
             <button
               type="button"
               onClick={handleToggleSound}
-              className={`py-2 px-3.5 rounded-xl border text-xs font-black transition-all cursor-pointer flex items-center gap-1.5 ${
+              className={`py-2 px-3 rounded-xl border text-xs font-black transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
                 soundAlerts
                   ? "bg-emerald-500/20 text-emerald-300 border-emerald-500/40 hover:bg-emerald-500/30"
                   : "bg-slate-800 text-slate-400 border-slate-700 hover:bg-slate-700"
               }`}
               title="تفعيل/كتم صوت رنين الطلبات الواردة للمتجر"
             >
-              {soundAlerts ? <Volume2 className="w-4 h-4 text-emerald-400 animate-pulse" /> : <VolumeX className="w-4 h-4 text-slate-400" />}
-              <span>{soundAlerts ? "رنين الطلبات مفعّل 🔔" : "الصوت مكتوم"}</span>
+              {soundAlerts ? <Volume2 className="w-4 h-4 text-emerald-400 animate-pulse shrink-0" /> : <VolumeX className="w-4 h-4 text-slate-400 shrink-0" />}
+              <span className="truncate">{soundAlerts ? "رنين الطلبات 🔔" : "الصوت مكتوم"}</span>
             </button>
 
             <button
               type="button"
               onClick={handleToggleStoreStatus}
-              className={`py-2 px-3.5 rounded-xl border text-xs font-black transition-all cursor-pointer flex items-center gap-1.5 ${
+              className={`py-2 px-3 rounded-xl border text-xs font-black transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
                 isOpen
                   ? "bg-amber-500/20 text-amber-300 border-amber-500/40 hover:bg-amber-500/30"
                   : "bg-emerald-500/20 text-emerald-300 border-emerald-500/40 hover:bg-emerald-500/30"
               }`}
             >
-              <Power className="w-4 h-4" />
-              <span>{isOpen ? "إغلاق المتجر مؤقتاً" : "فتح المتجر للزبائن"}</span>
+              <Power className="w-4 h-4 shrink-0" />
+              <span className="truncate">{isOpen ? "إغلاق مؤقت" : "فتح المتجر"}</span>
             </button>
 
             {onBackToCustomerView && (
               <button
                 type="button"
                 onClick={onBackToCustomerView}
-                className="py-2 px-4 rounded-xl border border-orange-400/80 bg-gradient-to-r from-orange-600 via-amber-600 to-orange-500 hover:from-orange-500 hover:to-amber-500 text-xs font-black text-white transition-all cursor-pointer flex items-center gap-1.5 shadow-lg shadow-orange-950/40 active:scale-95"
+                className="col-span-2 sm:col-span-1 py-2 px-4 rounded-xl border border-orange-400/80 bg-gradient-to-r from-orange-600 via-amber-600 to-orange-500 hover:from-orange-500 hover:to-amber-500 text-xs font-black text-white transition-all cursor-pointer flex items-center justify-center gap-1.5 shadow-lg shadow-orange-950/40 active:scale-95"
                 title="الانتقال المباشر لتصفح المنصة والتسوق كزبون"
               >
-                <ShoppingBag className="w-4 h-4 text-amber-200" />
+                <ShoppingBag className="w-4 h-4 text-amber-200 shrink-0" />
                 <span>تصفح كزبون 🛍️</span>
               </button>
             )}
@@ -581,9 +570,9 @@ export const StoreOwnerPortal: React.FC<StoreOwnerPortalProps> = ({
             <button
               type="button"
               onClick={onLogout}
-              className="py-2 px-3.5 rounded-xl border border-red-500/30 bg-red-500/10 hover:bg-red-500/20 text-xs font-bold text-red-400 transition-all cursor-pointer flex items-center gap-1.5"
+              className="col-span-2 sm:col-span-1 py-2 px-3.5 rounded-xl border border-red-500/30 bg-red-500/10 hover:bg-red-500/20 text-xs font-bold text-red-400 transition-all cursor-pointer flex items-center justify-center gap-1.5"
             >
-              <LogOut className="w-4 h-4" />
+              <LogOut className="w-4 h-4 shrink-0" />
               <span>خروج</span>
             </button>
           </div>

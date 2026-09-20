@@ -242,32 +242,21 @@ export const DriverPortal: React.FC<DriverPortalProps> = ({
   return (
     <div className="max-w-5xl mx-auto space-y-6 text-right font-sans pb-28" dir="rtl">
       {/* Top Banner: Captain Identity & Stats */}
-      <div className="bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 border border-slate-700/80 rounded-3xl p-5 sm:p-7 text-white shadow-xl space-y-5">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div className="flex items-center gap-3.5">
-            <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-orange-500 to-amber-600 flex items-center justify-center text-white text-3xl font-black shadow-lg shadow-orange-500/25 shrink-0">
+      <div className="bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 border border-slate-700/80 rounded-3xl p-4 sm:p-7 text-white shadow-xl space-y-4 sm:space-y-5">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3.5 sm:gap-4">
+          <div className="flex items-center gap-3 sm:gap-3.5">
+            <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-gradient-to-br from-orange-500 to-amber-600 flex items-center justify-center text-white text-2xl sm:text-3xl font-black shadow-lg shadow-orange-500/25 shrink-0">
               🛵
             </div>
-            <div>
-              <div className="flex items-center gap-2 flex-wrap">
-                <h2 className="text-lg sm:text-xl font-black text-white">{currentDriver.name}</h2>
-                {onBackToCustomerView && (
-                  <button
-                    type="button"
-                    onClick={onBackToCustomerView}
-                    className="py-1 px-3 rounded-xl border border-orange-400/80 bg-gradient-to-r from-orange-600 via-amber-600 to-orange-500 hover:from-orange-500 hover:to-amber-500 text-xs font-black text-white transition-all cursor-pointer inline-flex items-center gap-1.5 shadow-md shadow-orange-950/40 active:scale-95 whitespace-nowrap"
-                    title="تصفح المنصة والتسوق كزبون"
-                  >
-                    <ShoppingBag className="w-3.5 h-3.5 text-amber-200 shrink-0" />
-                    <span>تصفح كزبون 🛍️</span>
-                  </button>
-                )}
-                <span className="px-2.5 py-0.5 rounded-full text-[11px] font-black bg-orange-500/20 text-orange-400 border border-orange-500/30">
+            <div className="min-w-0">
+              <div className="flex flex-col xs:flex-row xs:items-center gap-1 sm:gap-2">
+                <h2 className="text-base sm:text-xl font-black text-white truncate">{currentDriver.name}</h2>
+                <span className="px-2.5 py-0.5 rounded-full text-[11px] font-black bg-orange-500/20 text-orange-400 border border-orange-500/30 whitespace-nowrap shrink-0 w-fit">
                   كابتن أسطول التوصيل
                 </span>
               </div>
-              <p className="text-slate-400 text-xs font-semibold mt-0.5 flex items-center gap-2">
-                <span>{currentDriver.vehicle || "دراجة نارية سريعة"}</span>
+              <p className="text-slate-400 text-xs font-semibold mt-0.5 flex items-center gap-2 flex-wrap">
+                <span>{currentDriver.vehicle || "دراجة نارية"}</span>
                 <span>•</span>
                 <span className="font-mono text-slate-300">{currentDriver.phone}</span>
                 <span>•</span>
@@ -278,40 +267,43 @@ export const DriverPortal: React.FC<DriverPortalProps> = ({
             </div>
           </div>
 
-          <div className="flex items-center gap-2 flex-wrap">
+          <div className="grid grid-cols-2 sm:flex sm:items-center gap-2 w-full sm:w-auto pt-2 sm:pt-0 border-t sm:border-t-0 border-slate-800">
             {/* Sound alert toggle button for driver */}
             <button
               type="button"
               onClick={handleToggleSound}
-              className={`py-2 px-3.5 rounded-xl border text-xs font-black transition-all cursor-pointer flex items-center gap-1.5 ${
+              className={`py-2 px-3 rounded-xl border text-xs font-black transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
                 soundAlerts
                   ? "bg-emerald-500/20 text-emerald-300 border-emerald-500/40 hover:bg-emerald-500/30"
                   : "bg-slate-800 text-slate-400 border-slate-700 hover:bg-slate-700"
               }`}
               title="تفعيل/كتم صوت رنين الطلبات الجديدة المتاحة للتوصيل"
             >
-              {soundAlerts ? <Volume2 className="w-4 h-4 text-emerald-400 animate-pulse" /> : <VolumeX className="w-4 h-4 text-slate-400" />}
-              <span>{soundAlerts ? "تنبيه الرنين مفعّل 🔔" : "الصوت مكتوم"}</span>
+              {soundAlerts ? <Volume2 className="w-4 h-4 text-emerald-400 animate-pulse shrink-0" /> : <VolumeX className="w-4 h-4 text-slate-400 shrink-0" />}
+              <span className="truncate">{soundAlerts ? "تنبيه الرنين 🔔" : "الصوت مكتوم"}</span>
             </button>
 
             {onBackToCustomerView && (
               <button
                 type="button"
                 onClick={onBackToCustomerView}
-                className="py-2 px-4 rounded-xl border border-orange-400/80 bg-gradient-to-r from-orange-600 via-amber-600 to-orange-500 hover:from-orange-500 hover:to-amber-500 text-xs font-black text-white transition-all cursor-pointer flex items-center gap-1.5 shadow-lg shadow-orange-950/40 active:scale-95"
+                className="py-2 px-3.5 rounded-xl border border-orange-400/80 bg-gradient-to-r from-orange-600 via-amber-600 to-orange-500 hover:from-orange-500 hover:to-amber-500 text-xs font-black text-white transition-all cursor-pointer flex items-center justify-center gap-1.5 shadow-lg shadow-orange-950/40 active:scale-95"
                 title="الانتقال الفوري لتصفح المنصة والتسوق كزبون"
               >
-                <ShoppingBag className="w-4 h-4 text-amber-200" />
+                <ShoppingBag className="w-4 h-4 text-amber-200 shrink-0" />
                 <span>تصفح كزبون 🛍️</span>
               </button>
             )}
+
             <button
               type="button"
               onClick={onLogout}
-              className="py-2 px-3.5 rounded-xl border border-red-500/30 bg-red-500/10 hover:bg-red-500/20 text-xs font-bold text-red-400 transition-all cursor-pointer flex items-center gap-1.5"
+              className={`py-2 px-3.5 rounded-xl border border-red-500/30 bg-red-500/10 hover:bg-red-500/20 text-xs font-bold text-red-400 transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
+                onBackToCustomerView ? "col-span-2 sm:col-span-1" : ""
+              }`}
             >
-              <LogOut className="w-4 h-4" />
-              <span>تسجيل خروج</span>
+              <LogOut className="w-4 h-4 shrink-0" />
+              <span>خروج</span>
             </button>
           </div>
         </div>

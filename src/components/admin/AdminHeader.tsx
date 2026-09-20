@@ -185,21 +185,21 @@ export const AdminHeader: React.FC<AdminHeaderProps> = ({
   return (
     <div className="space-y-4 font-sans text-right" dir="rtl">
       {/* Top Banner Header */}
-      <div className="bg-slate-900 border border-slate-800 rounded-3xl p-4 sm:p-5 text-white shadow-xl flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-orange-500 to-amber-600 flex items-center justify-center text-white font-black text-2xl shadow-lg shadow-orange-500/20">
+      <div className="bg-slate-900 border border-slate-800 rounded-3xl p-3.5 sm:p-5 text-white shadow-xl flex flex-col md:flex-row md:items-center justify-between gap-3.5 sm:gap-4">
+        <div className="flex items-center gap-2.5 sm:gap-3">
+          <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-2xl bg-gradient-to-br from-orange-500 to-amber-600 flex items-center justify-center text-white font-black text-xl sm:text-2xl shadow-lg shadow-orange-500/20 shrink-0">
             ت
           </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <h1 className="text-lg sm:text-xl font-black text-white">
+          <div className="min-w-0">
+            <div className="flex flex-col xs:flex-row xs:items-center gap-1 sm:gap-2">
+              <h1 className="text-sm sm:text-xl font-black text-white leading-tight">
                 توصيل القرية الذكي • {currentStaff ? currentStaff.name : "لوحة التحكم الإدارية"}
               </h1>
-              <span className={`px-2.5 py-0.5 rounded-full text-[11px] font-black border ${currentRoleBadge.bg}`}>
+              <span className={`px-2.5 py-0.5 rounded-full text-[11px] font-black border whitespace-nowrap shrink-0 w-fit ${currentRoleBadge.bg}`}>
                 {currentRoleBadge.label}
               </span>
             </div>
-            <p className="text-slate-400 text-xs mt-0.5">
+            <p className="text-slate-400 text-xs mt-0.5 truncate xs:whitespace-normal">
               {isManager 
                 ? "لوحة التحكم المركزية الشاملة - كافة الصلاحيات وإعدادات النظام متاحة" 
                 : `صفحة مهام مخصصة للموظف • متاح لك (${visibleTabs.length}) أقسام مصرح بها`}
@@ -208,7 +208,7 @@ export const AdminHeader: React.FC<AdminHeaderProps> = ({
         </div>
 
         {/* Identity & PIN / Password switcher */}
-        <div className="flex items-center flex-wrap gap-2.5">
+        <div className="grid grid-cols-2 sm:flex sm:items-center sm:flex-wrap gap-2 w-full md:w-auto pt-2 md:pt-0 border-t md:border-t-0 border-slate-800/80">
           {/* Sound Notification quick toggle button for admin */}
           <button
             type="button"
@@ -218,22 +218,22 @@ export const AdminHeader: React.FC<AdminHeaderProps> = ({
               setSoundEnabled(next);
               if (next) playOrderAlertSound("ringtone");
             }}
-            className={`px-3 py-1.5 border font-black text-xs rounded-2xl transition-all flex items-center gap-1.5 cursor-pointer shadow-sm active:scale-95 ${
+            className={`px-2.5 sm:px-3 py-1.5 border font-black text-xs rounded-2xl transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-sm active:scale-95 ${
               soundOn
                 ? "bg-emerald-500/20 text-emerald-300 border-emerald-500/40 hover:bg-emerald-500/30"
                 : "bg-slate-800 text-slate-400 border-slate-700 hover:bg-slate-700"
             }`}
             title="تفعيل/كتم صوت رنين الطلبات الواردة للإدارة"
           >
-            {soundOn ? <Volume2 className="w-3.5 h-3.5 text-emerald-400 animate-pulse" /> : <VolumeX className="w-3.5 h-3.5 text-slate-400" />}
-            <span>{soundOn ? "رنين الطلبات مفعّل 🔔" : "الصوت مكتوم"}</span>
+            {soundOn ? <Volume2 className="w-3.5 h-3.5 text-emerald-400 animate-pulse shrink-0" /> : <VolumeX className="w-3.5 h-3.5 text-slate-400 shrink-0" />}
+            <span className="truncate">{soundOn ? "رنين الطلبات 🔔" : "الصوت مكتوم"}</span>
           </button>
 
-          <div className="bg-slate-800/90 border border-slate-700/80 rounded-2xl px-3 py-1.5 flex items-center gap-2 text-xs">
-            <span className="text-slate-400 font-bold">الحساب النشط:</span>
-            <span className="font-black text-orange-400 flex items-center gap-1">
-              <Shield className="w-3.5 h-3.5 text-orange-400" />
-              <span>{currentStaff?.name || "المدير العام"}</span>
+          <div className="bg-slate-800/90 border border-slate-700/80 rounded-2xl px-2.5 sm:px-3 py-1.5 flex items-center justify-center gap-1.5 text-xs truncate">
+            <span className="text-slate-400 font-bold hidden xs:inline shrink-0">الحساب:</span>
+            <span className="font-black text-orange-400 flex items-center gap-1 truncate">
+              <Shield className="w-3.5 h-3.5 text-orange-400 shrink-0" />
+              <span className="truncate">{currentStaff?.name || "المدير العام"}</span>
             </span>
           </div>
 
@@ -241,10 +241,10 @@ export const AdminHeader: React.FC<AdminHeaderProps> = ({
             <button
               type="button"
               onClick={onBackToCustomerView}
-              className="px-3.5 py-1.5 bg-gradient-to-r from-orange-600 via-amber-600 to-orange-500 hover:from-orange-500 text-white font-black text-xs rounded-2xl transition-all flex items-center gap-1.5 cursor-pointer shadow-md shadow-orange-950/40 active:scale-95 border border-orange-400/50"
+              className="col-span-2 sm:col-span-1 px-3 py-1.5 bg-gradient-to-r from-orange-600 via-amber-600 to-orange-500 hover:from-orange-500 text-white font-black text-xs rounded-2xl transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-md shadow-orange-950/40 active:scale-95 border border-orange-400/50"
               title="الانتقال المباشر لتصفح المنصة والتسوق كزبون"
             >
-              <ShoppingBag className="w-3.5 h-3.5 text-amber-200" />
+              <ShoppingBag className="w-3.5 h-3.5 text-amber-200 shrink-0" />
               <span>تصفح كزبون 🛍️</span>
             </button>
           )}
@@ -252,45 +252,47 @@ export const AdminHeader: React.FC<AdminHeaderProps> = ({
           <button
             type="button"
             onClick={() => setShowAuthModal(true)}
-            className="px-3.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 font-black text-xs rounded-2xl transition-all flex items-center gap-1.5 cursor-pointer shadow-sm active:scale-95"
+            className="px-2.5 sm:px-3.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 font-black text-xs rounded-2xl transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-sm active:scale-95"
             title="تبديل الحساب أو تسجيل دخول موظف آخر"
           >
-            <KeyRound className="w-3.5 h-3.5 text-orange-400" />
-            <span>دخول موظف بالباسوورد 🔐</span>
+            <KeyRound className="w-3.5 h-3.5 text-orange-400 shrink-0" />
+            <span className="truncate">دخول موظف 🔐</span>
           </button>
 
           <button
             type="button"
             onClick={onLogout}
-            className="px-3.5 py-1.5 bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/30 font-black text-xs rounded-2xl transition-all flex items-center gap-1.5 cursor-pointer active:scale-95"
+            className="px-2.5 sm:px-3.5 py-1.5 bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/30 font-black text-xs rounded-2xl transition-all flex items-center justify-center gap-1.5 cursor-pointer active:scale-95"
             title="تسجيل الخروج"
           >
-            <LogOut className="w-3.5 h-3.5" />
+            <LogOut className="w-3.5 h-3.5 shrink-0" />
             <span>خروج</span>
           </button>
         </div>
       </div>
 
       {/* Emergency Rush Management Banner */}
-      <div className={`p-4 rounded-3xl border transition-all duration-300 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-md ${
+      <div className={`p-3.5 sm:p-4 rounded-3xl border transition-all duration-300 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-md ${
         isEmergencyRush 
           ? "bg-red-950/70 border-red-800 text-red-200" 
           : "bg-emerald-950/70 border-emerald-800 text-emerald-200"
       }`}>
-        <div className="flex items-start sm:items-center gap-3">
-          <div className={`w-10 h-10 rounded-2xl flex items-center justify-center text-xl shrink-0 ${
+        <div className="flex items-start sm:items-center gap-2.5 sm:gap-3">
+          <div className={`w-9 h-9 sm:w-10 sm:h-10 rounded-2xl flex items-center justify-center text-lg sm:text-xl shrink-0 ${
             isEmergencyRush ? "bg-red-500/20 text-red-400" : "bg-emerald-500/20 text-emerald-400"
           }`}>
             {isEmergencyRush ? <AlertTriangle className="w-5 h-5" /> : <CheckCircle2 className="w-5 h-5" />}
           </div>
-          <div>
-            <h3 className="text-sm font-black flex items-center gap-2">
-              <span>إدارة ضغط الطلبات وحظر الخدمات/المنتجات</span>
-              <span className="text-xs px-2 py-0.5 rounded-full font-bold bg-black/30">
+          <div className="min-w-0">
+            <div className="flex flex-col xs:flex-row xs:items-center gap-1 sm:gap-2">
+              <h3 className="text-xs sm:text-sm font-black text-white">
+                إدارة ضغط الطلبات وحظر الخدمات/المنتجات
+              </h3>
+              <span className="text-[11px] px-2.5 py-0.5 rounded-full font-bold bg-black/30 whitespace-nowrap shrink-0 w-fit">
                 {isEmergencyRush ? "وضع التجميد مفعّل 🚨" : "الاستقبال طبيعي ومتاح ✅"}
               </span>
-            </h3>
-            <p className="text-xs opacity-80 mt-0.5">
+            </div>
+            <p className="text-xs opacity-80 mt-0.5 leading-relaxed">
               {isEmergencyRush 
                 ? "تنبيه: تم إيقاف استقبال الطلبات الجديدة مؤقتاً للسيطرة على ضغط العمل لدى المحلات والكباتن." 
                 : "النظام يعمل بكفاءة وجاهز لاستقبال الطلبات الفورية من كافة أهالي القرية والمناطق المجاورة."}
@@ -301,7 +303,7 @@ export const AdminHeader: React.FC<AdminHeaderProps> = ({
         <button
           type="button"
           onClick={onToggleEmergencyRush}
-          className={`px-4 py-2 rounded-2xl font-black text-xs transition-all shadow-md flex items-center justify-center gap-2 cursor-pointer shrink-0 active:scale-95 ${
+          className={`w-full sm:w-auto px-4 py-2 rounded-2xl font-black text-xs transition-all shadow-md flex items-center justify-center gap-2 cursor-pointer shrink-0 active:scale-95 ${
             isEmergencyRush
               ? "bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-900/40"
               : "bg-red-600 hover:bg-red-700 text-white shadow-red-900/40"
