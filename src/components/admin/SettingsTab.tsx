@@ -105,6 +105,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
 }) => {
   const [appName, setAppName] = useState(appSettings.appName);
   const [contactPhone, setContactPhone] = useState(appSettings.contactPhone);
+  const [supportName, setSupportName] = useState(appSettings.supportName || "خدمة العملاء والدعم الفني");
   const [currency, setCurrency] = useState(appSettings.currency || "ل.س");
   const [baseDeliveryFee, setBaseDeliveryFee] = useState(appSettings.baseDeliveryFee);
   const [minOrderValue, setMinOrderValue] = useState(appSettings.minOrderValue);
@@ -411,6 +412,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
     onUpdateAppSettings({
       appName: appName.trim(),
       contactPhone: contactPhone.trim(),
+      supportName: supportName.trim(),
       currency: currency.trim(),
       baseDeliveryFee: Number(baseDeliveryFee),
       minOrderValue: Number(minOrderValue),
@@ -420,6 +422,16 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
       adminPin: adminPin.trim() || "1234",
       officialAppUrl: officialAppUrl.trim()
     });
+
+    // Also sync the support staff member if exists
+    const supportMember = staffList?.find(s => s.role === "support");
+    if (supportMember && onUpdateStaff) {
+      onUpdateStaff({
+        ...supportMember,
+        name: supportName.trim() || supportMember.name,
+        phone: contactPhone.trim() || supportMember.phone
+      });
+    }
 
     // Update dynamic manifest with updated name
     updateDynamicPwaManifest({
@@ -1434,13 +1446,27 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
           </div>
 
           <div>
-            <label className="text-xs font-black text-slate-700 block mb-1">رقم هاتف الإدارة والدعم</label>
+            <label className="text-xs font-black text-slate-700 block mb-1">اسم / صفة خدمة العملاء والدعم الفني 🎧</label>
+            <input
+              type="text"
+              value={supportName}
+              onChange={(e) => setSupportName(e.target.value)}
+              placeholder="مثال: خدمة العملاء والدعم الفني"
+              className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 focus:outline-hidden focus:border-orange-500"
+            />
+            <span className="text-[10px] text-slate-400 block mt-1">يظهر للزبائن في أسفل شاشة تتبع الطلب للتواصل</span>
+          </div>
+
+          <div>
+            <label className="text-xs font-black text-slate-700 block mb-1">رقم هاتف خدمة العملاء والدعم الفني 📞</label>
             <input
               type="text"
               value={contactPhone}
               onChange={(e) => setContactPhone(e.target.value)}
-              className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 focus:outline-hidden focus:border-orange-500"
+              placeholder="0951854257"
+              className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 focus:outline-hidden focus:border-orange-500 dir-ltr text-right"
             />
+            <span className="text-[10px] text-slate-400 block mt-1">رقم الاتصال المباشر والواتساب للزبائن في تتبع الطلبات</span>
           </div>
 
           <div>

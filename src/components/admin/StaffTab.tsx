@@ -23,7 +23,8 @@ import {
   Clock,
   Briefcase,
   Layers,
-  Sparkles
+  Sparkles,
+  Headphones
 } from "lucide-react";
 import { StaffMember, StaffPermission, StaffRole } from "../../types";
 import { openWhatsApp } from "../../utils/whatsapp";
@@ -91,6 +92,12 @@ export const StaffTab: React.FC<StaffTabProps> = ({
   const [selectedPermissions, setSelectedPermissions] = useState<StaffPermission[]>(DEFAULT_ROLE_PERMISSIONS.orders_clerk);
   const [showFormPassword, setShowFormPassword] = useState(false);
   const [formError, setFormError] = useState("");
+
+  // Dedicated Customer Service & Tech Support Quick Edit State
+  const [showQuickSupportModal, setShowQuickSupportModal] = useState(false);
+  const [quickSupportName, setQuickSupportName] = useState("");
+  const [quickSupportPhone, setQuickSupportPhone] = useState("");
+  const [quickSupportId, setQuickSupportId] = useState<string | null>(null);
 
   // Card toggles for passwords
   const [visiblePasswords, setVisiblePasswords] = useState<Record<string, boolean>>({});
@@ -236,7 +243,86 @@ export const StaffTab: React.FC<StaffTabProps> = ({
       });
     }
 
+    if (role === "support") {
+      try {
+        const raw = localStorage.getItem("tw_app_settings");
+        const cur = raw ? JSON.parse(raw) : {};
+        const next = {
+          ...cur,
+          contactPhone: phone.trim() || cur.contactPhone,
+          supportName: trimmedName
+        };
+        localStorage.setItem("tw_app_settings", JSON.stringify(next));
+      } catch {}
+    }
+
     setShowModal(false);
+  };
+
+  const handleOpenQuickSupportEdit = (staff: StaffMember) => {
+    setQuickSupportId(staff.id);
+    setQuickSupportName(staff.name);
+    setQuickSupportPhone(staff.phone || "");
+    setShowQuickSupportModal(true);
+  };
+
+  const handleSaveQuickSupport = (e: React.FormEvent) => {
+    e.preventDefault();
+    const trimmedName = quickSupportName.trim();
+    const trimmedPhone = quickSupportPhone.trim();
+    if (!trimmedName) return;
+
+    if (quickSupportId) {
+      const existing = staffList.find(s => s.id === quickSupportId);
+      if (existing) {
+        onUpdateStaff({
+          ...existing,
+          name: trimmedName,
+          phone: trimmedPhone
+        });
+      }
+    } else {
+      onAddStaff({
+        id: "staff_" + Date.now(),
+        name: trimmedName,
+        role: "support",
+        phone: trimmedPhone,
+        username: `support_${Date.now().toString().slice(-4)}`,
+        password: generateStrongPassword(),
+        pin: "1234",
+        permissions: [...DEFAULT_ROLE_PERMISSIONS.support],
+        notes: "خدمة العملاء والدعم الفني - الظاهر للزبائن في تتبع الطلبات",
+        isActive: true,
+        createdAt: new Date().toISOString().split("T")[0]
+      });
+    }
+
+    try {
+      const raw = localStorage.getItem("tw_app_settings");
+      const cur = raw ? JSON.parse(raw) : {};
+      const next = {
+        ...cur,
+        contactPhone: trimmedPhone || cur.contactPhone,
+        supportName: trimmedName
+      };
+      localStorage.setItem("tw_app_settings", JSON.stringify(next));
+    } catch {}
+
+    setShowQuickSupportModal(false);
+  };
+
+  const handleCreateDefaultSupport = () => {
+    setEditingStaffId(null);
+    setName("خدمة العملاء والدعم الفني");
+    setRole("support");
+    setPhone("0951854257");
+    setUsername("support_tawseel");
+    setPassword(generateStrongPassword());
+    setPin("1234");
+    setNotes("مسؤول خدمة العملاء والدعم الفني - الظاهر للزبائن في تتبع الطلبات");
+    setSelectedPermissions([...DEFAULT_ROLE_PERMISSIONS.support]);
+    setFormError("");
+    setShowModal(true);
   };
 
   const handleCopyCredentials = (staff: StaffMember) => {
@@ -292,7 +378,7 @@ ${appUrl}
       case "manager": return { label: "المدير العام (تحكم كامل)", color: "bg-purple-50 text-purple-700 border-purple-200" };
       case "orders_clerk": return { label: "مسؤول الطلبات والتوجيه", color: "bg-blue-50 text-blue-700 border-blue-200" };
       case "accountant": return { label: "المحاسب المالي", color: "bg-emerald-50 text-emerald-700 border-emerald-200" };
-      case "support": return { label: "موظف الدعم والاتصال", color: "bg-amber-50 text-amber-700 border-amber-200" };
+      case "support": return { label: "خدمة العملاء والدعم الفني", color: "bg-amber-50 text-amber-700 border-amber-200" };
       case "products_specialist": return { label: "مشرف المتاجر والأصناف", color: "bg-teal-50 text-teal-700 border-teal-200" };
       case "custom": return { label: "صلاحيات مخصصة", color: "bg-slate-50 text-slate-700 border-slate-200" };
       default: return { label: "موظف إداري", color: "bg-slate-50 text-slate-700 border-slate-200" };
@@ -355,6 +441,100 @@ ${appUrl}
           </div>
         </div>
       </div>
+
+      {/* Customer Service & Technical Support Highlight Card */}
+      {(() => {
+        const supportStaffMembers = staffList.filter(s => s.role === "support");
+        const primarySupportStaff = supportStaffMembers.find(s => s.isActive !== false) || supportStaffMembers[0] || null;
+
+        return (
+          <div className="bg-gradient-to-l from-amber-500/10 via-orange-500/5 to-white border-2 border-amber-300 rounded-3xl p-4 sm:p-5 shadow-xs space-y-3">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 rounded-2xl bg-amber-500 text-white flex items-center justify-center shadow-md shadow-amber-500/20 shrink-0">
+                  <Headphones className="w-6 h-6 text-white" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h4 className="font-black text-slate-900 text-sm sm:text-base">
+                      وظيفة خدمة العملاء والدعم الفني 🎧
+                    </h4>
+                    <span className="bg-amber-100 text-amber-800 border border-amber-200 text-[10px] font-black px-2 py-0.5 rounded-full">
+                      تظهر للزبائن في التتبع
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-600 mt-0.5">
+                    الاسم ورقم هاتف التواصل أدناه يظهران للزبائن في أسفل شاشة تتبع الطلب للتواصل الهاتفي والواتساب
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2 self-start sm:self-auto">
+                {primarySupportStaff ? (
+                  <button
+                    type="button"
+                    onClick={() => handleOpenQuickSupportEdit(primarySupportStaff)}
+                    className="py-2.5 px-4 bg-amber-600 hover:bg-amber-700 text-white font-black text-xs rounded-xl shadow-xs transition-all flex items-center gap-1.5 cursor-pointer active:scale-95"
+                  >
+                    <Sliders className="w-4 h-4" />
+                    <span>تعديل الاسم ورقم التواصل ✏️</span>
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={handleCreateDefaultSupport}
+                    className="py-2.5 px-4 bg-amber-600 hover:bg-amber-700 text-white font-black text-xs rounded-xl shadow-xs transition-all flex items-center gap-1.5 cursor-pointer active:scale-95"
+                  >
+                    <Plus className="w-4 h-4" />
+                    <span>إضافة مسؤول الدعم الفني 🎧</span>
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {primarySupportStaff ? (
+              <div className="bg-white rounded-2xl border border-amber-200/90 p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div className="flex flex-wrap items-center gap-4 text-xs">
+                  <div className="flex items-center gap-1.5 font-black text-slate-800">
+                    <span className="text-slate-400 font-bold">الاسم الحالي:</span>
+                    <span className="bg-amber-50 text-amber-900 px-2.5 py-1 rounded-lg border border-amber-200 font-black">
+                      {primarySupportStaff.name}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center gap-1.5 font-black text-slate-800">
+                    <span className="text-slate-400 font-bold">رقم التواصل:</span>
+                    <span className="font-mono bg-amber-50 text-amber-900 px-2.5 py-1 rounded-lg border border-amber-200 font-black dir-ltr">
+                      {primarySupportStaff.phone || "غير محدد"}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center gap-1.5 text-[11px] text-slate-500">
+                    <span className="text-slate-400 font-bold">رمز الدخول PIN:</span>
+                    <span className="font-mono bg-slate-100 px-2 py-0.5 rounded text-slate-700 font-bold">
+                      {primarySupportStaff.pin}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => handleOpenEditModal(primarySupportStaff)}
+                    className="text-xs font-bold text-amber-700 hover:text-amber-900 underline cursor-pointer"
+                  >
+                    تعديل الصلاحيات الكاملة والرمز
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="bg-white rounded-2xl border border-amber-200/60 p-3 text-xs text-amber-800 flex items-center justify-between">
+                <span>لم يتم تعيين موظف لخدمة العملاء والدعم الفني بعد. انقر لإضافته وتحديد رقم التواصل.</span>
+              </div>
+            )}
+          </div>
+        );
+      })()}
 
       {/* Staff Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -616,12 +796,19 @@ ${appUrl}
                 >
                   <option value="orders_clerk">مسؤول الطلبات والتنسيق مع الكباتن (متابعة الطلبات المباشرة)</option>
                   <option value="accountant">المحاسب المالي (التقارير والأرباح والأرشيف وسجل العمليات)</option>
-                  <option value="support">موظف الدعم الفني واستقبال اتصالات العملاء والمهنيين</option>
+                  <option value="support">خدمة العملاء والدعم الفني (استقبال اتصالات واستفسارات الزبائن وحل المشكلات)</option>
                   <option value="products_specialist">مشرف المتاجر والأصناف وقوائم الأسعار والكوبونات</option>
                   <option value="manager">المدير العام (كامل الصلاحيات والتحكم المركزي بالموقع)</option>
                   <option value="custom">صلاحيات مخصصة (تحديد يدوي حر للمسؤوليات)</option>
                 </select>
               </div>
+
+              {role === "support" && (
+                <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 text-xs text-amber-900 flex items-center gap-2">
+                  <Headphones className="w-4 h-4 text-amber-600 shrink-0" />
+                  <span><strong>ملاحظة هامة:</strong> هذا الاسم ورقم الهاتف هما اللذان يظهران للزبائن في أسفل شاشة تتبع الطلب للتواصل والدعم الفني المباشر.</span>
+                </div>
+              )}
 
               {/* Password & PIN configuration */}
               <div className="bg-orange-50/50 border border-orange-200/70 rounded-2xl p-3.5 space-y-3">
@@ -794,6 +981,80 @@ ${appUrl}
                   type="button"
                   onClick={() => setShowModal(false)}
                   className="py-3 px-5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-2xl transition-all cursor-pointer"
+                >
+                  إلغاء
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Dedicated Quick Support Edit Modal */}
+      {showQuickSupportModal && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl p-6 max-w-md w-full shadow-2xl space-y-4 border border-slate-100 animate-in fade-in zoom-in-95 duration-150">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+              <div className="flex items-center gap-2">
+                <div className="w-9 h-9 rounded-xl bg-amber-500 text-white flex items-center justify-center shadow-xs">
+                  <Headphones className="w-5 h-5 text-white" />
+                </div>
+                <div>
+                  <h4 className="font-black text-slate-900 text-sm">تعديل خدمة العملاء والدعم الفني</h4>
+                  <p className="text-[11px] text-slate-400">تحديث الاسم الظاهر ورقم هاتف التواصل للزبائن</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowQuickSupportModal(false)}
+                className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 flex items-center justify-center transition-colors cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveQuickSupport} className="space-y-4">
+              <div>
+                <label className="block font-black text-xs text-slate-700 mb-1.5">الاسم / الصفة الظاهرة للزبائن: *</label>
+                <input
+                  type="text"
+                  required
+                  value={quickSupportName}
+                  onChange={(e) => setQuickSupportName(e.target.value)}
+                  placeholder="مثال: مروان يوسف (خدمة العملاء والدعم الفني)"
+                  className="w-full py-2.5 px-3 bg-slate-50 border border-slate-200 rounded-xl font-bold text-xs text-slate-800 focus:outline-hidden focus:border-amber-500 focus:bg-white"
+                />
+                <span className="text-[10px] text-slate-400 block mt-1">يظهر هذا الاسم في أسفل شاشة تتبع الطلب</span>
+              </div>
+
+              <div>
+                <label className="block font-black text-xs text-slate-700 mb-1.5">رقم هاتف التواصل والواتساب: *</label>
+                <input
+                  type="tel"
+                  required
+                  value={quickSupportPhone}
+                  onChange={(e) => setQuickSupportPhone(e.target.value)}
+                  placeholder="مثال: 0951854257"
+                  className="w-full py-2.5 px-3 bg-slate-50 border border-slate-200 rounded-xl font-bold text-xs text-slate-800 focus:outline-hidden focus:border-amber-500 focus:bg-white dir-ltr text-right"
+                />
+                <span className="text-[10px] text-slate-400 block mt-1">يستخدمه الزبائن للاتصال المباشر والمراسلة عبر الواتساب</span>
+              </div>
+
+              <div className="bg-amber-50/70 border border-amber-200/80 rounded-xl p-3 text-[11px] text-amber-900 leading-relaxed">
+                💡 <strong>تحديث تلقائي وفوري:</strong> عند الحفظ سيتم تحديث بيانات الموظف الإداري فوراً وتحديث رقم وهاتف خدمة العملاء في تتبع الطلبات والإعدادات العامة.
+              </div>
+
+              <div className="flex gap-2 pt-2">
+                <button
+                  type="submit"
+                  className="flex-1 py-3 bg-amber-600 hover:bg-amber-700 text-white font-black text-xs rounded-xl shadow-md transition-all cursor-pointer active:scale-95"
+                >
+                  حفظ وتطبيق التعديل الآن ✓
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowQuickSupportModal(false)}
+                  className="py-3 px-4 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl transition-all cursor-pointer"
                 >
                   إلغاء
                 </button>

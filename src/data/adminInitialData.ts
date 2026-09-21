@@ -118,14 +118,14 @@ export const initialStaff: StaffMember[] = [
   },
   { 
     id: "staff_4", 
-    name: "مروان يوسف (موظف الدعم)", 
+    name: "مروان يوسف (خدمة العملاء والدعم الفني)", 
     role: "support", 
     username: "support_marwan", 
     password: "support_pass_9999", 
     pin: "9999", 
-    phone: "0994567890", 
+    phone: "0951854257", 
     permissions: ["customers", "orders", "craftsmen", "landmarks"],
-    notes: "خدمة العملاء واستقبال المكالمات وإرشاد الزبائن والحرفيين",
+    notes: "خدمة العملاء والدعم الفني - استقبال اتصالات واستفسارات الزبائن وحل المشكلات",
     isActive: true, 
     createdAt: "2025-02-01" 
   }
@@ -155,7 +155,8 @@ export const initialCoupons: Coupon[] = [
 
 export const initialAppSettings: AppSettings = {
   appName: "توصيل القرية الذكي",
-  contactPhone: "0991234567",
+  contactPhone: "0951854257",
+  supportName: "خدمة العملاء والدعم الفني لمنصة توصيل",
   currency: "ل.س",
   baseDeliveryFee: 5000,
   minOrderValue: 10000,

@@ -81,7 +81,38 @@ export const OrderTracker: React.FC<OrderTrackerProps> = ({
   // Dynamic Store Details
   const matchedStore = stores.find((s) => s.id === order.storeId || s.name === order.storeName);
   const storePhone = matchedStore?.contactPhone || matchedStore?.ownerPhone || "0944111222";
-  const supportPhone = "0951854257";
+
+  // Dynamic Customer Service & Technical Support Details (Configured by Admin)
+  const supportDetails = (() => {
+    try {
+      const rawStaff = localStorage.getItem("tw_staff_members");
+      if (rawStaff) {
+        const staffList: any[] = JSON.parse(rawStaff);
+        const support = staffList.find((s: any) => s.role === "support" && s.isActive !== false) || staffList.find((s: any) => s.role === "support");
+        if (support) {
+          return {
+            name: support.name || 'خدمة العملاء والدعم الفني',
+            phone: support.phone || "0951854257"
+          };
+        }
+      }
+      const rawSettings = localStorage.getItem("tw_app_settings");
+      if (rawSettings) {
+        const settings = JSON.parse(rawSettings);
+        return {
+          name: settings.supportName || 'خدمة العملاء والدعم الفني لمنصة "توصيل"',
+          phone: settings.contactPhone || "0951854257"
+        };
+      }
+    } catch {}
+    return {
+      name: 'خدمة العملاء والدعم الفني لمنصة "توصيل"',
+      phone: "0951854257"
+    };
+  })();
+
+  const supportPhone = supportDetails.phone;
+  const supportName = supportDetails.name;
 
   return (
     <div className="max-w-4xl mx-auto px-4 sm:px-6 py-4 space-y-6 text-right font-sans" dir="rtl">
@@ -496,14 +527,16 @@ export const OrderTracker: React.FC<OrderTrackerProps> = ({
           <div className="flex items-center gap-2">
             <Headphones className="w-5 h-5 text-amber-400" />
             <div>
-              <h5 className="font-black text-xs">خدمة العملاء والدعم الفني لمنصة "توصيل"</h5>
-              <p className="text-slate-400 text-[10px]">جاهزون لمساعدتك في أي وقت على مدار الساعة</p>
+              <h5 className="font-black text-xs">{supportName}</h5>
+              <p className="text-slate-400 text-[10px]">
+                {supportPhone ? `هاتف التواصل: ${supportPhone} • ` : ""}جاهزون لمساعدتك في أي وقت على مدار الساعة
+              </p>
             </div>
           </div>
           <ContactActions
             phone={supportPhone}
-            name="دعم منصة توصيل"
-            defaultMessage={`مرحباً خدمة العملاء، أود الاستفسار عن الطلب #${order.id.slice(-4)}.`}
+            name={supportName}
+            defaultMessage={`مرحباً ${supportName}، أود الاستفسار عن الطلب #${order.id.slice(-4)}.`}
             variant="compact"
           />
         </div>

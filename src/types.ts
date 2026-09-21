@@ -251,6 +251,7 @@ export interface AppSettings {
   logoUrl?: string;
   customAppIcon?: string;
   contactPhone: string;
+  supportName?: string;
   currency: string;
   baseDeliveryFee: number;
   minOrderValue: number;

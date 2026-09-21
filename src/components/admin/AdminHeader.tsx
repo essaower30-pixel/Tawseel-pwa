@@ -174,7 +174,7 @@ export const AdminHeader: React.FC<AdminHeaderProps> = ({
       case "manager": return { label: "المدير العام (تحكم شامل)", bg: "bg-purple-500/20 text-purple-300 border-purple-500/30" };
       case "orders_clerk": return { label: "مسؤول الطلبات والتوجيه", bg: "bg-blue-500/20 text-blue-300 border-blue-500/30" };
       case "accountant": return { label: "المحاسب المالي", bg: "bg-emerald-500/20 text-emerald-300 border-emerald-500/30" };
-      case "support": return { label: "موظف الدعم الفني", bg: "bg-amber-500/20 text-amber-300 border-amber-500/30" };
+      case "support": return { label: "خدمة العملاء والدعم الفني", bg: "bg-amber-500/20 text-amber-300 border-amber-500/30" };
       case "products_specialist": return { label: "مشرف المتاجر والأصناف", bg: "bg-teal-500/20 text-teal-300 border-teal-500/30" };
       default: return { label: "موظف بصلاحيات مخصصة", bg: "bg-orange-500/20 text-orange-300 border-orange-500/30" };
     }

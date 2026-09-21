@@ -242,6 +242,18 @@ export const Dashboard: React.FC<DashboardProps> = ({
     setStaffList(next);
     localStorage.setItem("tw_staff_members", JSON.stringify(next));
     saveStaffToFirestore(staff).catch(() => {});
+
+    if (staff.role === "support") {
+      setAppSettings(prev => {
+        const updated = {
+          ...prev,
+          contactPhone: staff.phone || prev.contactPhone,
+          supportName: staff.name || prev.supportName
+        };
+        localStorage.setItem("tw_app_settings", JSON.stringify(updated));
+        return updated;
+      });
+    }
   };
 
   const handleUpdateStaff = (staff: StaffMember) => {
@@ -249,6 +261,18 @@ export const Dashboard: React.FC<DashboardProps> = ({
     setStaffList(next);
     localStorage.setItem("tw_staff_members", JSON.stringify(next));
     saveStaffToFirestore(staff).catch(() => {});
+
+    if (staff.role === "support") {
+      setAppSettings(prev => {
+        const updated = {
+          ...prev,
+          contactPhone: staff.phone || prev.contactPhone,
+          supportName: staff.name || prev.supportName
+        };
+        localStorage.setItem("tw_app_settings", JSON.stringify(updated));
+        return updated;
+      });
+    }
   };
 
   const handleDeleteStaff = (staffId: string) => {

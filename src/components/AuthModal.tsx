@@ -2082,7 +2082,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                     <option value="">-- اختر حسابك أو اتركها للتعرف التلقائي بالرمز --</option>
                     {getAllStaffMembers().map((st: any) => (
                       <option key={st.id} value={st.id}>
-                        {st.name} {st.role === "manager" ? "(المدير العام)" : st.role === "orders_clerk" ? "(مسؤول الطلبات والكباتن)" : st.role === "accountant" ? "(المحاسب)" : "(إداري)"}
+                        {st.name} {st.role === "manager" ? "(المدير العام)" : st.role === "orders_clerk" ? "(مسؤول الطلبات والكباتن)" : st.role === "accountant" ? "(المحاسب)" : st.role === "support" ? "(خدمة العملاء والدعم الفني)" : "(إداري)"}
                       </option>
                     ))}
                   </select>
