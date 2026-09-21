@@ -59,6 +59,7 @@ interface DashboardProps {
   onDeleteProduct: (productId: string) => void;
   onUpdateOrderStatus: (orderId: string, status: any) => void;
   onAssignDriver?: (orderId: string, driver: DriverMember | null) => void;
+  onForwardOrderToStore?: (orderId: string) => void;
   onLogout: () => void;
   onAddCategory?: (category: Category) => void;
   onUpdateCategory?: (category: Category) => void;
@@ -98,6 +99,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
   onDeleteProduct,
   onUpdateOrderStatus,
   onAssignDriver,
+  onForwardOrderToStore,
   onLogout,
   onAddCategory,
   onUpdateCategory,
@@ -615,6 +617,8 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 driversList={driversList}
                 onUpdateOrderStatus={onUpdateOrderStatus}
                 onAssignDriver={onAssignDriver}
+                onForwardOrderToStore={onForwardOrderToStore}
+                stores={stores}
                 currency={appSettings.currency || "ل.س"}
               />
             )}

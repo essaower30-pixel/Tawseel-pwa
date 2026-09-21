@@ -85,6 +85,7 @@ import {
   requestNotificationPermission,
   getOrderBroadcastChannel,
   broadcastNewOrder,
+  broadcastOrderForwardedToStore,
   getSoundType,
   setSoundType,
   triggerOrderVibration,
@@ -1017,12 +1018,49 @@ export default function App() {
       recentHandledOrders.add(order.id);
       setTimeout(() => recentHandledOrders.delete(order.id), 4000);
 
-      // Play ringing alert sound for incoming orders
+      // CRITICAL USER REQUIREMENT:
+      // "عندما يطلب الزبون يصل تنبيه الى الادارة والادارة ترسل تنبيه الى المتجر وتختار الكابتن بعد اعتماد المتجر الطلب"
+      // "القصد ان طلب الزبون لا يذهب مباشرة الى المتجر"
+      // If the order has NOT yet been forwarded to the store by Admin:
+      if (order.forwardedToStore === false) {
+        // Keep in state silently for Admin sync
+        setAllOrders((prev) => {
+          if (prev.some((o) => o.id === order.id)) return prev;
+          return [order, ...prev];
+        });
+
+        // Store Owners and Drivers do NOT receive this alert or ringtone!
+        if (currentStoreId || userRole === "store_owner" || isDriverMode || userRole === "driver") {
+          return;
+        }
+
+        // Only Administration receives the ringing alert and notification
+        playOrderAlertSound("ringtone");
+        triggerOrderVibration();
+        flashTabTitle(`🔔 (طلب جديد وارد للإدارة #${order.id})`);
+
+        const toastTitle = "🔔 طلب جديد وارد للإدارة!";
+        const toastMessage = `طلب #${order.id} من الزبون ${order.customerName} إلى (${order.storeName}) - الإجمالي: ${order.total.toLocaleString()} ل.س (بانتظار المراجعة والإحالة للمتجر)`;
+
+        showSystemNotification(toastTitle, {
+          body: `متجر: ${order.storeName} | الزبون: ${order.customerName} | الإجمالي: ${order.total} ل.س`,
+        });
+
+        addToastNotification({
+          order,
+          title: toastTitle,
+          message: toastMessage,
+          type: "new_order",
+          targetRole: "admin"
+        });
+        return;
+      }
+
+      // If already forwarded or legacy order:
       playOrderAlertSound("ringtone");
       triggerOrderVibration();
       flashTabTitle(`🔔 (طلب جديد #${order.id})`);
 
-      // Determine role-tailored title & message
       let toastTitle = "وصول طلب جديد إلى النظام! 🛍️";
       let toastMessage = `طلب #${order.id} وارد إلى (${order.storeName}) من الزبون ${order.customerName} بقيمة ${order.total.toLocaleString()} ل.س`;
 
@@ -1037,12 +1075,10 @@ export default function App() {
         toastMessage = `طلب #${order.id} من (${order.storeName}) جاهز للاستلام والتوصيل إلى (${order.addressLandmark || "القرية"})`;
       }
 
-      // Show system notification if browser is in background
       showSystemNotification(toastTitle, {
         body: `متجر: ${order.storeName} | الزبون: ${order.customerName} | الإجمالي: ${order.total} ل.س`,
       });
 
-      // Show in-app Toast
       addToastNotification({
         order,
         title: toastTitle,
@@ -1051,14 +1087,48 @@ export default function App() {
         targetRole: "all"
       });
 
-      // Update allOrders state if not already included
       setAllOrders((prev) => {
         if (prev.some((o) => o.id === order.id)) return prev;
         return [order, ...prev];
       });
     };
 
-    // 1. Same-window custom event listener
+    // Handler when Admin forwards an order to the Store
+    const handleForwardedOrderEvent = (order: Order) => {
+      if (recentHandledOrders.has("fwd_" + order.id)) return;
+      recentHandledOrders.add("fwd_" + order.id);
+      setTimeout(() => recentHandledOrders.delete("fwd_" + order.id), 4000);
+
+      // Update state
+      setAllOrders((prev) =>
+        prev.map((o) => (o.id === order.id ? { ...o, forwardedToStore: true, forwardedToStoreAt: order.forwardedToStoreAt } : o))
+      );
+
+      // If current user is the target store owner
+      const isTargetStore = (currentStoreId && (order.storeId === currentStoreId || order.storeName === stores.find(s => s.id === currentStoreId)?.name)) || userRole === "store_owner";
+      if (isTargetStore) {
+        playOrderAlertSound("ringtone");
+        triggerOrderVibration();
+        flashTabTitle(`🏪 (طلب جديد محال من الإدارة لمتجرك!)`);
+
+        const toastTitle = "🏪 طلب جديد وارد لمتجرك من الإدارة!";
+        const toastMessage = `طلب #${order.id} من الزبون ${order.customerName} بقيمة ${order.total.toLocaleString()} ل.س - تم تدقيقه من الإدارة، يرجى الاعتماد والبدء بالتحضير.`;
+
+        showSystemNotification(toastTitle, {
+          body: `طلب #${order.id} | الزبون: ${order.customerName} | الإجمالي: ${order.total} ل.س`,
+        });
+
+        addToastNotification({
+          order,
+          title: toastTitle,
+          message: toastMessage,
+          type: "new_order",
+          targetRole: "store_owner"
+        });
+      }
+    };
+
+    // 1. Same-window custom event listeners
     const onCustomOrderEvent = (e: Event) => {
       const customEvent = e as CustomEvent;
       if (customEvent.detail && customEvent.detail.order) {
@@ -1067,12 +1137,22 @@ export default function App() {
     };
     window.addEventListener("tw_new_order_event", onCustomOrderEvent);
 
+    const onCustomForwardedEvent = (e: Event) => {
+      const customEvent = e as CustomEvent;
+      if (customEvent.detail && customEvent.detail.order) {
+        handleForwardedOrderEvent(customEvent.detail.order);
+      }
+    };
+    window.addEventListener("tw_order_forwarded_event", onCustomForwardedEvent);
+
     // 2. Cross-tab BroadcastChannel listener
     const channel = getOrderBroadcastChannel();
     if (channel) {
       channel.onmessage = (event) => {
         if (event.data && event.data.type === "NEW_ORDER" && event.data.order) {
           handleOrderEvent(event.data.order);
+        } else if (event.data && event.data.type === "ORDER_FORWARDED_TO_STORE" && event.data.order) {
+          handleForwardedOrderEvent(event.data.order);
         }
       };
     }
@@ -1086,18 +1166,26 @@ export default function App() {
             handleOrderEvent(parsed.order);
           }
         } catch {}
+      } else if (e.key === "tw_last_forwarded_order" && e.newValue) {
+        try {
+          const parsed = JSON.parse(e.newValue);
+          if (parsed && parsed.order) {
+            handleForwardedOrderEvent(parsed.order);
+          }
+        } catch {}
       }
     };
     window.addEventListener("storage", onStorageEvent);
 
     return () => {
       window.removeEventListener("tw_new_order_event", onCustomOrderEvent);
+      window.removeEventListener("tw_order_forwarded_event", onCustomForwardedEvent);
       window.removeEventListener("storage", onStorageEvent);
       if (channel) {
         channel.onmessage = null;
       }
     };
-  }, [addToastNotification, isAdminMode, isDriverMode, userRole, currentStoreId]);
+  }, [addToastNotification, isAdminMode, isDriverMode, userRole, currentStoreId, stores]);
 
   // Auto-scroll to top on view changes
   useEffect(() => {
@@ -2373,25 +2461,37 @@ export default function App() {
   }, [allOrders, products]);
 
   const handleUpdateOrderStatus = async (orderId: string, status: any) => {
+    const isStoreAccepting = status === "accepted" || status === "preparing";
+    const nowIso = new Date().toISOString();
+
     setAllOrders((prev) =>
       prev.map((o) => {
         if (o.id === orderId) {
-          const updated = { ...o, status };
+          const updated = {
+            ...o,
+            status,
+            ...(isStoreAccepting ? { storeAccepted: true, storeAcceptedAt: o.storeAcceptedAt || nowIso } : {})
+          };
           if (activeOrder && activeOrder.id === orderId) {
             setActiveOrder(updated);
           }
           const statusLabels: Record<string, string> = {
-            accepted: "تم قبول الطلب وجارٍ التجهيز",
-            preparing: "الطلب قيد التجهيز الآن",
+            accepted: "المتجر اعتمد الطلب وجارٍ التجهيز",
+            preparing: "الطلب قيد التجهيز الآن بالمحل",
             picked_up: "الكابتن استلم الطلب وهو في الطريق إليك 🛵",
             delivered: "تم توصيل الطلب بنجاح ✅",
             cancelled: "تم إلغاء الطلب ❌"
           };
-          playOrderAlertSound("chime");
+          playOrderAlertSound(isStoreAccepting ? "ringtone" : "chime");
+          if (isStoreAccepting) {
+            flashTabTitle(`✅ (المتجر اعتمد الطلب #${orderId} - اختر الكابتن!)`);
+          }
           addToastNotification({
             order: updated,
-            title: "تحديث حالة الطلب 📦",
-            message: `الطلب #${orderId}: ${statusLabels[status] || status}`,
+            title: isStoreAccepting ? "✅ اعتمد المتجر الطلب! (يرجى اختيار الكابتن 🛵)" : "تحديث حالة الطلب 📦",
+            message: isStoreAccepting 
+              ? `متجر (${updated.storeName}) وافق على الطلب #${orderId} وبدأ التحضير. يرجى اختيار وتوجيه الكابتن الآن.`
+              : `الطلب #${orderId}: ${statusLabels[status] || status}`,
             type: "status_change",
             targetRole: "all"
           });
@@ -2401,8 +2501,14 @@ export default function App() {
       })
     );
     await Promise.allSettled([
-      updateOrderStatusInFirestore(orderId, { status }),
-      updateOrderOnServer(orderId, { status })
+      updateOrderStatusInFirestore(orderId, {
+        status,
+        ...(isStoreAccepting ? { storeAccepted: true, storeAcceptedAt: nowIso } : {})
+      } as any),
+      updateOrderOnServer(orderId, {
+        status,
+        ...(isStoreAccepting ? { storeAccepted: true, storeAcceptedAt: nowIso } : {})
+      } as any)
     ]);
 
     // If order is cancelled, restore reserved stock and reduce soldCount
@@ -2541,6 +2647,43 @@ export default function App() {
         }
       }
     }
+  };
+
+  const handleForwardOrderToStore = async (orderId: string) => {
+    const orderToForward = allOrders.find((o) => o.id === orderId);
+    if (!orderToForward) return;
+
+    const nowIso = new Date().toISOString();
+    const updatedOrder: Order = {
+      ...orderToForward,
+      forwardedToStore: true,
+      forwardedToStoreAt: nowIso
+    };
+
+    setAllOrders((prev) =>
+      prev.map((o) => (o.id === orderId ? updatedOrder : o))
+    );
+    if (activeOrder && activeOrder.id === orderId) {
+      setActiveOrder(updatedOrder);
+    }
+
+    // Save to Firestore & server
+    await Promise.allSettled([
+      updateOrderStatusInFirestore(orderId, { forwardedToStore: true, forwardedToStoreAt: nowIso } as any),
+      updateOrderOnServer(orderId, { forwardedToStore: true, forwardedToStoreAt: nowIso } as any)
+    ]);
+
+    playOrderAlertSound("chime");
+    addToastNotification({
+      order: updatedOrder,
+      title: "تم إرسال الطلب للمتجر بنجاح! 📤",
+      message: `تم إحالة وتنبيه متجر (${updatedOrder.storeName}) بالطلب #${orderId}. سيتاح اختيار وتوجيه الكابتن فور اعتماد المتجر للطلب.`,
+      type: "status_change",
+      targetRole: "admin"
+    });
+
+    // Broadcast in real-time to the store owner
+    broadcastOrderForwardedToStore(updatedOrder);
   };
 
   const handleAssignDriverToOrder = async (orderId: string, driver: DriverMember | null) => {
@@ -2737,6 +2880,8 @@ export default function App() {
       storeName: store ? store.name : "متجر القرية",
       stockDeducted: true,
       deliveryOtp,
+      forwardedToStore: false,
+      storeAccepted: false,
       ...orderData
     };
 
@@ -2822,7 +2967,7 @@ export default function App() {
     addToastNotification({
       order: newOrder,
       title: "تم إرسال طلبكم بنجاح! 🛍️",
-      message: `طلب رقم #${newOrder.id} إلى (${newOrder.storeName}) بقيمة ${newOrder.total.toLocaleString()} ل.س`,
+      message: `طلب رقم #${newOrder.id} وصل لإدارة المنصة، جاري تدقيقه وتوجيهه لمتجر (${newOrder.storeName}).`,
       type: "new_order"
     });
   };
@@ -2882,6 +3027,8 @@ export default function App() {
       customOrderImage: customData.customOrderImage,
       estimatedBudget: estimatedBudget > 0 ? estimatedBudget : undefined,
       isCustomStoreOrder: true,
+      forwardedToStore: false,
+      storeAccepted: false,
       ...customData
     };
 
@@ -2904,7 +3051,7 @@ export default function App() {
     addToastNotification({
       order: newOrder,
       title: "تم إرسال الطلب المخصص بنجاح 📋",
-      message: `طلب #${newOrder.id} من الزبون ${newOrder.customerName}`,
+      message: `طلب خاص #${newOrder.id} وصل لإدارة المنصة، جاري تدقيقه وتوجيهه للمتجر.`,
       type: "new_order"
     });
   };
@@ -3693,6 +3840,7 @@ export default function App() {
                   onDeleteMapNode={(nodeId) => setMapNodes((prev) => prev.filter((n) => n.id !== nodeId))}
                   onUpdateOrderStatus={handleUpdateOrderStatus}
                   onAssignDriver={handleAssignDriverToOrder}
+                  onForwardOrderToStore={handleForwardOrderToStore}
                   onSendBroadcast={handleSendBroadcast}
                   onDeleteBroadcast={handleDeleteBroadcast}
                   onResendBroadcast={handleResendBroadcast}

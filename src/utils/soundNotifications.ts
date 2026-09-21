@@ -300,6 +300,26 @@ export function broadcastNewOrder(order: any): void {
 }
 
 /**
+ * Broadcast when Admin forwards an order to a Store
+ */
+export function broadcastOrderForwardedToStore(order: any): void {
+  const channel = getOrderBroadcastChannel();
+  if (channel) {
+    try {
+      channel.postMessage({ type: "ORDER_FORWARDED_TO_STORE", order, timestamp: Date.now() });
+    } catch {}
+  }
+  if (typeof window !== "undefined") {
+    try {
+      localStorage.setItem("tw_last_forwarded_order", JSON.stringify({ order, timestamp: Date.now() }));
+    } catch {}
+    window.dispatchEvent(
+      new CustomEvent("tw_order_forwarded_event", { detail: { order, timestamp: Date.now() } })
+    );
+  }
+}
+
+/**
  * Trigger physical device vibration for incoming order alerts
  */
 export function triggerOrderVibration(): void {

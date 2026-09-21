@@ -162,6 +162,11 @@ export interface Order {
   stockDeducted?: boolean;
   deliveryOtp?: string;
   deliveredAt?: string;
+  // Admin to Store to Driver workflow flags
+  forwardedToStore?: boolean;
+  forwardedToStoreAt?: string;
+  storeAccepted?: boolean;
+  storeAcceptedAt?: string;
 }
 
 export interface Coupon {

@@ -225,9 +225,10 @@ export const StoreOwnerPortal: React.FC<StoreOwnerPortalProps> = ({
     onUpdateStore({ ...currentStore, status: nextStatus });
   };
 
-  // Filter orders for this store
+  // Filter orders for this store (only orders forwarded by admin to the store)
   const storeOrders = orders.filter(
-    (o) => o.storeId === currentStore.id || o.storeName === currentStore.name
+    (o) => (o.storeId === currentStore.id || o.storeName === currentStore.name) &&
+           (o.forwardedToStore !== false)
   );
 
   // Archive filtered orders
@@ -957,27 +958,47 @@ export const StoreOwnerPortal: React.FC<StoreOwnerPortalProps> = ({
                       </div>
                     </div>
 
-                    {/* Store Action Button for Order Processing */}
-                    <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
-                      {order.status === "pending" && (
-                        <button
-                          type="button"
-                          onClick={() => onUpdateOrderStatus(order.id, "accepted")}
-                          className="py-2 px-4 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-black text-xs shadow-xs transition-all cursor-pointer"
-                        >
-                          قبول الطلب وبدء التحضير 🍳
-                        </button>
-                      )}
+                    {/* Store Action Button & Captain Status for Order Processing */}
+                    <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2 pt-2 border-t border-slate-100">
+                      <div className="text-xs">
+                        {(order.status === "accepted" || order.status === "preparing") && (
+                          order.driverName ? (
+                            <div className="flex items-center gap-1.5 text-emerald-700 bg-emerald-50 border border-emerald-200 px-2.5 py-1 rounded-xl font-bold">
+                              <Bike className="w-4 h-4 text-emerald-600" />
+                              <span>كابتن التوصيل المكلف: {order.driverName} ({order.driverPhone})</span>
+                            </div>
+                          ) : (
+                            <div className="flex items-center gap-1.5 text-amber-800 bg-amber-50 border border-amber-200 px-2.5 py-1 rounded-xl font-bold text-[11px]">
+                              <span>⏳</span>
+                              <span>بانتظار توجيه واختيار الإدارة للكابتن لاستلام الطلب</span>
+                            </div>
+                          )
+                        )}
+                      </div>
 
-                      {(order.status === "accepted" || order.status === "preparing") && (
-                        <button
-                          type="button"
-                          onClick={() => onUpdateOrderStatus(order.id, "picked_up")}
-                          className="py-2 px-4 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-black text-xs shadow-xs transition-all cursor-pointer"
-                        >
-                          تسليم الطلب للكابتن 🛵
-                        </button>
-                      )}
+                      <div className="flex items-center justify-end gap-2">
+                        {order.status === "pending" && (
+                          <button
+                            type="button"
+                            onClick={() => onUpdateOrderStatus(order.id, "accepted")}
+                            className="py-2 px-4 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-black text-xs shadow-xs transition-all cursor-pointer flex items-center gap-1.5"
+                          >
+                            <Check className="w-4 h-4" />
+                            <span>قبول واعتماد الطلب وبدء التحضير 🍳</span>
+                          </button>
+                        )}
+
+                        {(order.status === "accepted" || order.status === "preparing") && (
+                          <button
+                            type="button"
+                            onClick={() => onUpdateOrderStatus(order.id, "picked_up")}
+                            className="py-2 px-4 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-black text-xs shadow-xs transition-all cursor-pointer flex items-center gap-1.5"
+                          >
+                            <Bike className="w-4 h-4" />
+                            <span>تسليم الطلب للكابتن 🛵</span>
+                          </button>
+                        )}
+                      </div>
                     </div>
                   </div>
                 );
