@@ -73,6 +73,7 @@ import { CustomStoreOrderModal } from "./components/CustomStoreOrderModal";
 import { BottomNavigation } from "./components/BottomNavigation";
 import { StoreNewsTicker } from "./components/StoreNewsTicker";
 import { AccountSettingsModal } from "./components/AccountSettingsModal";
+import { FloatingPortalReturnButton } from "./components/FloatingPortalReturnButton";
 import { ToastNotification, ToastItem } from "./components/ToastNotification";
 import { OfflineBanner, useOnlineStatus } from "./components/OfflineBanner";
 import { openWhatsApp } from "./utils/whatsapp";
@@ -367,6 +368,26 @@ export default function App() {
   });
 
   const [showAccountModal, setShowAccountModal] = useState<boolean>(false);
+
+  // Active staff member details for administrative staff navigation
+  const activeStaffMemberInfo = (() => {
+    if (userRole !== "admin") return null;
+    const activeStaffId = localStorage.getItem("tw_active_staff_id") || userProfile?.staffId;
+    let list = initialStaff;
+    try {
+      const raw = localStorage.getItem("tw_staff_members");
+      if (raw) list = JSON.parse(raw);
+    } catch {}
+    if (activeStaffId) {
+      const found = list.find((s: any) => s.id === activeStaffId);
+      if (found) return found;
+    }
+    if (userProfile?.name) {
+      const foundByName = list.find((s: any) => s.name === userProfile.name || s.pin === userProfile.pin);
+      if (foundByName) return foundByName;
+    }
+    return list.find((s: any) => s.role === "manager") || list[0];
+  })();
 
   // Global Coupons State
   const [coupons, setCoupons] = useState<Coupon[]>(() => {
@@ -3140,93 +3161,114 @@ export default function App() {
       {/* Offline Connectivity Status Banner */}
       <OfflineBanner />
 
-      {/* Seamless Customer Shopping Mode for Store Owners Banner */}
-      {userRole === "store_owner" && isStoreOwnerBrowsingAsCustomer && (
-        <div className="bg-slate-900 text-white px-3 sm:px-6 py-2 flex items-center justify-between gap-2 shadow-md sticky top-0 z-50 border-b border-orange-500/40">
-          <div className="flex items-center gap-1.5 sm:gap-2 min-w-0">
-            <span className="relative flex h-2 w-2 sm:h-2.5 sm:w-2.5 shrink-0">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-2 w-2 sm:h-2.5 sm:w-2.5 bg-emerald-500"></span>
-            </span>
-            <span className="text-[11px] sm:text-sm font-bold text-slate-100 truncate">
-              <span className="hidden xs:inline">🛍️ تتصفح كزبون (متجرك نشط بالخلفية)</span>
-              <span className="xs:hidden">🛍️ وضع الزبون</span>
-            </span>
+      {/* Unified Sticky Top Header Container */}
+      <div className="w-full sticky top-0 z-50 shadow-xs">
+        {/* Seamless Customer Shopping Mode for Store Owners Banner */}
+        {userRole === "store_owner" && isStoreOwnerBrowsingAsCustomer && (
+          <div className="bg-slate-900 text-white px-3 sm:px-6 py-2 flex items-center justify-between gap-2 border-b border-orange-500/40">
+            <div className="flex items-center gap-1.5 sm:gap-2 min-w-0">
+              <span className="relative flex h-2 w-2 sm:h-2.5 sm:w-2.5 shrink-0">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2 w-2 sm:h-2.5 sm:w-2.5 bg-emerald-500"></span>
+              </span>
+              <span className="text-[11px] sm:text-sm font-bold text-slate-100 truncate">
+                <span className="hidden xs:inline">🛍️ تتصفح كزبون (متجرك / مهنتك نشطة بالخلفية)</span>
+                <span className="xs:hidden">🛍️ وضع الزبون</span>
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                setSelectedStore(null);
+                setIsViewingCart(false);
+                handleToggleStoreOwnerCustomerBrowsing(false);
+                addToastNotification({
+                  title: "مرحباً بك مجدداً 🏪",
+                  message: "تمت العودة إلى لوحة إدارة متجرك بنجاح",
+                  type: "success"
+                });
+              }}
+              className="bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 active:scale-95 text-slate-950 font-black text-xs px-2.5 sm:px-3.5 py-1.5 rounded-xl transition-all shadow-sm flex items-center gap-1.5 cursor-pointer shrink-0 border border-orange-300"
+            >
+              <StoreIcon className="w-3.5 h-3.5" />
+              <span className="hidden xs:inline">العودة لإدارة متجري 🏪</span>
+              <span className="xs:hidden">متجري 🏪</span>
+            </button>
           </div>
-          <button
-            type="button"
-            onClick={() => handleToggleStoreOwnerCustomerBrowsing(false)}
-            className="bg-orange-500 hover:bg-orange-600 active:scale-95 text-slate-950 font-black text-xs px-2.5 sm:px-3.5 py-1 rounded-xl transition-all shadow-xs flex items-center gap-1 cursor-pointer shrink-0"
-          >
-            <StoreIcon className="w-3 h-3" />
-            <span className="hidden xs:inline">العودة لإدارة متجري</span>
-            <span className="xs:hidden">متجري</span>
-          </button>
-        </div>
-      )}
+        )}
 
-      {/* Driver / Captain Customer Shopping Mode Floating Banner */}
-      {userRole === "driver" && !isDriverMode && (
-        <div className="bg-slate-900 text-white px-3 sm:px-6 py-2 flex items-center justify-between gap-2 shadow-md sticky top-0 z-50 border-b border-blue-500/40">
-          <div className="flex items-center gap-1.5 sm:gap-2 min-w-0">
-            <span className="relative flex h-2 w-2 sm:h-2.5 sm:w-2.5 shrink-0">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-2 w-2 sm:h-2.5 sm:w-2.5 bg-blue-500"></span>
-            </span>
-            <span className="text-[11px] sm:text-sm font-bold text-slate-100 truncate">
-              <span className="hidden xs:inline">🛍️ تتصفح كزبون (حساب الكابتن متاح)</span>
-              <span className="xs:hidden">🛍️ وضع الزبون</span>
-            </span>
+        {/* Driver / Captain Customer Shopping Mode Floating Banner */}
+        {userRole === "driver" && !isDriverMode && (
+          <div className="bg-slate-900 text-white px-3 sm:px-6 py-2 flex items-center justify-between gap-2 border-b border-blue-500/40">
+            <div className="flex items-center gap-1.5 sm:gap-2 min-w-0">
+              <span className="relative flex h-2 w-2 sm:h-2.5 sm:w-2.5 shrink-0">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2 w-2 sm:h-2.5 sm:w-2.5 bg-blue-500"></span>
+              </span>
+              <span className="text-[11px] sm:text-sm font-bold text-slate-100 truncate">
+                <span className="hidden xs:inline">🛍️ تتصفح كزبون (حساب الكابتن متاح لاستلام الطلبات)</span>
+                <span className="xs:hidden">🛍️ وضع الزبون</span>
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                setSelectedStore(null);
+                setIsViewingCart(false);
+                setIsDriverMode(true);
+                localStorage.setItem("tw_viewing_driver", "true");
+                addToastNotification({
+                  title: "مرحباً بك مجدداً 🚴",
+                  message: "تمت العودة إلى لوحة مهام الكابتن",
+                  type: "success"
+                });
+              }}
+              className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 active:scale-95 text-white font-black text-xs px-2.5 sm:px-3.5 py-1.5 rounded-xl transition-all shadow-sm flex items-center gap-1.5 cursor-pointer shrink-0 border border-blue-400"
+            >
+              <Bike className="w-3.5 h-3.5" />
+              <span className="hidden xs:inline">العودة للوحة الكابتن 🚴</span>
+              <span className="xs:hidden">الكابتن 🚴</span>
+            </button>
           </div>
-          <button
-            type="button"
-            onClick={() => {
-              setSelectedStore(null);
-              setIsViewingCart(false);
-              setIsDriverMode(true);
-              localStorage.setItem("tw_viewing_driver", "true");
-            }}
-            className="bg-blue-600 hover:bg-blue-500 active:scale-95 text-white font-black text-xs px-2.5 sm:px-3.5 py-1 rounded-xl transition-all shadow-xs flex items-center gap-1 cursor-pointer shrink-0"
-          >
-            <Bike className="w-3.5 h-3.5" />
-            <span className="hidden xs:inline">العودة للكابتن</span>
-            <span className="xs:hidden">الكابتن</span>
-          </button>
-        </div>
-      )}
+        )}
 
-      {/* Admin / Staff Customer Shopping Mode Floating Banner */}
-      {userRole === "admin" && !isAdminMode && (
-        <div className="bg-slate-900 text-white px-3 sm:px-6 py-2 flex items-center justify-between gap-2 shadow-md sticky top-0 z-50 border-b border-amber-500/40">
-          <div className="flex items-center gap-1.5 sm:gap-2 min-w-0">
-            <span className="relative flex h-2 w-2 sm:h-2.5 sm:w-2.5 shrink-0">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-2 w-2 sm:h-2.5 sm:w-2.5 bg-amber-500"></span>
-            </span>
-            <span className="text-[11px] sm:text-sm font-bold text-slate-100 truncate">
-              <span className="hidden xs:inline">🛍️ تتصفح كزبون (حساب الإدارة نشط)</span>
-              <span className="xs:hidden">🛍️ وضع الزبون</span>
-            </span>
+        {/* Admin / Staff Customer Shopping Mode Floating Banner */}
+        {userRole === "admin" && !isAdminMode && (
+          <div className="bg-slate-900 text-white px-3 sm:px-6 py-2 flex items-center justify-between gap-2 border-b border-purple-500/50">
+            <div className="flex items-center gap-1.5 sm:gap-2 min-w-0">
+              <span className="relative flex h-2 w-2 sm:h-2.5 sm:w-2.5 shrink-0">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-purple-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2 w-2 sm:h-2.5 sm:w-2.5 bg-purple-500"></span>
+              </span>
+              <span className="text-[11px] sm:text-sm font-bold text-slate-100 truncate">
+                <span className="hidden xs:inline">🛍️ تتصفح كزبون (حساب: {activeStaffMemberInfo?.name || "الإدارة"} نشط)</span>
+                <span className="xs:hidden">🛍️ وضع الزبون</span>
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                setSelectedStore(null);
+                setIsViewingCart(false);
+                setIsAdminMode(true);
+                localStorage.setItem("tw_viewing_admin", "true");
+                addToastNotification({
+                  title: "مرحباً بك مجدداً 🛡️",
+                  message: `تمت العودة إلى لوحة مهامك الإدارية (${activeStaffMemberInfo?.name || "الإدارة"})`,
+                  type: "success"
+                });
+              }}
+              className="bg-gradient-to-r from-purple-600 via-indigo-600 to-purple-600 hover:from-purple-500 hover:to-indigo-500 active:scale-95 text-white font-black text-xs px-2.5 sm:px-3.5 py-1.5 rounded-xl transition-all shadow-md flex items-center gap-1.5 cursor-pointer shrink-0 border border-purple-400"
+            >
+              <ShieldCheck className="w-3.5 h-3.5 text-amber-300" />
+              <span className="hidden xs:inline">العودة لمهامي 🛡️</span>
+              <span className="xs:hidden">مهامي 🛡️</span>
+            </button>
           </div>
-          <button
-            type="button"
-            onClick={() => {
-              setSelectedStore(null);
-              setIsViewingCart(false);
-              setIsAdminMode(true);
-              localStorage.setItem("tw_viewing_admin", "true");
-            }}
-            className="bg-amber-500 hover:bg-amber-400 active:scale-95 text-slate-950 font-black text-xs px-2.5 sm:px-3.5 py-1 rounded-xl transition-all shadow-xs flex items-center gap-1 cursor-pointer shrink-0"
-          >
-            <ShieldCheck className="w-3.5 h-3.5" />
-            <span className="hidden xs:inline">العودة للإدارة</span>
-            <span className="xs:hidden">الإدارة</span>
-          </button>
-        </div>
-      )}
+        )}
 
-      {/* Top Application Header */}
-      <header className="w-full bg-white/95 backdrop-blur-md border-b border-slate-200/80 py-2 sm:py-3 px-2.5 sm:px-6 sticky top-0 z-50 shadow-xs select-none">
+        {/* Top Application Header */}
+        <header className="w-full bg-white/95 backdrop-blur-md border-b border-slate-200/80 py-2 sm:py-3 px-2.5 sm:px-6 select-none">
         <div className="max-w-7xl mx-auto w-full flex items-center justify-between gap-1.5 sm:gap-4">
           {/* Logo & Branding */}
           <div
@@ -3560,6 +3602,7 @@ export default function App() {
           </div>
         </div>
       </header>
+      </div>
 
       {/* Main Container */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 py-6 pb-28 flex-1 w-full relative min-h-[500px]">

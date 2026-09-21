@@ -78,6 +78,7 @@ interface DashboardProps {
   isEmergencyRush?: boolean;
   onToggleEmergencyRush?: () => void;
   onBackToCustomerView?: () => void;
+  onUpdateUserProfile?: (profile: Partial<UserProfile>) => void;
 }
 
 export const Dashboard: React.FC<DashboardProps> = ({
@@ -115,7 +116,8 @@ export const Dashboard: React.FC<DashboardProps> = ({
   onDeleteDriver: propOnDeleteDriver,
   isEmergencyRush: propIsEmergencyRush,
   onToggleEmergencyRush: propOnToggleEmergencyRush,
-  onBackToCustomerView
+  onBackToCustomerView,
+  onUpdateUserProfile
 }) => {
   // Emergency Rush Mode (Driven by App.tsx with fallback to local state)
   const [localEmergencyRush, setLocalEmergencyRush] = useState<boolean>(() => {
@@ -175,7 +177,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
     return staffList.find(s => s.role === "manager") || staffList[0] || null;
   });
 
-  const [activeTab, setActiveTab] = useState<AdminTab>(() => {
+  const [activeTab, setActiveTabState] = useState<AdminTab>(() => {
     const activeStaffId = localStorage.getItem("tw_active_staff_id") || userProfile?.staffId;
     let st: StaffMember | undefined;
     if (activeStaffId) {
@@ -183,6 +185,12 @@ export const Dashboard: React.FC<DashboardProps> = ({
     }
     if (!st && userProfile?.name) {
       st = staffList.find(s => s.name === userProfile.name || s.pin === userProfile.pin);
+    }
+    const savedTab = localStorage.getItem("tw_admin_active_tab") as AdminTab | null;
+    if (savedTab) {
+      if (!st || st.role === "manager" || (st.permissions && st.permissions.includes(savedTab as any))) {
+        return savedTab;
+      }
     }
     if (st && st.role !== "manager" && st.permissions && st.permissions.length > 0) {
       return (st.permissions[0] as AdminTab) || "orders";
@@ -192,6 +200,11 @@ export const Dashboard: React.FC<DashboardProps> = ({
     if (st?.role === "support") return "customers";
     return "stats";
   });
+
+  const setActiveTab = (tab: AdminTab) => {
+    setActiveTabState(tab);
+    localStorage.setItem("tw_admin_active_tab", tab);
+  };
 
   // Keep currentStaff in sync if userProfile changes
   useEffect(() => {
@@ -209,6 +222,14 @@ export const Dashboard: React.FC<DashboardProps> = ({
     setCurrentStaff(st);
     localStorage.setItem("tw_active_staff_id", st.id);
     localStorage.setItem("tw_staff_role", st.role);
+    if (onUpdateUserProfile) {
+      onUpdateUserProfile({
+        name: st.name,
+        staffId: st.id,
+        role: st.role,
+        permissions: st.permissions
+      });
+    }
     if (st.role !== "manager" && st.permissions && st.permissions.length > 0) {
       if (!st.permissions.includes(activeTab as any)) {
         setActiveTab((st.permissions[0] as AdminTab) || "orders");

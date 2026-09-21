@@ -46,7 +46,7 @@ interface AccountSettingsModalProps {
   onGoToStore?: () => void;
   onGoToDriver?: () => void;
   isStoreOwnerBrowsingAsCustomer?: boolean;
-  onToggleStoreOwnerCustomerBrowsing?: () => void;
+  onToggleStoreOwnerCustomerBrowsing?: (force?: boolean) => void;
 }
 
 export const AccountSettingsModal: React.FC<AccountSettingsModalProps> = ({
@@ -398,6 +398,104 @@ export const AccountSettingsModal: React.FC<AccountSettingsModalProps> = ({
             >
               {errorMessage}
             </motion.div>
+          )}
+
+          {/* Quick Return to Role Portal Banner / Action Card at Top of Account Modal */}
+          {userRole === "admin" && onGoToAdmin && (
+            <div className="p-3.5 bg-gradient-to-r from-purple-950 via-slate-900 to-slate-900 border border-purple-500/50 rounded-2xl shadow-md text-white">
+              <div className="flex items-center justify-between gap-3 mb-2">
+                <div className="flex items-center gap-2">
+                  <span className="p-2 rounded-xl bg-purple-500/20 text-purple-300 border border-purple-500/30">
+                    <ShieldCheck className="w-5 h-5" />
+                  </span>
+                  <div>
+                    <h4 className="text-xs sm:text-sm font-black text-white">
+                      صفحة مهامك الإدارية ({currentStaff?.name || "الإدارة"})
+                    </h4>
+                    <p className="text-[11px] text-purple-200/80">
+                      أنت تتصفح حالياً كزبون. يمكنك العودة المباشرة لمتابعة مهامك وصلاحياتك.
+                    </p>
+                  </div>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  onClose();
+                  onGoToAdmin();
+                }}
+                className="w-full py-2.5 px-4 bg-gradient-to-r from-purple-600 via-indigo-600 to-purple-600 hover:from-purple-500 hover:to-indigo-500 text-white rounded-xl text-xs sm:text-sm font-black shadow-md flex items-center justify-center gap-2 cursor-pointer transition-all active:scale-98 border border-purple-400/40"
+              >
+                <ShieldCheck className="w-4 h-4 text-purple-200" />
+                <span>العودة المباشرة إلى لوحة مهامي 🛡️</span>
+              </button>
+            </div>
+          )}
+
+          {userRole === "driver" && onGoToDriver && (
+            <div className="p-3.5 bg-gradient-to-r from-blue-950 via-slate-900 to-slate-900 border border-blue-500/50 rounded-2xl shadow-md text-white">
+              <div className="flex items-center justify-between gap-3 mb-2">
+                <div className="flex items-center gap-2">
+                  <span className="p-2 rounded-xl bg-blue-500/20 text-blue-300 border border-blue-500/30">
+                    <Bike className="w-5 h-5" />
+                  </span>
+                  <div>
+                    <h4 className="text-xs sm:text-sm font-black text-white">
+                      لوحة الكابتن ({userProfile?.name || "الكابتن"})
+                    </h4>
+                    <p className="text-[11px] text-blue-200/80">
+                      حساب الكابتن نشط. يمكنك العودة المباشرة لمتابعة واستلام وتوصيل الطلبات.
+                    </p>
+                  </div>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  onClose();
+                  onGoToDriver();
+                }}
+                className="w-full py-2.5 px-4 bg-gradient-to-r from-blue-600 via-emerald-600 to-blue-600 hover:from-blue-500 hover:to-emerald-500 text-white rounded-xl text-xs sm:text-sm font-black shadow-md flex items-center justify-center gap-2 cursor-pointer transition-all active:scale-98 border border-blue-400/40"
+              >
+                <Bike className="w-4 h-4 text-blue-200" />
+                <span>العودة المباشرة إلى لوحة الكابتن 🚴</span>
+              </button>
+            </div>
+          )}
+
+          {userRole === "store_owner" && (
+            <div className="p-3.5 bg-gradient-to-r from-emerald-950 via-slate-900 to-slate-900 border border-emerald-500/50 rounded-2xl shadow-md text-white">
+              <div className="flex items-center justify-between gap-3 mb-2">
+                <div className="flex items-center gap-2">
+                  <span className="p-2 rounded-xl bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                    <StoreIcon className="w-5 h-5" />
+                  </span>
+                  <div>
+                    <h4 className="text-xs sm:text-sm font-black text-white">
+                      لوحة إدارة المتجر / المهنة ({currentStore?.name || userProfile?.name || "متجري"})
+                    </h4>
+                    <p className="text-[11px] text-emerald-200/80">
+                      {isStoreOwnerBrowsingAsCustomer ? "أنت تتصفح حالياً كزبون متسوق. متجرك نشط في الخلفية." : "لوحة التحكم بمتجرك وقائمة المنتجات والطلبات."}
+                    </p>
+                  </div>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  onClose();
+                  if (onToggleStoreOwnerCustomerBrowsing) {
+                    onToggleStoreOwnerCustomerBrowsing(false);
+                  } else if (onGoToStore) {
+                    onGoToStore();
+                  }
+                }}
+                className="w-full py-2.5 px-4 bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-600 hover:from-emerald-500 hover:to-teal-500 text-white rounded-xl text-xs sm:text-sm font-black shadow-md flex items-center justify-center gap-2 cursor-pointer transition-all active:scale-98 border border-emerald-400/40"
+              >
+                <StoreIcon className="w-4 h-4 text-emerald-200" />
+                <span>العودة المباشرة إلى لوحة إدارة متجري 🏪</span>
+              </button>
+            </div>
           )}
 
           {/* User Full Name */}

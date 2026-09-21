@@ -32,6 +32,10 @@ interface BottomNavigationProps {
   activeOrdersCount?: number;
   userName?: string;
   userAvatar?: string;
+  isBrowsingAsCustomer?: boolean;
+  portalRole?: "admin" | "driver" | "store_owner";
+  portalLabel?: string;
+  onReturnToPortal?: () => void;
 }
 
 export const BottomNavigation: React.FC<BottomNavigationProps> = ({
@@ -44,8 +48,12 @@ export const BottomNavigation: React.FC<BottomNavigationProps> = ({
   onSelectRoleTab,
   cartCount = 0,
   activeOrdersCount = 0,
-  userName = "",
-  userAvatar = ""
+  userName,
+  userAvatar,
+  isBrowsingAsCustomer = false,
+  portalRole,
+  portalLabel,
+  onReturnToPortal,
 }) => {
   // Render tabs depending on role
   const renderNavButtons = () => {
@@ -367,6 +375,39 @@ export const BottomNavigation: React.FC<BottomNavigationProps> = ({
             <motion.div layoutId="nav_dot_cust" className="w-1.5 h-1.5 rounded-full bg-orange-600 mt-0.5" />
           )}
         </button>
+
+        {/* Special Direct Return to Portal Button if browsing as customer */}
+        {isBrowsingAsCustomer && onReturnToPortal && (
+          <button
+            type="button"
+            onClick={onReturnToPortal}
+            className={`relative flex-1 py-1.5 px-1 flex flex-col items-center justify-center gap-0.5 rounded-xl transition-all cursor-pointer group active:scale-95 border ${
+              portalRole === "admin"
+                ? "bg-gradient-to-b from-purple-50 to-indigo-50/70 border-purple-300 text-purple-800 shadow-xs"
+                : portalRole === "driver"
+                ? "bg-gradient-to-b from-blue-50 to-emerald-50/70 border-blue-300 text-blue-800 shadow-xs"
+                : "bg-gradient-to-b from-emerald-50 to-teal-50/70 border-emerald-300 text-emerald-800 shadow-xs"
+            }`}
+            title={portalLabel || "العودة المباشرة إلى لوحة العمل"}
+          >
+            <div className="relative">
+              {portalRole === "admin" ? (
+                <ShieldCheck className="w-5 h-5 text-purple-600 animate-pulse" />
+              ) : portalRole === "driver" ? (
+                <Bike className="w-5 h-5 text-blue-600 animate-pulse" />
+              ) : (
+                <StoreIcon className="w-5 h-5 text-emerald-600 animate-pulse" />
+              )}
+              <span className="absolute -top-1 -right-1 flex h-2 w-2">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-amber-500"></span>
+              </span>
+            </div>
+            <span className="text-[9.5px] font-black truncate max-w-[70px] text-center leading-tight">
+              {portalLabel || (portalRole === "admin" ? "لوحة مهامي 🛡️" : portalRole === "driver" ? "لوحة الكابتن 🚴" : "إدارة متجري 🏪")}
+            </span>
+          </button>
+        )}
 
         {/* 3. Shopping Cart */}
         <button
