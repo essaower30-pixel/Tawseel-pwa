@@ -43,7 +43,8 @@ import {
   CheckCircle2,
   User,
   Bot,
-  WifiOff
+  WifiOff,
+  RefreshCw
 } from "lucide-react";
 import { CartItem, Category, DriverMember, MapNode, Order, Product, Store, StoreAddition, StoreSize, UserProfile, StoreBroadcast, StoreReview, Coupon } from "./types";
 import { initialCategories, initialMapNodes, initialProducts, initialStores, initialStoreBroadcasts, initialStoreReviews } from "./data/initialData";
@@ -3411,6 +3412,28 @@ export default function App() {
               <span className="hidden xs:inline">العودة لمهامي 🛡️</span>
               <span className="xs:hidden">مهامي 🛡️</span>
             </button>
+          </div>
+        )}
+
+        {/* Prominent App Update Banner */}
+        {hasNewUpdate && (
+          <div className="bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600 text-white px-3 sm:px-6 py-2.5 text-xs font-black flex flex-wrap items-center justify-between gap-2 shadow-md select-none sticky top-0 z-50">
+            <div className="flex items-center gap-2">
+              <Sparkles className="w-4 h-4 text-white animate-spin-slow shrink-0" />
+              <span>
+                يتوفر إصدار جديد يتضمن كود تسليم واستلام الطلبية 🔑 وإلغاء التنبيهات المكررة
+              </span>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={handleApplyUpdate}
+                className="bg-white text-orange-950 hover:bg-orange-50 font-black px-3.5 py-1.5 rounded-xl text-xs shadow-xs cursor-pointer transition-all active:scale-95 flex items-center gap-1.5"
+              >
+                <RefreshCw className="w-3.5 h-3.5 text-orange-600" />
+                <span>تحديث وتطبيق فوري 🔄</span>
+              </button>
+            </div>
           </div>
         )}
 

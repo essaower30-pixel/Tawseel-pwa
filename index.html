@@ -86,17 +86,40 @@
         const isIframePreview = window.self !== window.top && !window.location.search.includes('enable_sw');
 
         if (!isLocalDev && !isIframePreview) {
+          let hasRefreshed = false;
+          // Auto reload when new service worker takes control
+          navigator.serviceWorker.addEventListener('controllerchange', () => {
+            if (!hasRefreshed) {
+              hasRefreshed = true;
+              window.location.reload();
+            }
+          });
+
+          // Listen for update message from active service worker
+          navigator.serviceWorker.addEventListener('message', (event) => {
+            if (event.data && (event.data.type === 'SW_VERSION_UPDATED' || event.data.type === 'NEW_VERSION_AVAILABLE')) {
+              if (!hasRefreshed) {
+                hasRefreshed = true;
+                window.location.reload();
+              }
+            }
+          });
+
           window.addEventListener('load', () => {
             // Dynamically resolve service worker path and scope based on current location
             const pathname = window.location.pathname;
             const dir = pathname.substring(0, pathname.lastIndexOf('/') + 1) || '/';
-            const swPath = dir + 'sw.js';
+            // Version query string ensures browser bypasses HTTP caching of sw.js
+            const swPath = dir + 'sw.js?v=36';
             const swScope = dir;
             navigator.serviceWorker.register(swPath, { scope: swScope }).then((reg) => {
               reg.update();
+              // Check for update on window focus
+              window.addEventListener('focus', () => reg.update());
+              // Regular periodic check
               setInterval(() => {
                 reg.update();
-              }, 120000);
+              }, 45000);
             }).catch((err) => {
               console.warn('SW registration notice:', err);
             });

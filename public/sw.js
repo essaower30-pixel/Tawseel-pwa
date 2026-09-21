@@ -1,10 +1,10 @@
 // ==============================================================================
 // Tawseel Progressive Web App (PWA) - Service Worker
-// Version: tawseel-v35-offline-resilient
-// Designed for instant startup (< 20ms) and 100% offline access even after 12+ hours
+// Version: tawseel-v36-delivery-otp-sync
+// Designed for instant startup and automatic freshness for all customers & staff
 // ==============================================================================
 
-const CACHE_NAME = 'tawseel-v35-offline-resilient';
+const CACHE_NAME = 'tawseel-v36-delivery-otp-sync';
 
 // Dynamically determine the base path (e.g. '/Tawseel-pwa' on GitHub Pages or '' on root domain)
 const getBasePath = () => {
@@ -152,6 +152,13 @@ self.addEventListener('activate', (event) => {
       );
     }).then(() => {
       return self.clients.claim();
+    }).then(async () => {
+      try {
+        const allClients = await self.clients.matchAll({ type: 'window' });
+        allClients.forEach((client) => {
+          client.postMessage({ type: 'SW_VERSION_UPDATED', version: CACHE_NAME });
+        });
+      } catch (e) {}
     })
   );
 });
@@ -243,50 +250,58 @@ self.addEventListener('fetch', (event) => {
   }
 
   // A. NAVIGATION / DOCUMENT REQUESTS (Opening the app from Home Screen, launcher, or refreshing)
-  // STRATEGY: Instant Cache First -> Return cached index.html immediately with zero network delay
+  // STRATEGY: Network First with Cache Fallback -> Always fetch latest index.html when online, fallback to cache when offline
   if (request.mode === 'navigate' || request.destination === 'document') {
     event.respondWith(
-      caches.open(CACHE_NAME).then(async (cache) => {
-        // 1. Try to serve cached index.html immediately
+      (async () => {
+        const cache = await caches.open(CACHE_NAME);
+
+        // 1. Fetch fresh index.html from network with 2.5s timeout
+        try {
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 2500);
+
+          const netResponse = await fetch(request, { signal: controller.signal, cache: 'no-cache' });
+          clearTimeout(timeoutId);
+
+          if (netResponse && netResponse.status === 200) {
+            const copy = netResponse.clone();
+            cache.put(request, copy);
+            cache.put('./index.html', netResponse.clone());
+            cache.put('./', netResponse.clone());
+
+            // Scan for new asset chunks in background
+            try {
+              const text = await netResponse.clone().text();
+              const assets = extractAssetsFromHtml(text);
+              assets.forEach((a) => {
+                fetch(a, { cache: 'no-cache' })
+                  .then((aRes) => {
+                    if (aRes && aRes.status === 200) {
+                      cache.put(a, aRes);
+                    }
+                  })
+                  .catch(() => {});
+              });
+            } catch (e) {}
+
+            return netResponse;
+          }
+        } catch (netErr) {
+          // Network failed or timed out -> use cache
+        }
+
+        // 2. Offline fallback: Serve cached index.html immediately
         let cachedResponse = await matchCacheFlexible(cache, request);
         if (!cachedResponse) {
           cachedResponse = await getCachedIndexHtml(cache);
         }
-
-        // 2. Fetch from network in background to keep cache fresh
-        const networkFetchPromise = fetch(request)
-          .then(async (netResponse) => {
-            if (netResponse && netResponse.status === 200) {
-              const copy = netResponse.clone();
-              await cache.put(request, copy);
-              await cache.put('./index.html', netResponse.clone());
-              await cache.put('./', netResponse.clone());
-
-              // Also scan for new asset chunks in the fresh index.html
-              try {
-                const text = await netResponse.clone().text();
-                const assets = extractAssetsFromHtml(text);
-                assets.forEach((a) => {
-                  fetch(a)
-                    .then((aRes) => {
-                      if (aRes && aRes.status === 200) {
-                        cache.put(a, aRes);
-                      }
-                    })
-                    .catch(() => {});
-                });
-              } catch (e) {}
-            }
-            return netResponse;
-          })
-          .catch(() => null);
-
-        // 3. Return cached HTML instantly (< 15ms)
         if (cachedResponse) {
           return cachedResponse;
         }
 
-        // 4. First time ever opening: wait for network
+        // 3. First time ever opening and offline: wait for network or show offline card
+        const networkFetchPromise = fetch(request).catch(() => null);
         const netRes = await networkFetchPromise;
         if (netRes) {
           return netRes;

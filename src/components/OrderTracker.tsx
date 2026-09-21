@@ -19,7 +19,8 @@ import {
   X,
   KeyRound,
   Copy,
-  Check
+  Check,
+  RefreshCw
 } from "lucide-react";
 import { MapNode, Order } from "../types";
 import { ContactActions } from "./ContactActions";
@@ -41,6 +42,7 @@ export const OrderTracker: React.FC<OrderTrackerProps> = ({
 }) => {
   const [zoomedImage, setZoomedImage] = useState<string | null>(null);
   const [isCopiedOtp, setIsCopiedOtp] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   const otpCode = order.deliveryOtp || (order.id ? order.id.replace(/\D/g, "").slice(-4).padStart(4, "7") : "1234");
 
@@ -50,6 +52,27 @@ export const OrderTracker: React.FC<OrderTrackerProps> = ({
       setIsCopiedOtp(true);
       setTimeout(() => setIsCopiedOtp(false), 2500);
     } catch {}
+  };
+
+  const handleForceRefresh = async () => {
+    setIsRefreshing(true);
+    if (typeof window !== "undefined") {
+      if ("caches" in window) {
+        try {
+          const keys = await caches.keys();
+          await Promise.all(keys.map((k) => caches.delete(k)));
+        } catch {}
+      }
+      if ("serviceWorker" in navigator) {
+        try {
+          const regs = await navigator.serviceWorker.getRegistrations();
+          for (const reg of regs) {
+            await reg.update();
+          }
+        } catch {}
+      }
+      window.location.reload();
+    }
   };
 
   // Purely computed based on live order status
@@ -128,7 +151,17 @@ export const OrderTracker: React.FC<OrderTrackerProps> = ({
         </button>
 
         <div className="flex items-center gap-2">
-          <span className="text-xs font-extrabold text-slate-600 bg-slate-100 px-3 py-1 rounded-xl">
+          <button
+            type="button"
+            onClick={handleForceRefresh}
+            className="flex items-center gap-1.5 text-xs font-black text-slate-700 hover:text-orange-600 bg-white hover:bg-orange-50 py-2 px-3 rounded-xl border border-slate-200 shadow-xs cursor-pointer transition-all active:scale-95"
+            title="تحديث فوري لبيانات التتبع والكود"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 text-orange-500 ${isRefreshing ? "animate-spin" : ""}`} />
+            <span>تحديث التتبع</span>
+          </button>
+
+          <span className="text-xs font-extrabold text-slate-600 bg-slate-100 px-3 py-2 rounded-xl">
             طلب #{order.id.slice(-6)}
           </span>
           <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
