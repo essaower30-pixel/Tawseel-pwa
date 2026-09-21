@@ -1,10 +1,10 @@
 // ==============================================================================
 // Tawseel Progressive Web App (PWA) - Service Worker
-// Version: tawseel-v36-delivery-otp-sync
+// Version: tawseel-v37-delivery-otp-clean
 // Designed for instant startup and automatic freshness for all customers & staff
 // ==============================================================================
 
-const CACHE_NAME = 'tawseel-v36-delivery-otp-sync';
+const CACHE_NAME = 'tawseel-v37-delivery-otp-clean';
 
 // Dynamically determine the base path (e.g. '/Tawseel-pwa' on GitHub Pages or '' on root domain)
 const getBasePath = () => {
@@ -250,64 +250,50 @@ self.addEventListener('fetch', (event) => {
   }
 
   // A. NAVIGATION / DOCUMENT REQUESTS (Opening the app from Home Screen, launcher, or refreshing)
-  // STRATEGY: Network First with Cache Fallback -> Always fetch latest index.html when online, fallback to cache when offline
+  // STRATEGY: Safe Network-First with Cache Fallback - 100% resilient, never throws ERR_FAILED
   if (request.mode === 'navigate' || request.destination === 'document') {
     event.respondWith(
       (async () => {
-        const cache = await caches.open(CACHE_NAME);
-
-        // 1. Fetch fresh index.html from network with 2.5s timeout
         try {
-          const controller = new AbortController();
-          const timeoutId = setTimeout(() => controller.abort(), 2500);
+          const cache = await caches.open(CACHE_NAME);
 
-          const netResponse = await fetch(request, { signal: controller.signal, cache: 'no-cache' });
-          clearTimeout(timeoutId);
+          // 1. Try to fetch the fresh HTML from network
+          try {
+            const netResponse = await fetch(request);
+            if (netResponse && netResponse.status === 200) {
+              const copy = netResponse.clone();
+              cache.put(request, copy).catch(() => {});
+              cache.put('./index.html', netResponse.clone()).catch(() => {});
+              cache.put('./', netResponse.clone()).catch(() => {});
 
-          if (netResponse && netResponse.status === 200) {
-            const copy = netResponse.clone();
-            cache.put(request, copy);
-            cache.put('./index.html', netResponse.clone());
-            cache.put('./', netResponse.clone());
-
-            // Scan for new asset chunks in background
-            try {
-              const text = await netResponse.clone().text();
-              const assets = extractAssetsFromHtml(text);
-              assets.forEach((a) => {
-                fetch(a, { cache: 'no-cache' })
-                  .then((aRes) => {
+              // Background scan for new assets
+              netResponse.clone().text().then((text) => {
+                const assets = extractAssetsFromHtml(text);
+                assets.forEach((a) => {
+                  fetch(a).then((aRes) => {
                     if (aRes && aRes.status === 200) {
-                      cache.put(a, aRes);
+                      cache.put(a, aRes).catch(() => {});
                     }
-                  })
-                  .catch(() => {});
-              });
-            } catch (e) {}
+                  }).catch(() => {});
+                });
+              }).catch(() => {});
 
-            return netResponse;
+              return netResponse;
+            }
+          } catch (netErr) {
+            // Offline or network error - gracefully fall back to cache
           }
-        } catch (netErr) {
-          // Network failed or timed out -> use cache
+
+          // 2. Offline fallback: Serve cached index.html
+          const cachedResponse = (await matchCacheFlexible(cache, request)) || (await getCachedIndexHtml(cache));
+          if (cachedResponse) {
+            return cachedResponse;
+          }
+        } catch (swErr) {
+          // Log and continue to fallback
         }
 
-        // 2. Offline fallback: Serve cached index.html immediately
-        let cachedResponse = await matchCacheFlexible(cache, request);
-        if (!cachedResponse) {
-          cachedResponse = await getCachedIndexHtml(cache);
-        }
-        if (cachedResponse) {
-          return cachedResponse;
-        }
-
-        // 3. First time ever opening and offline: wait for network or show offline card
-        const networkFetchPromise = fetch(request).catch(() => null);
-        const netRes = await networkFetchPromise;
-        if (netRes) {
-          return netRes;
-        }
-
-        // 5. Ultimate fallback if completely offline and nothing was cached yet
+        // 3. Ultimate fallback if completely offline and nothing was cached yet
         return new Response(
           `<!DOCTYPE html>
           <html lang="ar" dir="rtl">
@@ -335,7 +321,7 @@ self.addEventListener('fetch', (event) => {
           </html>`,
           { headers: { 'Content-Type': 'text/html; charset=utf-8' } }
         );
-      })
+      })()
     );
     return;
   }
