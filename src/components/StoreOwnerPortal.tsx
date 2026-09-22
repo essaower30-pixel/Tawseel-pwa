@@ -44,6 +44,7 @@ import { Order, Product, Store, UserProfile, Category, StoreBroadcast, StoreSize
 import { ContactActions } from "./ContactActions";
 import { openWhatsApp } from "../utils/whatsapp";
 import { playOrderAlertSound, isSoundEnabled, setSoundEnabled, requestNotificationPermission, showSystemNotification } from "../utils/soundNotifications";
+import { subscribeToPushNotifications } from "../utils/pushManager";
 import { StoreBroadcastViewer } from "./store/StoreBroadcastViewer";
 import { ImageUploader } from "./ImageUploader";
 import { BottomNavigation } from "./BottomNavigation";
@@ -225,8 +226,14 @@ export const StoreOwnerPortal: React.FC<StoreOwnerPortalProps> = ({
       playOrderAlertSound("ringtone");
       const granted = await requestNotificationPermission();
       if (granted) {
+        subscribeToPushNotifications({
+          role: "store",
+          identifier: currentStore.id,
+          name: currentStore.name,
+        }).catch(console.warn);
+
         showSystemNotification(`متجر ${currentStore.name} 🏪`, {
-          body: "تم تفعيل تنبيهات وأيقونة التطبيق في شريط الإشعارات! ستصلك تنبيهات فورية بكل طلب جديد.",
+          body: "تم تفعيل تنبيهات وأيقونة التطبيق في شريط الإشعارات! ستصلك تنبيهات فورية بكل طلب جديد حتى لو كان الهاتف مقفلاً.",
           soundType: "ringtone",
         });
       }

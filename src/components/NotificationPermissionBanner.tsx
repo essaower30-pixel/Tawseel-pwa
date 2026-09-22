@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
-import { Bell, Volume2, X, CheckCircle2, Sparkles, Smartphone } from "lucide-react";
+import { Bell, Volume2, X, CheckCircle2, Smartphone } from "lucide-react";
 import { requestNotificationPermission, showSystemNotification } from "../utils/soundNotifications";
+import { subscribeToPushNotifications, isPushSupported } from "../utils/pushManager";
 
 interface NotificationPermissionBannerProps {
   onPermissionChange?: (granted: boolean) => void;
@@ -47,9 +48,19 @@ export const NotificationPermissionBanner: React.FC<NotificationPermissionBanner
       }
       if (granted) {
         setJustGranted(true);
+
+        // Subscribe to background Web Push so phone receives notifications even when locked/app closed
+        if (isPushSupported()) {
+          subscribeToPushNotifications({
+            role: (localStorage.getItem("tw_user_role") as any) || "customer",
+            identifier: localStorage.getItem("tw_user_phone") || "",
+            name: localStorage.getItem("tw_user_name") || "",
+          }).catch(console.warn);
+        }
+
         // Trigger test notification with sound, vibration, and status bar badge!
         await showSystemNotification("تطبيق توصيل 🛵", {
-          body: "تم تفعيل التنبيهات بنجاح! ستظهر أيقونة التطبيق في شريط الإشعارات أعلى الشاشة مع صوت الرنين عند كل طلب جديد أو تحديث.",
+          body: "تم تفعيل التنبيهات بنجاح! ستظهر أيقونة التطبيق في شريط الإشعارات أعلى الشاشة مع صوت الرنين حتى لو كان الهاتف مقفلاً.",
           soundType: "ringtone",
           requireInteraction: true,
         });
@@ -93,8 +104,8 @@ export const NotificationPermissionBanner: React.FC<NotificationPermissionBanner
           <div className="flex items-center gap-3 py-1 text-emerald-400">
             <CheckCircle2 className="w-6 h-6 shrink-0 animate-bounce" />
             <div>
-              <p className="text-sm font-black text-white">تم تفعيل التنبيهات بنجاح! 🔔</p>
-              <p className="text-xs text-emerald-300 mt-0.5">ستظهر أيقونة التطبيق وصوت الرنين عند وصول أي طلب جديد.</p>
+              <p className="text-sm font-black text-white">تم تفعيل التنبيهات بالخلفية بنجاح! 🔔</p>
+              <p className="text-xs text-emerald-300 mt-0.5">ستصلك الإشعارات مع النغمة وأيقونة التطبيق حتى لو كان الهاتف مقفلاً تماماً.</p>
             </div>
           </div>
         ) : (
@@ -106,13 +117,13 @@ export const NotificationPermissionBanner: React.FC<NotificationPermissionBanner
                 </div>
                 <div>
                   <h4 className="text-sm font-black text-white flex items-center gap-1.5">
-                    <span>تفعيل تنبيهات الطلبات</span>
+                    <span>تفعيل تنبيهات الطلبات بالخلفية</span>
                     <span className="text-[10px] bg-orange-500/30 text-orange-300 px-2 py-0.5 rounded-full border border-orange-400/40">
-                      أيقونة أعلى الشاشة 🛵
+                      شغال لو الموبايل مقفل 📱
                     </span>
                   </h4>
                   <p className="text-[11px] text-slate-300 mt-0.5 font-medium leading-relaxed">
-                    لتصلك إشعارات الطلبات فوراً مع ظهور أيقونة التطبيق في شريط التنبيهات أعلى الهاتف وصوت رنين مميز.
+                    لتصلك إشعارات الطلبات فوراً مع ظهور أيقونة التطبيق بأعلى الهاتف وصوت الرنين حتى لو كان التطبيق مغلقاً أو الشاشة مقفلة.
                   </p>
                 </div>
               </div>
@@ -135,7 +146,7 @@ export const NotificationPermissionBanner: React.FC<NotificationPermissionBanner
                 className="flex-1 py-2 px-3.5 bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white text-xs font-black rounded-xl shadow-lg shadow-orange-600/30 active:scale-95 transition-all flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
               >
                 <Volume2 className="w-4 h-4" />
-                <span>{isEnabling ? "جاري التفعيل..." : "تفعيل التنبيهات والصوت 🔔"}</span>
+                <span>{isEnabling ? "جاري التفعيل..." : "تفعيل التنبيهات والصوت الآن 🔔"}</span>
               </button>
 
               <button

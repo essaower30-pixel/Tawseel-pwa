@@ -30,6 +30,7 @@ import {
 import { DriverMember, Order, Store, UserProfile } from "../types";
 import { ContactActions } from "./ContactActions";
 import { playOrderAlertSound, isSoundEnabled, setSoundEnabled, requestNotificationPermission, showSystemNotification } from "../utils/soundNotifications";
+import { subscribeToPushNotifications } from "../utils/pushManager";
 import { BottomNavigation } from "./BottomNavigation";
 import { AccountSettingsModal } from "./AccountSettingsModal";
 import { CaptainWallet } from "./driver/CaptainWallet";
@@ -206,8 +207,14 @@ export const DriverPortal: React.FC<DriverPortalProps> = ({
       playOrderAlertSound("chime");
       const granted = await requestNotificationPermission();
       if (granted) {
+        subscribeToPushNotifications({
+          role: "driver",
+          identifier: currentDriver.phone,
+          name: currentDriver.name,
+        }).catch(console.warn);
+
         showSystemNotification(`كابتن ${currentDriver.name} 🛵`, {
-          body: "تم تفعيل التنبيهات وظهور أيقونة التطبيق في شريط الإشعارات العلوي! ستصلك تنبيهات فورية بالطلبات المسندة.",
+          body: "تم تفعيل التنبيهات وظهور أيقونة التطبيق في شريط الإشعارات العلوي! ستصلك تنبيهات فورية بالطلبات المسندة حتى لو كان الموبايل مقفلاً.",
           soundType: "chime",
         });
       }

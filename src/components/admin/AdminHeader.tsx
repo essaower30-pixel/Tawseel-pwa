@@ -31,6 +31,7 @@ import {
 } from "lucide-react";
 import { StaffMember, StaffPermission } from "../../types";
 import { playOrderAlertSound, isSoundEnabled, setSoundEnabled, requestNotificationPermission, showSystemNotification } from "../../utils/soundNotifications";
+import { subscribeToPushNotifications } from "../../utils/pushManager";
 
 export type AdminTab = 
   | "platform_features"
@@ -220,8 +221,13 @@ export const AdminHeader: React.FC<AdminHeaderProps> = ({
                 playOrderAlertSound("ringtone");
                 const granted = await requestNotificationPermission();
                 if (granted) {
+                  subscribeToPushNotifications({
+                    role: "admin",
+                    name: currentStaff?.name || "المدير العام",
+                  }).catch(console.warn);
+
                   showSystemNotification("لوحة الإدارة 🔔", {
-                    body: "تم تفعيل التنبيهات وظهور أيقونة التطبيق في شريط الإشعارات العلوي! ستصلك تنبيهات فورية بكل طلب وارد.",
+                    body: "تم تفعيل التنبيهات وظهور أيقونة التطبيق في شريط الإشعارات العلوي! ستصلك تنبيهات فورية بكل طلب وارد حتى لو كان الهاتف مقفلاً.",
                     soundType: "ringtone",
                   });
                 }

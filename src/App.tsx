@@ -78,6 +78,11 @@ import { FloatingPortalReturnButton } from "./components/FloatingPortalReturnBut
 import { ToastNotification, ToastItem } from "./components/ToastNotification";
 import { OfflineBanner, useOnlineStatus } from "./components/OfflineBanner";
 import { NotificationPermissionBanner } from "./components/NotificationPermissionBanner";
+import {
+  subscribeToPushNotifications,
+  isPushSupported,
+  sendTestPushNotification
+} from "./utils/pushManager";
 import { openWhatsApp } from "./utils/whatsapp";
 import {
   playOrderAlertSound,
@@ -679,6 +684,59 @@ export default function App() {
   const notifiedOrdersRef = useRef<Set<string>>(new Set(initialOrders.map((o) => o.id)));
   const isInitialLoadDoneRef = useRef<boolean>(false);
 
+  // Web Push Background Notifications: Listen for Service Worker sound signals
+  useEffect(() => {
+    if (typeof window === "undefined" || !("serviceWorker" in navigator)) return;
+
+    const handleSwMessage = (event: MessageEvent) => {
+      if (event.data?.type === "PLAY_SOUND") {
+        playOrderAlertSound(event.data.sound || "ringtone");
+        triggerOrderVibration();
+      } else if (event.data?.type === "NOTIFICATION_CLICKED") {
+        playOrderAlertSound("chime");
+      }
+    };
+
+    navigator.serviceWorker.addEventListener("message", handleSwMessage);
+    return () => {
+      navigator.serviceWorker.removeEventListener("message", handleSwMessage);
+    };
+  }, []);
+
+  // Web Push Auto-Subscription for Background Alerts (wakes up phone when screen is locked/closed)
+  useEffect(() => {
+    if (
+      typeof window === "undefined" ||
+      !("Notification" in window) ||
+      Notification.permission !== "granted" ||
+      !isPushSupported()
+    ) {
+      return;
+    }
+
+    let role: "admin" | "store" | "driver" | "customer" = "customer";
+    let identifier = "";
+
+    if (isAdminMode || userRole === "admin") {
+      role = "admin";
+    } else if (currentStoreId || userRole === "store_owner") {
+      role = "store";
+      identifier = currentStoreId || "";
+    } else if (isDriverMode || userRole === "driver") {
+      role = "driver";
+      identifier = localStorage.getItem("tw_driver_phone") || "";
+    } else {
+      role = "customer";
+      identifier = localStorage.getItem("tw_user_phone") || "";
+    }
+
+    subscribeToPushNotifications({
+      role,
+      identifier,
+      name: localStorage.getItem("tw_user_name") || "",
+    }).catch(() => {});
+  }, [isAdminMode, userRole, currentStoreId, isDriverMode]);
+
   const addToastNotification = useCallback((toast: Omit<ToastItem, "id" | "createdAt">) => {
     // Show system notification with app icon in Android status bar, audible chime/ringtone & vibration
     showSystemNotification(toast.title, {
@@ -927,8 +985,29 @@ export default function App() {
     const granted = await requestNotificationPermission();
     setHasNotifPermission(granted);
     if (granted) {
+      let role: "admin" | "store" | "driver" | "customer" = "customer";
+      let identifier = "";
+      if (isAdminMode || userRole === "admin") {
+        role = "admin";
+      } else if (currentStoreId || userRole === "store_owner") {
+        role = "store";
+        identifier = currentStoreId || "";
+      } else if (isDriverMode || userRole === "driver") {
+        role = "driver";
+        identifier = localStorage.getItem("tw_driver_phone") || "";
+      } else {
+        role = "customer";
+        identifier = localStorage.getItem("tw_user_phone") || "";
+      }
+
+      subscribeToPushNotifications({
+        role,
+        identifier,
+        name: localStorage.getItem("tw_user_name") || "",
+      }).catch(console.warn);
+
       showSystemNotification("تم تفعيل تنبيهات الطلبات 🔔", {
-        body: "ستتلقى إشعارات فورية عند وصول أي طلب جديد حتى عند إغلاق أو تصغير الشاشة."
+        body: "ستتلقى إشعارات فورية مع ظهور أيقونة التطبيق وصوت الرنين حتى لو كان الهاتف مقفلاً تماماً."
       });
     }
   };
@@ -4761,14 +4840,35 @@ export default function App() {
                     <span>تفعيل الإشعارات وظهور الأيقونة الآن 🔔</span>
                   </button>
                 ) : (
-                  <button
-                    type="button"
-                    onClick={() => triggerTestNotification()}
-                    className="w-full py-2 px-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-black transition-all cursor-pointer shadow-xs active:scale-95 flex items-center justify-center gap-1.5"
-                  >
-                    <Volume2 className="w-3.5 h-3.5" />
-                    <span>اختبار ظهور الأيقونة أعلى الشاشة والصوت 🛵</span>
-                  </button>
+                  <div className="flex flex-col sm:flex-row gap-2">
+                    <button
+                      type="button"
+                      onClick={() => triggerTestNotification()}
+                      className="flex-1 py-2 px-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-black transition-all cursor-pointer shadow-xs active:scale-95 flex items-center justify-center gap-1.5"
+                    >
+                      <Volume2 className="w-3.5 h-3.5" />
+                      <span>اختبار الأيقونة والصوت 🛵</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const targetRole = isAdminMode || userRole === "admin" ? "admin" : (currentStoreId ? "store" : (isDriverMode ? "driver" : "customer"));
+                        const targetIdent = currentStoreId || localStorage.getItem("tw_driver_phone") || localStorage.getItem("tw_user_phone") || "";
+                        sendTestPushNotification(targetRole, targetIdent);
+                        addToastNotification({
+                          order: { id: "test", storeId: "", storeName: "توصيل القرية", items: [], subtotal: 0, deliveryFee: 0, total: 0, status: "pending", createdAt: new Date().toISOString(), customerName: "", customerPhone: "", addressLandmark: "" },
+                          title: "تم إرسال إشعار الخلفية 🚀",
+                          message: "يمكنك قفل شاشة الهاتف الآن لملاحظة وصول الإشعار مع النغمة وظهور الأيقونة أعلى الشاشة.",
+                          type: "info"
+                        });
+                      }}
+                      className="flex-1 py-2 px-3 bg-slate-900 hover:bg-slate-800 text-amber-300 border border-amber-500/40 rounded-xl text-xs font-black transition-all cursor-pointer shadow-xs active:scale-95 flex items-center justify-center gap-1.5"
+                      title="تجربة وصول الإشعار والرنين عند قفل الهاتف"
+                    >
+                      <Smartphone className="w-3.5 h-3.5 text-amber-400" />
+                      <span>اختبار قفل الشاشة 📱</span>
+                    </button>
+                  </div>
                 )}
               </div>
 

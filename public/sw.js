@@ -1,10 +1,10 @@
 // ==============================================================================
 // Tawseel Progressive Web App (PWA) - Service Worker
-// Version: tawseel-v38-statusbar-notifications
+// Version: tawseel-v39-background-webpush
 // Designed for instant startup and automatic freshness for all customers & staff
 // ==============================================================================
 
-const CACHE_NAME = 'tawseel-v38-statusbar-notifications';
+const CACHE_NAME = 'tawseel-v39-background-webpush';
 
 // Dynamically determine the base path (e.g. '/Tawseel-pwa' on GitHub Pages or '' on root domain)
 const getBasePath = () => {
@@ -470,13 +470,15 @@ const resolveNotifIconUrls = (options = {}) => {
 // A. Notification Click: Bring app to foreground or open target order/view
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
+  if (event.action === 'close') return;
+
   const notifData = event.notification.data || {};
   const base = getBasePath();
   const targetUrl = notifData.url || (base ? `${self.location.origin}${base}/` : `${self.location.origin}/`);
 
   event.waitUntil(
     self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
-      // 1. If an existing window is already open, focus it and post a message
+      // 1. If an existing window is already open, focus it, post message and navigate if needed
       for (const client of clientList) {
         if ('focus' in client) {
           if (client.url && client.url.includes(self.location.origin)) {
@@ -484,6 +486,9 @@ self.addEventListener('notificationclick', (event) => {
               type: 'NOTIFICATION_CLICKED',
               data: notifData
             });
+            if ('navigate' in client && targetUrl && client.url !== targetUrl) {
+              client.navigate(targetUrl);
+            }
             return client.focus();
           }
         }
@@ -498,7 +503,7 @@ self.addEventListener('notificationclick', (event) => {
 
 // B. Notification Close
 self.addEventListener('notificationclose', (event) => {
-  // Can be used for telemetry or cleanup
+  // Telemetry or cleanup
 });
 
 // C. Message handler for showing notifications with status bar badge
@@ -513,13 +518,17 @@ self.addEventListener('message', (event) => {
       body: options.body || '',
       icon: iconUrl,
       badge: badgeUrl,
-      vibrate: options.vibrate || [300, 120, 300, 120, 450],
+      vibrate: options.vibrate || [500, 150, 500, 150, 600, 200, 800],
       tag: options.tag || 'tw-notif-' + Date.now(),
       renotify: true,
-      requireInteraction: options.requireInteraction ?? false,
+      requireInteraction: options.requireInteraction ?? true,
       dir: 'rtl',
       lang: 'ar',
       silent: false,
+      actions: [
+        { action: 'open', title: 'فتح الطلب 🛵' },
+        { action: 'close', title: 'إغلاق' }
+      ],
       ...options,
       data: {
         url: (options.data && options.data.url) || self.location.href,
@@ -532,7 +541,7 @@ self.addEventListener('message', (event) => {
   }
 });
 
-// D. Push Notification handler (for Web Push / Background Sync)
+// D. Push Notification handler (wakes up device in background / when screen is locked or browser closed)
 self.addEventListener('push', (event) => {
   let data = { title: 'توصيل 🛵', body: 'لديك إشعار جديد في تطبيق توصيل' };
   if (event.data) {
@@ -543,21 +552,42 @@ self.addEventListener('push', (event) => {
     }
   }
 
-  const { iconUrl, badgeUrl } = resolveNotifIconUrls(data.options);
+  const { iconUrl, badgeUrl } = resolveNotifIconUrls(data.options || {});
 
   const pushOptions = {
     body: data.body || '',
     icon: iconUrl,
     badge: badgeUrl,
-    vibrate: [300, 120, 300, 120, 450],
-    tag: data.tag || 'tw-push-' + Date.now(),
+    // Strong vibration to wake up the phone from pocket/sleep
+    vibrate: [500, 150, 500, 150, 600, 200, 800],
+    tag: data.tag || 'tw-push-' + (data.data?.orderId || Date.now()),
     renotify: true,
     requireInteraction: true,
     dir: 'rtl',
     lang: 'ar',
     silent: false,
-    data: data.data || { url: self.location.origin }
+    timestamp: Date.now(),
+    data: {
+      url: (data.data && data.data.url) || self.location.origin,
+      sound: data.sound || 'ringtone',
+      orderId: data.data?.orderId,
+      ...(data.data || {})
+    },
+    actions: [
+      { action: 'open', title: 'فتح الطلب 🛵' },
+      { action: 'close', title: 'إغلاق' }
+    ]
   };
+
+  // Broadcast to open clients if any exist to trigger sound player
+  self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clients) => {
+    for (const client of clients) {
+      client.postMessage({
+        type: 'PLAY_SOUND',
+        sound: data.sound || 'ringtone'
+      });
+    }
+  }).catch(() => {});
 
   event.waitUntil(self.registration.showNotification(data.title || 'توصيل 🛵', pushOptions));
 });

@@ -2,6 +2,7 @@ import express from "express";
 import path from "path";
 import fs from "fs";
 import { createServer as createViteServer } from "vite";
+import webpush from "web-push";
 
 const app = express();
 const PORT = 3000;
@@ -403,6 +404,175 @@ app.post("/api/system-status", (req, res) => {
   res.json({ success: true, emergencyRush: data.emergencyRush });
 });
 
+// ==============================================================================
+// Web Push Notifications & Background Alerts Setup (Works when phone is locked/closed)
+// ==============================================================================
+let vapidKeys = {
+  publicKey: process.env.VAPID_PUBLIC_KEY || "",
+  privateKey: process.env.VAPID_PRIVATE_KEY || "",
+};
+
+try {
+  const currentData = readServerData();
+  if (currentData.vapidKeys && currentData.vapidKeys.publicKey && currentData.vapidKeys.privateKey) {
+    vapidKeys = currentData.vapidKeys;
+  } else if (!vapidKeys.publicKey || !vapidKeys.privateKey) {
+    vapidKeys = webpush.generateVAPIDKeys();
+    currentData.vapidKeys = vapidKeys;
+    writeServerData(currentData);
+  }
+
+  webpush.setVapidDetails(
+    "mailto:support@tawseel.app",
+    vapidKeys.publicKey,
+    vapidKeys.privateKey
+  );
+  console.log("Web Push initialized successfully with public key:", vapidKeys.publicKey.substring(0, 15) + "...");
+} catch (vapidErr) {
+  console.error("VAPID Init error:", vapidErr);
+}
+
+interface PushPayload {
+  title: string;
+  body: string;
+  icon?: string;
+  badge?: string;
+  tag?: string;
+  sound?: string;
+  data?: any;
+}
+
+async function dispatchPushNotification(
+  filterFn: (sub: any) => boolean,
+  payload: PushPayload
+) {
+  const data = readServerData();
+  if (!data.pushSubscriptions || !Array.isArray(data.pushSubscriptions)) return;
+
+  const validPayload = {
+    title: payload.title || "توصيل 🛵",
+    body: payload.body || "",
+    icon: payload.icon || "/icon-192.png",
+    badge: payload.badge || "/icon-192.png",
+    tag: payload.tag || "tw-push-" + Date.now(),
+    sound: payload.sound || "ringtone",
+    data: payload.data || { url: "/" },
+    timestamp: Date.now()
+  };
+
+  const stringified = JSON.stringify(validPayload);
+  const deadEndpoints = new Set<string>();
+
+  const matchingSubs = data.pushSubscriptions.filter(filterFn);
+  if (matchingSubs.length > 0) {
+    console.log(`[Push] Dispatching to ${matchingSubs.length} matching subscribers. Title: "${payload.title}"`);
+  }
+
+  await Promise.allSettled(
+    matchingSubs.map(async (item: any) => {
+      try {
+        if (!item.subscription || !item.subscription.endpoint) return;
+        await webpush.sendNotification(item.subscription, stringified);
+      } catch (err: any) {
+        console.warn(`[Push Error] for endpoint ${item.subscription?.endpoint?.substring(0, 30)}:`, err?.statusCode || err?.message);
+        if (err?.statusCode === 404 || err?.statusCode === 410) {
+          deadEndpoints.add(item.subscription.endpoint);
+        }
+      }
+    })
+  );
+
+  if (deadEndpoints.size > 0) {
+    data.pushSubscriptions = data.pushSubscriptions.filter(
+      (s: any) => !deadEndpoints.has(s.subscription?.endpoint)
+    );
+    writeServerData(data);
+  }
+}
+
+// 1.2 Web Push Endpoints
+app.get("/api/push/public-key", (req, res) => {
+  res.json({ publicKey: vapidKeys.publicKey });
+});
+
+app.post("/api/push/subscribe", (req, res) => {
+  const { subscription, role, identifier, name, orderId } = req.body;
+  if (!subscription || !subscription.endpoint) {
+    return res.status(400).json({ error: "بيانات الاشتراك غير مكتملة" });
+  }
+
+  const data = readServerData();
+  if (!data.pushSubscriptions) data.pushSubscriptions = [];
+
+  data.pushSubscriptions = [
+    ...data.pushSubscriptions.filter(
+      (s: any) => s.subscription?.endpoint !== subscription.endpoint
+    ),
+    {
+      subscription,
+      role: role || "customer",
+      identifier: identifier || "",
+      name: name || "",
+      orderId: orderId || "",
+      updatedAt: Date.now()
+    }
+  ];
+
+  writeServerData(data);
+  res.json({ success: true, count: data.pushSubscriptions.length });
+});
+
+app.post("/api/push/unsubscribe", (req, res) => {
+  const { endpoint } = req.body;
+  if (!endpoint) return res.status(400).json({ error: "Endpoint مطلوب" });
+
+  const data = readServerData();
+  if (data.pushSubscriptions) {
+    data.pushSubscriptions = data.pushSubscriptions.filter(
+      (s: any) => s.subscription?.endpoint !== endpoint
+    );
+    writeServerData(data);
+  }
+  res.json({ success: true });
+});
+
+app.post("/api/push/notify", async (req, res) => {
+  const { targetRole, targetId, title, body, sound, url, orderId } = req.body;
+  await dispatchPushNotification(
+    (s: any) => {
+      if (targetRole && targetRole !== "all" && s.role !== targetRole) return false;
+      if (targetId && s.identifier !== targetId && s.orderId !== targetId) return false;
+      return true;
+    },
+    {
+      title: title || "توصيل 🛵",
+      body: body || "",
+      sound: sound || "ringtone",
+      tag: orderId ? `tw-order-${orderId}` : undefined,
+      data: { url: url || "/", orderId }
+    }
+  );
+  res.json({ success: true });
+});
+
+app.post("/api/push/send-test", async (req, res) => {
+  const { role, identifier } = req.body;
+  await dispatchPushNotification(
+    (s: any) => {
+      if (role && s.role !== role) return false;
+      if (identifier && s.identifier !== identifier) return false;
+      return true;
+    },
+    {
+      title: "تطبيق توصيل 🛵",
+      body: "تنبيه اختبار بالخلفية! الإشعارات ستصل مع النغمة وظهور الأيقونة حتى لو كان الهاتف مقفلاً تماماً.",
+      sound: "ringtone",
+      data: { url: "/" }
+    }
+  );
+  res.json({ success: true, message: "تم إرسال إشعار الاختبار بنجاح" });
+});
+
 // 2. API: Unified Full Sync Endpoint
 app.get("/api/sync", (req, res) => {
   const data = readServerData();
@@ -696,9 +866,48 @@ app.post("/api/orders", (req, res) => {
     ...(data.notifications || []).slice(0, 30)
   ];
 
-  writeServerData(data);
-  res.json({ success: true, order: newOrder });
-});
+    writeServerData(data);
+
+    // Trigger background Web Push for new order (Wakes up phones when locked or app closed)
+    try {
+      // 1. Alert Admins
+      dispatchPushNotification(
+        (s: any) => s.role === "admin",
+        {
+          title: `🔔 طلب جديد وارد للإدارة #${newOrder.id}`,
+          body: `طلب وارد لمتجر (${newOrder.storeName}) بقيمة ${newOrder.total} ل.س`,
+          sound: "ringtone",
+          data: { url: `/?orderId=${newOrder.id}`, orderId: newOrder.id }
+        }
+      ).catch(() => {});
+
+      // 2. Alert Store Owner
+      dispatchPushNotification(
+        (s: any) => s.role === "store" && (s.identifier === newOrder.storeId || s.identifier === newOrder.storePhone),
+        {
+          title: `🏪 طلب جديد وارد لمتجرك #${newOrder.id}!`,
+          body: `لديك طلب جديد بقيمة ${newOrder.total} ل.س! انقر للمراجعة والبدء بالتجهيز 🛵`,
+          sound: "ringtone",
+          data: { url: `/?store=${newOrder.storeId}`, orderId: newOrder.id }
+        }
+      ).catch(() => {});
+
+      // 3. Alert Drivers fleet
+      dispatchPushNotification(
+        (s: any) => s.role === "driver",
+        {
+          title: `🛵 طلب توصيل جديد متاح #${newOrder.id}!`,
+          body: `طلب توصيل جديد من (${newOrder.storeName}) جاهز للتكليف والتوصيل`,
+          sound: "ringtone",
+          data: { url: `/?orderId=${newOrder.id}`, orderId: newOrder.id }
+        }
+      ).catch(() => {});
+    } catch (e) {
+      console.warn("Error dispatching background push for new order:", e);
+    }
+
+    res.json({ success: true, order: newOrder });
+  });
 
 app.put("/api/orders/:id", (req, res) => {
   const orderId = req.params.id;
@@ -764,6 +973,64 @@ app.put("/api/orders/:id", (req, res) => {
     ];
 
     writeServerData(data);
+
+    // Trigger background Web Push for order updates (wakes up mobile screen & status bar)
+    try {
+      // Alert Driver if newly assigned
+      if ((updates.driverPhone && updates.driverPhone !== prevOrder.driverPhone) || (updates.driverName && !prevOrder.driverName)) {
+        dispatchPushNotification(
+          (s: any) => s.role === "driver" && (s.identifier === updates.driverPhone || s.identifier === updates.driverId),
+          {
+            title: `🛵 تم إسناد طلب جديد إليك #${orderId}!`,
+            body: `تم إسناد توصيل طلب متجر (${data.orders[idx].storeName}) إليك. انقر لفتح التفاصيل والموقع.`,
+            sound: "ringtone",
+            data: { url: `/?orderId=${orderId}`, orderId }
+          }
+        ).catch(() => {});
+      }
+
+      // Alert Customer when status progresses
+      if (updates.status && updates.status !== prevOrder.status) {
+        let custTitle = `تحديث طلبك #${orderId}`;
+        let custBody = "";
+        let custSound: "ringtone" | "chime" = "chime";
+
+        if (updates.status === "accepted") {
+          custTitle = `📋 تم قبول طلبك #${orderId}`;
+          custBody = `تم تأكيد وقبول طلبك من متجر (${data.orders[idx].storeName}).`;
+        } else if (updates.status === "preparing") {
+          custTitle = `🍳 جاري تجهيز طلبك #${orderId}`;
+          custBody = `بدأ متجر (${data.orders[idx].storeName}) بتجهيز طلبك وسيتم تسليمه للكابتن قريباً.`;
+        } else if (updates.status === "picked_up") {
+          custTitle = `🛵 طلبك #${orderId} خرج للتوصيل!`;
+          custBody = data.orders[idx].driverName
+            ? `الكابتن ${data.orders[idx].driverName} استلم طلبك وهو في الطريق إليك الآن.`
+            : "الكابتن استلم طلبك وهو الآن في الطريق إليك.";
+          custSound = "ringtone";
+        } else if (updates.status === "delivered") {
+          custTitle = `✅ تم تسليم طلبك #${orderId} بنجاح!`;
+          custBody = "تم تأكيد التسليم ومطابقة كود الأمان بنجاح. شكراً لاختيارك توصيل 🛵";
+        } else if (updates.status === "cancelled") {
+          custTitle = `❌ تم إلغاء طلبك #${orderId}`;
+          custBody = updates.cancellationReason || "تم إلغاء الطلب من قبل المتجر أو الإدارة.";
+        }
+
+        if (custBody) {
+          dispatchPushNotification(
+            (s: any) => s.role === "customer" || s.identifier === data.orders[idx].customerPhone || s.identifier === orderId || s.orderId === orderId,
+            {
+              title: custTitle,
+              body: custBody,
+              sound: custSound,
+              data: { url: `/?orderId=${orderId}`, orderId }
+            }
+          ).catch(() => {});
+        }
+      }
+    } catch (pushErr) {
+      console.warn("Error dispatching background push on order update:", pushErr);
+    }
+
     return res.json({ success: true, order: data.orders[idx] });
   }
   res.status(404).json({ error: "الطلب غير موجود" });
