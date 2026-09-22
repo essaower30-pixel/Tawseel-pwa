@@ -313,7 +313,7 @@ export const StoreDetails: React.FC<StoreDetailsProps> = ({
   };
 
   return (
-    <div className="space-y-6 max-w-5xl mx-auto px-4 sm:px-6 py-4" dir="rtl">
+    <div className="space-y-6 max-w-5xl mx-auto px-4 sm:px-6 pt-3 pb-36" dir="rtl">
       {/* Top Controls Bar */}
       <div className="flex items-center justify-between gap-3">
         <button
@@ -1070,12 +1070,18 @@ export const StoreDetails: React.FC<StoreDetailsProps> = ({
                 </div>
 
                 <div className="space-y-2">
-                  <div className="h-36 rounded-2xl overflow-hidden bg-slate-100 relative">
+                  <div className="h-36 rounded-2xl overflow-hidden bg-slate-100 relative group">
                     <img
                       src={product.image}
                       alt={product.name}
                       referrerPolicy="no-referrer"
-                      className={`w-full h-full object-cover group-hover:scale-105 transition-transform ${
+                      onError={(e) => {
+                        // High quality fallback on image load error
+                        const target = e.currentTarget;
+                        target.onerror = null;
+                        target.src = "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=500&auto=format&fit=crop&q=80";
+                      }}
+                      className={`w-full h-full object-cover group-hover:scale-105 transition-transform duration-300 ${
                         isOutOfStock ? "grayscale-[60%] opacity-80" : ""
                       }`}
                     />
@@ -1421,7 +1427,7 @@ export const StoreDetails: React.FC<StoreDetailsProps> = ({
         </div>
       )}
 
-      {/* Sticky Bottom Cart Bar if items exist */}
+      {/* Sticky Bottom Cart Bar if items exist - Positioned cleanly ABOVE bottom navigation */}
       <AnimatePresence>
         {totalCartCount > 0 && (
           <motion.div
@@ -1429,10 +1435,11 @@ export const StoreDetails: React.FC<StoreDetailsProps> = ({
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 50 }}
             transition={{ duration: 0.2 }}
-            className="fixed bottom-4 left-4 right-4 max-w-lg mx-auto z-40"
+            className="fixed left-3 right-3 sm:left-4 sm:right-4 max-w-lg mx-auto z-40"
+            style={{ bottom: "calc(env(safe-area-inset-bottom, 0px) + 4.75rem)" }}
             dir="rtl"
           >
-            <div className="bg-slate-900 text-white rounded-2xl p-3 sm:p-4 shadow-2xl border border-slate-700 flex items-center justify-between gap-3">
+            <div className="bg-slate-900 text-white rounded-2xl p-3 sm:p-4 shadow-2xl border border-slate-700/80 flex items-center justify-between gap-3 backdrop-blur-md">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 bg-orange-500 rounded-xl flex items-center justify-center font-black text-white shrink-0">
                   <ShoppingCart className="w-5 h-5" />

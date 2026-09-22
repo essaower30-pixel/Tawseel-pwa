@@ -327,7 +327,7 @@ export const initialProducts: Product[] = [
     unit: "وجبة",
     stock: 15,
     description: "سندويشين شاورما مقطعين مع صحن بطاطا، ثومية، ومخلل مشكل.",
-    image: "https://images.unsplash.com/photo-1626700051175-6518c4793f4f?w=400&auto=format&fit=crop&q=60",
+    image: "https://images.unsplash.com/photo-1529006557810-274b9b2fc783?w=500&auto=format&fit=crop&q=80",
     category: "restaurants",
     storeId: "store_yasmin"
   },
