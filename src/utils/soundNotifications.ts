@@ -219,7 +219,7 @@ export function playOrderAlertSound(typeOverride?: SoundType): void {
 }
 
 /**
- * Request Notification permission from browser
+ * Request Notification permission from browser with user gesture
  */
 export async function requestNotificationPermission(): Promise<boolean> {
   if (typeof window === "undefined" || !("Notification" in window)) {
@@ -240,27 +240,133 @@ export async function requestNotificationPermission(): Promise<boolean> {
   }
 }
 
+export interface CustomNotificationOptions extends NotificationOptions {
+  soundType?: SoundType;
+  playSound?: boolean;
+  vibrate?: number | number[];
+  vibratePattern?: number[];
+  requireInteraction?: boolean;
+}
+
 /**
- * Show system / browser notification if permitted
+ * Show system / browser notification with App Icon in Android status bar, 
+ * audible sound chime/ringtone, vibration, and title alert.
+ * Works across mobile PWA and desktop.
  */
-export function showSystemNotification(title: string, options?: NotificationOptions): void {
-  if (typeof window === "undefined" || !("Notification" in window)) return;
-  if (Notification.permission === "granted") {
+export async function showSystemNotification(
+  title: string, 
+  options?: CustomNotificationOptions
+): Promise<void> {
+  if (typeof window === "undefined") return;
+
+  // 1. Play sound chime/ringtone
+  if (options?.playSound !== false && isSoundEnabled()) {
     try {
-      const n = new Notification(title, {
-        icon: "/icon-192.png",
-        badge: "/icon-192.png",
-        dir: "rtl",
-        lang: "ar",
-        ...options,
-      });
+      playOrderAlertSound(options?.soundType || "ringtone");
+    } catch (soundErr) {
+      console.warn("Sound play error in notification:", soundErr);
+    }
+  }
+
+  // 2. Hardware vibration for mobile phones
+  try {
+    triggerOrderVibration();
+  } catch {}
+
+  // 3. Alternate title so background tabs alert the user
+  try {
+    flashTabTitle(`🔔 ${title}`);
+  } catch {}
+
+  // 4. Check notification permission
+  if (!("Notification" in window) || Notification.permission !== "granted") {
+    return;
+  }
+
+  try {
+    // Resolve absolute URLs for icon and badge so Android status bar and drawer always render them
+    const origin = window.location.origin;
+    let pathname = window.location.pathname.replace(/\/index\.html$/, "");
+    if (!pathname.endsWith("/")) {
+      const lastSlash = pathname.lastIndexOf("/");
+      pathname = lastSlash >= 0 ? pathname.substring(0, lastSlash + 1) : "/";
+    }
+    const basePath = pathname.endsWith("/") ? pathname.slice(0, -1) : pathname;
+    
+    // Both icon (notification card) and badge (Android status bar icon at top of screen)
+    const iconUrl = options?.icon || `${origin}${basePath}/icon-192.png`;
+    const badgeUrl = options?.badge || `${origin}${basePath}/icon-192.png`;
+
+    const fullOptions: any = {
+      icon: iconUrl,
+      badge: badgeUrl,
+      vibrate: options?.vibratePattern || options?.vibrate || [300, 120, 300, 120, 450],
+      renotify: true,
+      tag: options?.tag || `tw-notif-${Date.now()}`,
+      dir: "rtl",
+      lang: "ar",
+      silent: false,
+      requireInteraction: options?.requireInteraction ?? false,
+      ...options,
+      data: {
+        url: window.location.href,
+        timestamp: Date.now(),
+        ...(options?.data || {}),
+      },
+    };
+
+    // Primary Mobile Path (Android Chrome / PWA): Must use ServiceWorkerRegistration.showNotification
+    // This is what puts the app icon in the Android status bar (top notification tray) like WhatsApp!
+    if ("serviceWorker" in navigator) {
+      try {
+        const registration = await navigator.serviceWorker.ready;
+        if (registration && typeof registration.showNotification === "function") {
+          await registration.showNotification(title, fullOptions);
+          return;
+        }
+      } catch (swErr) {
+        console.warn("ServiceWorker showNotification failed, trying fallback:", swErr);
+      }
+
+      // If active controller exists, also send message to Service Worker
+      if (navigator.serviceWorker.controller) {
+        try {
+          navigator.serviceWorker.controller.postMessage({
+            type: "SHOW_NOTIFICATION",
+            title,
+            options: fullOptions
+          });
+          return;
+        } catch {}
+      }
+    }
+
+    // Secondary Desktop Fallback (for browsers allowing new Notification constructor)
+    try {
+      const n = new Notification(title, fullOptions);
       n.onclick = () => {
         window.focus();
         n.close();
       };
-    } catch (e) {
-      console.warn("System notification error:", e);
+    } catch (notifErr) {
+      console.warn("Desktop Notification constructor error:", notifErr);
     }
+  } catch (err) {
+    console.warn("Failed to display system notification:", err);
+  }
+}
+
+/**
+ * Triggers a test notification with sound, vibration, and app icon in status bar
+ */
+export async function triggerTestNotification(): Promise<void> {
+  const granted = await requestNotificationPermission();
+  if (granted) {
+    await showSystemNotification("تطبيق توصيل 🛵", {
+      body: "تم تفعيل التنبيهات بنجاح! ستظهر أيقونة التطبيق في شريط الإشعارات أعلى الشاشة مع صوت الرنين عند وصول أي طلب أو تحديث.",
+      soundType: "ringtone",
+      requireInteraction: true
+    });
   }
 }
 

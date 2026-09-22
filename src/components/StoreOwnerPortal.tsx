@@ -43,7 +43,7 @@ import {
 import { Order, Product, Store, UserProfile, Category, StoreBroadcast, StoreSize, StoreAddition } from "../types";
 import { ContactActions } from "./ContactActions";
 import { openWhatsApp } from "../utils/whatsapp";
-import { playOrderAlertSound, isSoundEnabled, setSoundEnabled } from "../utils/soundNotifications";
+import { playOrderAlertSound, isSoundEnabled, setSoundEnabled, requestNotificationPermission, showSystemNotification } from "../utils/soundNotifications";
 import { StoreBroadcastViewer } from "./store/StoreBroadcastViewer";
 import { ImageUploader } from "./ImageUploader";
 import { BottomNavigation } from "./BottomNavigation";
@@ -210,12 +210,26 @@ export const StoreOwnerPortal: React.FC<StoreOwnerPortalProps> = ({
   const [additionName, setAdditionName] = useState("");
   const [additionPrice, setAdditionPrice] = useState("");
 
-  const handleToggleSound = () => {
+  // Request notification permissions for store owner to see app icon in top status bar
+  useEffect(() => {
+    if ("Notification" in window && Notification.permission === "default") {
+      requestNotificationPermission().catch(() => {});
+    }
+  }, []);
+
+  const handleToggleSound = async () => {
     const next = !soundAlerts;
     setSoundAlerts(next);
     setSoundEnabled(next);
     if (next) {
       playOrderAlertSound("ringtone");
+      const granted = await requestNotificationPermission();
+      if (granted) {
+        showSystemNotification(`متجر ${currentStore.name} 🏪`, {
+          body: "تم تفعيل تنبيهات وأيقونة التطبيق في شريط الإشعارات! ستصلك تنبيهات فورية بكل طلب جديد.",
+          soundType: "ringtone",
+        });
+      }
     }
   };
 

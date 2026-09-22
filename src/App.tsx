@@ -77,6 +77,7 @@ import { AccountSettingsModal } from "./components/AccountSettingsModal";
 import { FloatingPortalReturnButton } from "./components/FloatingPortalReturnButton";
 import { ToastNotification, ToastItem } from "./components/ToastNotification";
 import { OfflineBanner, useOnlineStatus } from "./components/OfflineBanner";
+import { NotificationPermissionBanner } from "./components/NotificationPermissionBanner";
 import { openWhatsApp } from "./utils/whatsapp";
 import {
   playOrderAlertSound,
@@ -84,6 +85,7 @@ import {
   setSoundEnabled,
   showSystemNotification,
   requestNotificationPermission,
+  triggerTestNotification,
   getOrderBroadcastChannel,
   broadcastNewOrder,
   broadcastOrderForwardedToStore,
@@ -678,6 +680,13 @@ export default function App() {
   const isInitialLoadDoneRef = useRef<boolean>(false);
 
   const addToastNotification = useCallback((toast: Omit<ToastItem, "id" | "createdAt">) => {
+    // Show system notification with app icon in Android status bar, audible chime/ringtone & vibration
+    showSystemNotification(toast.title, {
+      body: toast.message,
+      soundType: toast.type === "new_order" || toast.type === "driver_assigned" ? "ringtone" : "chime",
+      data: { orderId: toast.order?.id }
+    });
+
     setToasts((prev) => {
       // Prevent duplicate notification stacking if one with same title & message already exists
       const isAlreadyShowing = prev.some(
@@ -1260,6 +1269,46 @@ export default function App() {
           fresh.driverPhone !== activeOrder.driverPhone ||
           fresh.driverVehicle !== activeOrder.driverVehicle)
       ) {
+        // If order status changed, notify customer with status bar icon, chime & vibration
+        if (fresh.status !== activeOrder.status) {
+          let statusTitle = `تحديث طلبك #${fresh.id}`;
+          let statusMsg = "";
+          if (fresh.status === "accepted") {
+            statusTitle = `📋 تم قبول طلبك #${fresh.id}`;
+            statusMsg = `تم تأكيد وقبول طلبك من متجر (${fresh.storeName}).`;
+          } else if (fresh.status === "preparing") {
+            statusTitle = `🍳 جاري تجهيز طلبك #${fresh.id}`;
+            statusMsg = `بدأ متجر (${fresh.storeName}) بتجهيز طلبك وسيتم تسليمه للكابتن قريباً.`;
+          } else if (fresh.status === "picked_up") {
+            statusTitle = `🛵 طلبك #${fresh.id} خرج للتوصيل!`;
+            statusMsg = fresh.driverName ? `الكابتن ${fresh.driverName} استلم طلبك وهو في الطريق إليك الآن.` : "الكابتن استلم طلبك وهو الآن في الطريق إليك.";
+          } else if (fresh.status === "delivered") {
+            statusTitle = `✅ تم تسليم طلبك #${fresh.id} بنجاح!`;
+            statusMsg = "تم تأكيد التسليم ومطابقة كود الأمان بنجاح. شكراً لاختيارك توصيل!";
+          } else if (fresh.status === "cancelled") {
+            statusTitle = `❌ تم إلغاء طلبك #${fresh.id}`;
+            statusMsg = (fresh as any).cancellationReason || "تم إلغاء الطلب من قبل المتجر أو الإدارة.";
+          }
+
+          if (statusMsg) {
+            addToastNotification({
+              order: fresh,
+              title: statusTitle,
+              message: statusMsg,
+              type: fresh.status === "delivered" ? "success" : "status_change",
+              targetRole: "customer"
+            });
+          }
+        } else if (fresh.driverName && !activeOrder.driverName) {
+          addToastNotification({
+            order: fresh,
+            title: `🛵 تم تعيين كابتن التوصيل لطلبك #${fresh.id}`,
+            message: `الكابتن (${fresh.driverName}) سيتولى نقل وتوصيل طلبك.`,
+            type: "driver_assigned",
+            targetRole: "customer"
+          });
+        }
+
         setActiveOrder(fresh);
       }
     }
@@ -4687,11 +4736,11 @@ export default function App() {
               </button>
 
               {/* Browser Notification Permission */}
-              <div className="p-3.5 bg-blue-50/70 border border-blue-200/80 rounded-2xl space-y-2">
+              <div className="p-3.5 bg-blue-50/70 border border-blue-200/80 rounded-2xl space-y-2.5">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <Bell className="w-4 h-4 text-blue-600" />
-                    <h4 className="text-xs font-black text-blue-900">إشعارات النظام المنبثقة</h4>
+                    <h4 className="text-xs font-black text-blue-900">إشعارات النظام وأيقونة شريط التنبيهات</h4>
                   </div>
                   <span className={`text-[10px] font-black px-2 py-0.5 rounded-full ${
                     hasNotifPermission ? "bg-emerald-100 text-emerald-800" : "bg-amber-100 text-amber-800"
@@ -4700,16 +4749,25 @@ export default function App() {
                   </span>
                 </div>
                 <p className="text-[11px] text-blue-800 leading-relaxed font-semibold">
-                  تفعيل الإشعارات يضمن وصول تنبيه برقم وتفاصيل الطلب حتى إذا تم تصغير المتصفح أو كان الهاتف مقفلاً.
+                  تظهر أيقونة تطبيق (توصيل 🛵) أعلى شاشة الهاتف في شريط الإشعارات فور وصول أو تحديث أي طلب، مصحوبة بصوت رنين واهتزاز (تماماً كالواتساب).
                 </p>
-                {!hasNotifPermission && (
+                {!hasNotifPermission ? (
                   <button
                     type="button"
                     onClick={handleRequestNotifPermission}
                     className="w-full py-2 px-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-black transition-all cursor-pointer shadow-xs active:scale-95 flex items-center justify-center gap-1.5"
                   >
                     <Bell className="w-3.5 h-3.5" />
-                    <span>تفعيل إشعارات المتصفح الآن</span>
+                    <span>تفعيل الإشعارات وظهور الأيقونة الآن 🔔</span>
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => triggerTestNotification()}
+                    className="w-full py-2 px-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-black transition-all cursor-pointer shadow-xs active:scale-95 flex items-center justify-center gap-1.5"
+                  >
+                    <Volume2 className="w-3.5 h-3.5" />
+                    <span>اختبار ظهور الأيقونة أعلى الشاشة والصوت 🛵</span>
                   </button>
                 )}
               </div>
@@ -4901,6 +4959,11 @@ export default function App() {
           }}
         />
       )}
+
+      {/* Real-time Notification & Status Bar Icon Banner for All Users */}
+      <NotificationPermissionBanner
+        onPermissionChange={(granted) => setHasNotifPermission(granted)}
+      />
     </div>
   );
 }

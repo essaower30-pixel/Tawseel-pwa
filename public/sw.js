@@ -1,10 +1,10 @@
 // ==============================================================================
 // Tawseel Progressive Web App (PWA) - Service Worker
-// Version: tawseel-v37-delivery-otp-clean
+// Version: tawseel-v38-statusbar-notifications
 // Designed for instant startup and automatic freshness for all customers & staff
 // ==============================================================================
 
-const CACHE_NAME = 'tawseel-v37-delivery-otp-clean';
+const CACHE_NAME = 'tawseel-v38-statusbar-notifications';
 
 // Dynamically determine the base path (e.g. '/Tawseel-pwa' on GitHub Pages or '' on root domain)
 const getBasePath = () => {
@@ -452,4 +452,112 @@ self.addEventListener('fetch', (event) => {
         return hit || new Response('Offline', { status: 503 });
       })
   );
+});
+
+// ==============================================================================
+// 4. NOTIFICATION & STATUS BAR ICON HANDLING (WhatsApp-like top bar badge)
+// ==============================================================================
+
+// Helper to resolve icon and badge URLs reliably
+const resolveNotifIconUrls = (options = {}) => {
+  const base = getBasePath();
+  const origin = self.location.origin;
+  const iconUrl = options.icon || (base ? `${origin}${base}/icon-192.png` : `${origin}/icon-192.png`);
+  const badgeUrl = options.badge || (base ? `${origin}${base}/icon-192.png` : `${origin}/icon-192.png`);
+  return { iconUrl, badgeUrl };
+};
+
+// A. Notification Click: Bring app to foreground or open target order/view
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  const notifData = event.notification.data || {};
+  const base = getBasePath();
+  const targetUrl = notifData.url || (base ? `${self.location.origin}${base}/` : `${self.location.origin}/`);
+
+  event.waitUntil(
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
+      // 1. If an existing window is already open, focus it and post a message
+      for (const client of clientList) {
+        if ('focus' in client) {
+          if (client.url && client.url.includes(self.location.origin)) {
+            client.postMessage({
+              type: 'NOTIFICATION_CLICKED',
+              data: notifData
+            });
+            return client.focus();
+          }
+        }
+      }
+      // 2. Otherwise open a new window
+      if (self.clients.openWindow) {
+        return self.clients.openWindow(targetUrl);
+      }
+    })
+  );
+});
+
+// B. Notification Close
+self.addEventListener('notificationclose', (event) => {
+  // Can be used for telemetry or cleanup
+});
+
+// C. Message handler for showing notifications with status bar badge
+self.addEventListener('message', (event) => {
+  if (!event.data) return;
+
+  if (event.data.type === 'SHOW_NOTIFICATION') {
+    const { title, options = {} } = event.data;
+    const { iconUrl, badgeUrl } = resolveNotifIconUrls(options);
+
+    const notifOptions = {
+      body: options.body || '',
+      icon: iconUrl,
+      badge: badgeUrl,
+      vibrate: options.vibrate || [300, 120, 300, 120, 450],
+      tag: options.tag || 'tw-notif-' + Date.now(),
+      renotify: true,
+      requireInteraction: options.requireInteraction ?? false,
+      dir: 'rtl',
+      lang: 'ar',
+      silent: false,
+      ...options,
+      data: {
+        url: (options.data && options.data.url) || self.location.href,
+        timestamp: Date.now(),
+        ...(options.data || {})
+      }
+    };
+
+    self.registration.showNotification(title || 'توصيل 🛵', notifOptions);
+  }
+});
+
+// D. Push Notification handler (for Web Push / Background Sync)
+self.addEventListener('push', (event) => {
+  let data = { title: 'توصيل 🛵', body: 'لديك إشعار جديد في تطبيق توصيل' };
+  if (event.data) {
+    try {
+      data = event.data.json();
+    } catch (e) {
+      data.body = event.data.text();
+    }
+  }
+
+  const { iconUrl, badgeUrl } = resolveNotifIconUrls(data.options);
+
+  const pushOptions = {
+    body: data.body || '',
+    icon: iconUrl,
+    badge: badgeUrl,
+    vibrate: [300, 120, 300, 120, 450],
+    tag: data.tag || 'tw-push-' + Date.now(),
+    renotify: true,
+    requireInteraction: true,
+    dir: 'rtl',
+    lang: 'ar',
+    silent: false,
+    data: data.data || { url: self.location.origin }
+  };
+
+  event.waitUntil(self.registration.showNotification(data.title || 'توصيل 🛵', pushOptions));
 });

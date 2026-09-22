@@ -30,7 +30,7 @@ import {
   ShoppingBag
 } from "lucide-react";
 import { StaffMember, StaffPermission } from "../../types";
-import { playOrderAlertSound, isSoundEnabled, setSoundEnabled } from "../../utils/soundNotifications";
+import { playOrderAlertSound, isSoundEnabled, setSoundEnabled, requestNotificationPermission, showSystemNotification } from "../../utils/soundNotifications";
 
 export type AdminTab = 
   | "platform_features"
@@ -212,11 +212,20 @@ export const AdminHeader: React.FC<AdminHeaderProps> = ({
           {/* Sound Notification quick toggle button for admin */}
           <button
             type="button"
-            onClick={() => {
+            onClick={async () => {
               const next = !soundOn;
               setSoundOn(next);
               setSoundEnabled(next);
-              if (next) playOrderAlertSound("ringtone");
+              if (next) {
+                playOrderAlertSound("ringtone");
+                const granted = await requestNotificationPermission();
+                if (granted) {
+                  showSystemNotification("لوحة الإدارة 🔔", {
+                    body: "تم تفعيل التنبيهات وظهور أيقونة التطبيق في شريط الإشعارات العلوي! ستصلك تنبيهات فورية بكل طلب وارد.",
+                    soundType: "ringtone",
+                  });
+                }
+              }
             }}
             className={`px-2.5 sm:px-3 py-1.5 border font-black text-xs rounded-2xl transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-sm active:scale-95 ${
               soundOn

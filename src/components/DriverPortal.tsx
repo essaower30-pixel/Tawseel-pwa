@@ -29,7 +29,7 @@ import {
 } from "lucide-react";
 import { DriverMember, Order, Store, UserProfile } from "../types";
 import { ContactActions } from "./ContactActions";
-import { playOrderAlertSound, isSoundEnabled, setSoundEnabled } from "../utils/soundNotifications";
+import { playOrderAlertSound, isSoundEnabled, setSoundEnabled, requestNotificationPermission, showSystemNotification } from "../utils/soundNotifications";
 import { BottomNavigation } from "./BottomNavigation";
 import { AccountSettingsModal } from "./AccountSettingsModal";
 import { CaptainWallet } from "./driver/CaptainWallet";
@@ -198,12 +198,19 @@ export const DriverPortal: React.FC<DriverPortalProps> = ({
     localStorage.setItem("tw_saved_driver_user", updatedProfile.phone);
   };
 
-  const handleToggleSound = () => {
+  const handleToggleSound = async () => {
     const next = !soundAlerts;
     setSoundAlerts(next);
     setSoundEnabled(next);
     if (next) {
       playOrderAlertSound("chime");
+      const granted = await requestNotificationPermission();
+      if (granted) {
+        showSystemNotification(`كابتن ${currentDriver.name} 🛵`, {
+          body: "تم تفعيل التنبيهات وظهور أيقونة التطبيق في شريط الإشعارات العلوي! ستصلك تنبيهات فورية بالطلبات المسندة.",
+          soundType: "chime",
+        });
+      }
     }
   };
 
