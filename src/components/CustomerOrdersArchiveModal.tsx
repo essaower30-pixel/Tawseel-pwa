@@ -179,7 +179,7 @@ export const CustomerOrdersArchiveModal: React.FC<CustomerOrdersArchiveModalProp
                           title="كود تسليم واستلام الطلبية للكابتن"
                         >
                           <KeyRound className="w-3 h-3 text-amber-600" />
-                          <span>كود التسليم: {order.deliveryOtp}</span>
+                          <span>كود التسليم: <b dir="ltr" className="font-mono tracking-wider">{order.deliveryOtp}</b></span>
                         </span>
                       )}
                     </div>

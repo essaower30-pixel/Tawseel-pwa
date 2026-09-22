@@ -199,10 +199,10 @@ export const OrderTracker: React.FC<OrderTrackerProps> = ({
           </div>
 
           {/* 4-Digit Display Pill */}
-          <div className="flex items-center gap-2 self-start sm:self-auto bg-slate-800/90 border border-slate-700 p-2 sm:p-2.5 rounded-2xl">
-            <div className="flex items-center gap-1.5 font-mono font-black text-xl sm:text-2xl tracking-widest text-amber-400 px-3 py-1 bg-black/40 rounded-xl border border-amber-500/20 select-all">
+          <div className="flex items-center gap-2 self-start sm:self-auto bg-slate-800/90 border border-slate-700 p-2 sm:p-2.5 rounded-2xl" dir="ltr">
+            <div className="flex items-center gap-1.5 font-mono font-black text-xl sm:text-2xl tracking-widest text-amber-400 px-3 py-1 bg-black/40 rounded-xl border border-amber-500/20 select-all" dir="ltr">
               {otpCode.split("").map((digit, i) => (
-                <span key={i} className="inline-block w-6 text-center">
+                <span key={i} className="inline-block w-6 text-center" dir="ltr">
                   {digit}
                 </span>
               ))}

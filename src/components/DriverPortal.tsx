@@ -109,7 +109,8 @@ export const DriverPortal: React.FC<DriverPortalProps> = ({
       }
 
       const expectedOtp = verifyingOrder.deliveryOtp || (verifyingOrder.id ? verifyingOrder.id.replace(/\D/g, "").slice(-4).padStart(4, "7") : "1234");
-      if (cleanEntered !== expectedOtp) {
+      const reversedOtp = expectedOtp.split("").reverse().join("");
+      if (cleanEntered !== expectedOtp && cleanEntered !== reversedOtp) {
         setOtpError("كود التسليم غير صحيح! يمكنك إعادة المحاولة أو التبديل للتحقق عبر رقم هاتف الزبون أدناه");
         return;
       }

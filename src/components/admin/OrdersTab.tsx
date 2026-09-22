@@ -278,7 +278,7 @@ export const OrdersTab: React.FC<OrdersTabProps> = ({
                         title="كود تسليم واستلام الطلبية"
                       >
                         <KeyRound className="w-3.5 h-3.5 text-amber-600" />
-                        <span>كود التسليم: {order.deliveryOtp}</span>
+                        <span>كود التسليم: <b dir="ltr" className="font-mono tracking-wider">{order.deliveryOtp}</b></span>
                       </span>
                     )}
                     <span className={`px-3 py-1 rounded-full text-xs font-black border ${statusInfo.bg}`}>
