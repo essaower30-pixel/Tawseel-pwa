@@ -100,7 +100,9 @@ import {
   flashTabTitle,
   SoundType,
   shouldDeliverNotification,
-  markNotificationDelivered
+  markNotificationDelivered,
+  clearAppBadgeCount,
+  setAppBadgeCount
 } from "./utils/soundNotifications";
 import { initHistoryProtection, handleAppBackButton } from "./utils/historyManager";
 import { 
@@ -723,9 +725,10 @@ export default function App() {
 
     if (isAdminMode || userRole === "admin") {
       role = "admin";
+      identifier = "admin";
     } else if (currentStoreId || userRole === "store_owner") {
       role = "store";
-      identifier = currentStoreId || "";
+      identifier = currentStoreId || userProfile?.storeId || userProfile?.phone || "";
     } else if (isDriverMode || userRole === "driver") {
       role = "driver";
       identifier = localStorage.getItem("tw_driver_phone") || "";
@@ -734,12 +737,15 @@ export default function App() {
       identifier = localStorage.getItem("tw_user_phone") || "";
     }
 
+    const matchedStore = stores.find(s => s.id === (currentStoreId || userProfile?.storeId) || (userProfile?.phone && s.ownerPhone === userProfile?.phone));
+    const subName = matchedStore?.name || userProfile?.name || localStorage.getItem("tw_user_name") || "";
+
     subscribeToPushNotifications({
       role,
       identifier,
-      name: localStorage.getItem("tw_user_name") || "",
+      name: subName,
     }).catch(() => {});
-  }, [isAdminMode, userRole, currentStoreId, isDriverMode]);
+  }, [isAdminMode, userRole, currentStoreId, isDriverMode, userProfile, stores]);
 
   const addToastNotification = useCallback((toast: Omit<ToastItem, "id" | "createdAt"> & {
     showSystemNotification?: boolean;
@@ -2567,11 +2573,15 @@ export default function App() {
 
     const handleVisibility = () => {
       if (document.visibilityState === "visible") {
+        clearAppBadgeCount();
         performSync();
       }
     };
     window.addEventListener("visibilitychange", handleVisibility);
-    window.addEventListener("focus", performSync);
+    window.addEventListener("focus", () => {
+      clearAppBadgeCount();
+      performSync();
+    });
 
     return () => {
       isMounted = false;

@@ -442,15 +442,14 @@ interface PushPayload {
   data?: any;
 }
 
-// Server-side deduplication tracker to prevent duplicate pushes
+// Server-side deduplication tracker to prevent duplicate bursts
 const sentPushTimestamps = new Map<string, number>();
 
-function canSendPush(key: string, cooldownMs: number = 600000): boolean {
+function canSendPush(key: string, cooldownMs: number = 3000): boolean {
   if (!key) return true;
   const now = Date.now();
   const lastTime = sentPushTimestamps.get(key);
   if (lastTime && now - lastTime < cooldownMs) {
-    console.log(`[Push Dedup] Blocked duplicate push notification: ${key}`);
     return false;
   }
   sentPushTimestamps.set(key, now);
@@ -883,18 +882,36 @@ app.post("/api/orders", (req, res) => {
 
     writeServerData(data);
 
-    // Trigger background Web Push for new order (ONLY TO ADMIN! Store & Drivers are notified in proper sequence)
+    // Trigger background Web Push for new order
     try {
-      const dedupKey = `admin_new_order_${newOrder.id}`;
-      if (canSendPush(dedupKey, 600000)) {
+      const dedupKey = `new_order_push_${newOrder.id}`;
+      if (canSendPush(dedupKey, 3000)) {
+        // 1. Notify Admin
         dispatchPushNotification(
           (s: any) => s.role === "admin",
           {
             title: `🔔 طلب جديد وارد للإدارة #${newOrder.id}`,
-            body: `طلب وارد لمتجر (${newOrder.storeName}) بقيمة ${newOrder.total.toLocaleString()} ل.س`,
+            body: `طلب جديد لمتجر (${newOrder.storeName}) بقيمة ${newOrder.total.toLocaleString()} ل.س`,
             sound: "ringtone",
             tag: `tw-order-${newOrder.id}`,
             data: { url: `/?orderId=${newOrder.id}`, orderId: newOrder.id }
+          }
+        ).catch(() => {});
+
+        // 2. Notify Store Owner so device rings even if closed or phone locked
+        dispatchPushNotification(
+          (s: any) => s.role === "store" && (
+            !s.identifier ||
+            s.identifier === newOrder.storeId ||
+            s.identifier === newOrder.storePhone ||
+            (newOrder.storeName && s.name && s.name.includes(newOrder.storeName))
+          ),
+          {
+            title: `🏪 طلب جديد لمتجرك #${newOrder.id}!`,
+            body: `وصلك طلب جديد بقيمة ${newOrder.total.toLocaleString()} ل.س - انقر لفتح التفاصيل والاعتماد 🛵`,
+            sound: "ringtone",
+            tag: `tw-order-${newOrder.id}`,
+            data: { url: `/?store=${newOrder.storeId}`, orderId: newOrder.id }
           }
         ).catch(() => {});
       }
@@ -972,12 +989,17 @@ app.put("/api/orders/:id", (req, res) => {
 
     // Trigger background Web Push for coordinated order lifecycle notifications
     try {
-      // 1. Alert Store Owner ONLY when Admin forwards the order to the store!
+      // 1. Alert Store Owner when Admin forwards the order to the store!
       if (updates.forwardedToStore && !prevOrder.forwardedToStore) {
         const storeDedupKey = `store_forwarded_${orderId}`;
-        if (canSendPush(storeDedupKey, 600000)) {
+        if (canSendPush(storeDedupKey, 3000)) {
           dispatchPushNotification(
-            (s: any) => s.role === "store" && (s.identifier === data.orders[idx].storeId || s.identifier === data.orders[idx].storePhone),
+            (s: any) => s.role === "store" && (
+              !s.identifier ||
+              s.identifier === data.orders[idx].storeId ||
+              s.identifier === data.orders[idx].storePhone ||
+              (data.orders[idx].storeName && s.name && s.name.includes(data.orders[idx].storeName))
+            ),
             {
               title: `🏪 طلب جديد محال لمتجرك #${orderId}!`,
               body: `أحالت الإدارة إليك طلباً بقيمة ${data.orders[idx].total.toLocaleString()} ل.س - يرجى الاعتماد وبدء التجهيز 🛵`,
@@ -992,7 +1014,7 @@ app.put("/api/orders/:id", (req, res) => {
       // 2. Alert Admin when Store accepts the order (to assign driver)
       if (updates.storeAccepted && !prevOrder.storeAccepted) {
         const adminStoreAcceptedKey = `admin_store_accepted_${orderId}`;
-        if (canSendPush(adminStoreAcceptedKey, 600000)) {
+        if (canSendPush(adminStoreAcceptedKey, 3000)) {
           dispatchPushNotification(
             (s: any) => s.role === "admin",
             {
@@ -1015,7 +1037,7 @@ app.put("/api/orders/:id", (req, res) => {
       if (isNewDriverAssigned) {
         const driverTarget = updates.driverPhone || updates.driverId || data.orders[idx].driverPhone || data.orders[idx].driverId;
         const driverDedupKey = `driver_assigned_${orderId}_${driverTarget}`;
-        if (canSendPush(driverDedupKey, 600000)) {
+        if (canSendPush(driverDedupKey, 3000)) {
           dispatchPushNotification(
             (s: any) => s.role === "driver" && (
               (updates.driverPhone && s.identifier === updates.driverPhone) ||
@@ -1037,7 +1059,7 @@ app.put("/api/orders/:id", (req, res) => {
       // 4. Alert Customer: EXACTLY ONE notification when the captain picks up the order!
       if (updates.status === "picked_up" && prevOrder.status !== "picked_up") {
         const custDedupKey = `customer_picked_up_${orderId}`;
-        if (canSendPush(custDedupKey, 600000)) {
+        if (canSendPush(custDedupKey, 3000)) {
           const driverName = data.orders[idx].driverName || updates.driverName || "الكابتن";
           const custPhone = data.orders[idx].customerPhone;
           dispatchPushNotification(
@@ -1057,10 +1079,32 @@ app.put("/api/orders/:id", (req, res) => {
         }
       }
 
-      // 5. Alert Customer if order is cancelled
+      // 5. Alert Customer when order is delivered successfully
+      if (updates.status === "delivered" && prevOrder.status !== "delivered") {
+        const custDeliveredKey = `customer_delivered_${orderId}`;
+        if (canSendPush(custDeliveredKey, 3000)) {
+          const custPhone = data.orders[idx].customerPhone;
+          dispatchPushNotification(
+            (s: any) => s.role === "customer" && (
+              (custPhone && s.identifier === custPhone) ||
+              s.identifier === orderId ||
+              s.orderId === orderId
+            ),
+            {
+              title: `🎉 تم تسليم طلبك بنجاح #${orderId}!`,
+              body: `شكراً لاستخدامك تطبيق توصيل! نتمنى لك تجربة ممتعة دائماً.`,
+              sound: "chime",
+              tag: `tw-order-${orderId}`,
+              data: { url: `/?orderId=${orderId}`, orderId }
+            }
+          ).catch(() => {});
+        }
+      }
+
+      // 6. Alert Customer if order is cancelled
       if (updates.status === "cancelled" && prevOrder.status !== "cancelled") {
         const custCancelKey = `customer_cancelled_${orderId}`;
-        if (canSendPush(custCancelKey, 600000)) {
+        if (canSendPush(custCancelKey, 3000)) {
           const custPhone = data.orders[idx].customerPhone;
           dispatchPushNotification(
             (s: any) => s.role === "customer" && (

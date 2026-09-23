@@ -1,10 +1,10 @@
 // ==============================================================================
 // Tawseel Progressive Web App (PWA) - Service Worker
-// Version: tawseel-v40-background-audio
+// Version: tawseel-v41-reliable-push-badge
 // Designed for instant startup and automatic freshness for all customers & staff
 // ==============================================================================
 
-const CACHE_NAME = 'tawseel-v40-background-audio';
+const CACHE_NAME = 'tawseel-v41-reliable-push-badge';
 
 // Dynamically determine the base path (e.g. '/Tawseel-pwa' on GitHub Pages or '' on root domain)
 const getBasePath = () => {
@@ -473,9 +473,29 @@ const resolveNotifIconUrls = (options = {}) => {
   return { iconUrl, badgeUrl };
 };
 
-// A. Notification Click: Bring app to foreground or open target order/view
+// A. Helper to sync App Badge on device icon
+const syncAppBadge = async () => {
+  try {
+    if (typeof self !== 'undefined' && self.navigator && 'setAppBadge' in self.navigator) {
+      const activeNotifs = await self.registration.getNotifications();
+      if (activeNotifs && activeNotifs.length > 0) {
+        await self.navigator.setAppBadge(activeNotifs.length);
+      } else if ('clearAppBadge' in self.navigator) {
+        await self.navigator.clearAppBadge();
+      }
+    }
+  } catch (e) {
+    // Ignore unsupported badging
+  }
+};
+
+// B. Notification Click: Bring app to foreground or open target order/view
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
+
+  // Sync remaining badge count
+  syncAppBadge().catch(() => {});
+
   if (event.action === 'close') return;
 
   const notifData = event.notification.data || {};
@@ -483,8 +503,9 @@ self.addEventListener('notificationclick', (event) => {
   const targetUrl = notifData.url || (base ? `${self.location.origin}${base}/` : `${self.location.origin}/`);
 
   event.waitUntil(
-    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
-      // 1. If an existing window is already open, focus it, post message and navigate if needed
+    (async () => {
+      // 1. If an existing window is already open, focus it and notify
+      const clientList = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
       for (const client of clientList) {
         if ('focus' in client) {
           if (client.url && client.url.includes(self.location.origin)) {
@@ -503,16 +524,16 @@ self.addEventListener('notificationclick', (event) => {
       if (self.clients.openWindow) {
         return self.clients.openWindow(targetUrl);
       }
-    })
+    })()
   );
 });
 
-// B. Notification Close
+// C. Notification Close
 self.addEventListener('notificationclose', (event) => {
-  // Telemetry or cleanup
+  event.waitUntil(syncAppBadge());
 });
 
-// C. Message handler for showing notifications with status bar badge
+// D. Message handler for showing notifications with status bar badge
 self.addEventListener('message', (event) => {
   if (!event.data) return;
 
@@ -534,7 +555,7 @@ self.addEventListener('message', (event) => {
       badge: badgeUrl,
       sound: soundUrl,
       vibrate: options.vibrate || [600, 200, 600, 200, 1000],
-      tag: options.tag || (options.data && options.data.orderId ? 'tw-order-' + options.data.orderId : 'tw-notif-app'),
+      tag: options.tag || (options.data && options.data.orderId ? 'tw-order-' + options.data.orderId : 'tw-notif-' + Date.now()),
       renotify: true,
       requireInteraction: options.requireInteraction ?? true,
       dir: 'rtl',
@@ -553,11 +574,13 @@ self.addEventListener('message', (event) => {
       }
     };
 
-    self.registration.showNotification(title || 'توصيل 🛵', notifOptions);
+    self.registration.showNotification(title || 'توصيل 🛵', notifOptions)
+      .then(() => syncAppBadge())
+      .catch(() => {});
   }
 });
 
-// D. Push Notification handler (wakes up device in background / when screen is locked or browser closed)
+// E. Push Notification handler (wakes up device in background / when screen is locked or browser closed)
 self.addEventListener('push', (event) => {
   let data = { title: 'توصيل 🛵', body: 'لديك إشعار جديد في تطبيق توصيل' };
   if (event.data) {
@@ -582,7 +605,7 @@ self.addEventListener('push', (event) => {
     sound: soundUrl,
     // Strong vibration to wake up the phone from pocket/sleep
     vibrate: [600, 200, 600, 200, 1000],
-    tag: data.tag || (data.data?.orderId ? 'tw-order-' + data.data.orderId : (data.orderId ? 'tw-order-' + data.orderId : 'tw-notif-app')),
+    tag: data.tag || (data.data?.orderId ? 'tw-order-' + data.data.orderId : (data.orderId ? 'tw-order-' + data.orderId : 'tw-notif-' + Date.now())),
     renotify: true,
     requireInteraction: true,
     dir: 'rtl',
@@ -601,15 +624,40 @@ self.addEventListener('push', (event) => {
     ]
   };
 
-  // Broadcast to open clients if any exist to trigger sound player
-  self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clients) => {
-    for (const client of clients) {
-      client.postMessage({
-        type: 'PLAY_SOUND',
-        sound: soundName
-      });
-    }
-  }).catch(() => {});
+  event.waitUntil(
+    (async () => {
+      // 1. Show notification with fallback
+      try {
+        await self.registration.showNotification(data.title || 'توصيل 🛵', pushOptions);
+      } catch (primaryErr) {
+        console.warn('Rich showNotification failed, trying minimal safe options:', primaryErr);
+        try {
+          await self.registration.showNotification(data.title || 'توصيل 🛵', {
+            body: data.body || '',
+            icon: iconUrl,
+            badge: badgeUrl,
+            vibrate: [600, 200, 600],
+            tag: 'tw-notif-' + Date.now(),
+            data: { url: self.location.origin }
+          });
+        } catch (fallbackErr) {
+          console.error('All showNotification attempts failed:', fallbackErr);
+        }
+      }
 
-  event.waitUntil(self.registration.showNotification(data.title || 'توصيل 🛵', pushOptions));
+      // 2. Set App Badge number directly on Android launcher icon
+      await syncAppBadge();
+
+      // 3. Broadcast to open clients if any exist to trigger sound player
+      try {
+        const clients = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+        for (const client of clients) {
+          client.postMessage({
+            type: 'PLAY_SOUND',
+            sound: soundName
+          });
+        }
+      } catch (broadcastErr) {}
+    })()
+  );
 });

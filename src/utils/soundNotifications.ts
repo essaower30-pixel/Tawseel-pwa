@@ -407,7 +407,7 @@ export async function showSystemNotification(
       sound: soundUrl,
       vibrate: options?.vibratePattern || options?.vibrate || [600, 200, 600, 200, 1000],
       renotify: true,
-      tag: options?.tag || options?.dedupKey || (options?.data?.orderId ? `tw-order-${options.data.orderId}` : `tw-notif-app`),
+      tag: options?.tag || options?.dedupKey || (options?.data?.orderId ? `tw-order-${options.data.orderId}` : `tw-notif-${Date.now()}`),
       dir: "rtl",
       lang: "ar",
       silent: false,
@@ -420,6 +420,9 @@ export async function showSystemNotification(
         ...(options?.data || {}),
       },
     };
+
+    // Update app icon badge if supported
+    setAppBadgeCount();
 
     // Primary Mobile Path (Android Chrome / PWA): Must use ServiceWorkerRegistration.showNotification
     // This is what puts the app icon in the Android status bar (top notification tray) like WhatsApp!
@@ -578,4 +581,32 @@ export function flashTabTitle(alertTitle: string = "🔔 (طلب جديد وار
   window.addEventListener("focus", stopFlash);
   window.addEventListener("click", stopFlash);
   window.addEventListener("touchstart", stopFlash);
+}
+
+/**
+ * Update the App Badge count on the mobile home screen icon
+ */
+export function setAppBadgeCount(count?: number): void {
+  if (typeof navigator !== "undefined" && "setAppBadge" in navigator) {
+    try {
+      if (count !== undefined && count > 0) {
+        (navigator as any).setAppBadge(count).catch(() => {});
+      } else if (count === undefined) {
+        (navigator as any).setAppBadge().catch(() => {});
+      } else {
+        (navigator as any).clearAppBadge().catch(() => {});
+      }
+    } catch {}
+  }
+}
+
+/**
+ * Clear the App Badge from the mobile home screen icon
+ */
+export function clearAppBadgeCount(): void {
+  if (typeof navigator !== "undefined" && "clearAppBadge" in navigator) {
+    try {
+      (navigator as any).clearAppBadge().catch(() => {});
+    } catch {}
+  }
 }

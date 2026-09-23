@@ -98,11 +98,38 @@ export async function subscribeToPushNotifications(
       return false;
     }
 
+    const convertedKey = urlBase64ToUint8Array(publicKey);
+
     // 4. Check existing subscription or subscribe new
     let subscription = await registration.pushManager.getSubscription();
 
+    if (subscription) {
+      // Verify that the existing subscription was created with the current VAPID key
+      try {
+        const rawKey = subscription.options.applicationServerKey;
+        if (rawKey) {
+          const keyArray = new Uint8Array(rawKey);
+          let match = keyArray.length === convertedKey.length;
+          if (match) {
+            for (let i = 0; i < keyArray.length; i++) {
+              if (keyArray[i] !== convertedKey[i]) {
+                match = false;
+                break;
+              }
+            }
+          }
+          if (!match) {
+            console.log("VAPID key changed, refreshing push subscription...");
+            await subscription.unsubscribe();
+            subscription = null;
+          }
+        }
+      } catch (keyCheckErr) {
+        console.warn("Could not verify key match:", keyCheckErr);
+      }
+    }
+
     if (!subscription) {
-      const convertedKey = urlBase64ToUint8Array(publicKey);
       subscription = await registration.pushManager.subscribe({
         userVisibleOnly: true,
         applicationServerKey: convertedKey as unknown as BufferSource,
