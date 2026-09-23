@@ -246,6 +246,46 @@ export interface CustomNotificationOptions extends NotificationOptions {
   vibrate?: number | number[];
   vibratePattern?: number[];
   requireInteraction?: boolean;
+  dedupKey?: string;
+  dedupCooldownMs?: number;
+}
+
+// Global in-memory + localStorage deduplication registry
+const deliveredNotificationTimestamps = new Map<string, number>();
+
+export function shouldDeliverNotification(key: string, cooldownMs: number = 600000): boolean {
+  if (!key) return true;
+  const now = Date.now();
+  const lastTime = deliveredNotificationTimestamps.get(key);
+  if (lastTime && now - lastTime < cooldownMs) {
+    return false;
+  }
+
+  // Cross-tab check via localStorage
+  try {
+    const storageKey = "tw_notif_seen_" + key;
+    const stored = localStorage.getItem(storageKey);
+    if (stored) {
+      const storedTime = Number(stored);
+      if (now - storedTime < cooldownMs) {
+        deliveredNotificationTimestamps.set(key, storedTime);
+        return false;
+      }
+    }
+    localStorage.setItem(storageKey, String(now));
+  } catch {}
+
+  deliveredNotificationTimestamps.set(key, now);
+  return true;
+}
+
+export function markNotificationDelivered(key: string): void {
+  if (!key) return;
+  const now = Date.now();
+  deliveredNotificationTimestamps.set(key, now);
+  try {
+    localStorage.setItem("tw_notif_seen_" + key, String(now));
+  } catch {}
 }
 
 /**
@@ -258,6 +298,14 @@ export async function showSystemNotification(
   options?: CustomNotificationOptions
 ): Promise<void> {
   if (typeof window === "undefined") return;
+
+  // 0. Deduplication check: Do not deliver duplicate notifications for the same event key
+  if (options?.dedupKey) {
+    const shouldDeliver = shouldDeliverNotification(options.dedupKey, options.dedupCooldownMs || 600000);
+    if (!shouldDeliver) {
+      return;
+    }
+  }
 
   // 1. Play sound chime/ringtone
   if (options?.playSound !== false && isSoundEnabled()) {
@@ -302,7 +350,7 @@ export async function showSystemNotification(
       badge: badgeUrl,
       vibrate: options?.vibratePattern || options?.vibrate || [300, 120, 300, 120, 450],
       renotify: true,
-      tag: options?.tag || `tw-notif-${Date.now()}`,
+      tag: options?.tag || options?.dedupKey || (options?.data?.orderId ? `tw-order-${options.data.orderId}` : `tw-notif-app`),
       dir: "rtl",
       lang: "ar",
       silent: false,

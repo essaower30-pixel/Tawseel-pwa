@@ -442,6 +442,21 @@ interface PushPayload {
   data?: any;
 }
 
+// Server-side deduplication tracker to prevent duplicate pushes
+const sentPushTimestamps = new Map<string, number>();
+
+function canSendPush(key: string, cooldownMs: number = 600000): boolean {
+  if (!key) return true;
+  const now = Date.now();
+  const lastTime = sentPushTimestamps.get(key);
+  if (lastTime && now - lastTime < cooldownMs) {
+    console.log(`[Push Dedup] Blocked duplicate push notification: ${key}`);
+    return false;
+  }
+  sentPushTimestamps.set(key, now);
+  return true;
+}
+
 async function dispatchPushNotification(
   filterFn: (sub: any) => boolean,
   payload: PushPayload
@@ -454,7 +469,7 @@ async function dispatchPushNotification(
     body: payload.body || "",
     icon: payload.icon || "/icon-192.png",
     badge: payload.badge || "/icon-192.png",
-    tag: payload.tag || "tw-push-" + Date.now(),
+    tag: payload.tag || (payload.data?.orderId ? `tw-order-${payload.data.orderId}` : `tw-push-app`),
     sound: payload.sound || "ringtone",
     data: payload.data || { url: "/" },
     timestamp: Date.now()
@@ -868,40 +883,21 @@ app.post("/api/orders", (req, res) => {
 
     writeServerData(data);
 
-    // Trigger background Web Push for new order (Wakes up phones when locked or app closed)
+    // Trigger background Web Push for new order (ONLY TO ADMIN! Store & Drivers are notified in proper sequence)
     try {
-      // 1. Alert Admins
-      dispatchPushNotification(
-        (s: any) => s.role === "admin",
-        {
-          title: `🔔 طلب جديد وارد للإدارة #${newOrder.id}`,
-          body: `طلب وارد لمتجر (${newOrder.storeName}) بقيمة ${newOrder.total} ل.س`,
-          sound: "ringtone",
-          data: { url: `/?orderId=${newOrder.id}`, orderId: newOrder.id }
-        }
-      ).catch(() => {});
-
-      // 2. Alert Store Owner
-      dispatchPushNotification(
-        (s: any) => s.role === "store" && (s.identifier === newOrder.storeId || s.identifier === newOrder.storePhone),
-        {
-          title: `🏪 طلب جديد وارد لمتجرك #${newOrder.id}!`,
-          body: `لديك طلب جديد بقيمة ${newOrder.total} ل.س! انقر للمراجعة والبدء بالتجهيز 🛵`,
-          sound: "ringtone",
-          data: { url: `/?store=${newOrder.storeId}`, orderId: newOrder.id }
-        }
-      ).catch(() => {});
-
-      // 3. Alert Drivers fleet
-      dispatchPushNotification(
-        (s: any) => s.role === "driver",
-        {
-          title: `🛵 طلب توصيل جديد متاح #${newOrder.id}!`,
-          body: `طلب توصيل جديد من (${newOrder.storeName}) جاهز للتكليف والتوصيل`,
-          sound: "ringtone",
-          data: { url: `/?orderId=${newOrder.id}`, orderId: newOrder.id }
-        }
-      ).catch(() => {});
+      const dedupKey = `admin_new_order_${newOrder.id}`;
+      if (canSendPush(dedupKey, 600000)) {
+        dispatchPushNotification(
+          (s: any) => s.role === "admin",
+          {
+            title: `🔔 طلب جديد وارد للإدارة #${newOrder.id}`,
+            body: `طلب وارد لمتجر (${newOrder.storeName}) بقيمة ${newOrder.total.toLocaleString()} ل.س`,
+            sound: "ringtone",
+            tag: `tw-order-${newOrder.id}`,
+            data: { url: `/?orderId=${newOrder.id}`, orderId: newOrder.id }
+          }
+        ).catch(() => {});
+      }
     } catch (e) {
       console.warn("Error dispatching background push for new order:", e);
     }
@@ -974,54 +970,109 @@ app.put("/api/orders/:id", (req, res) => {
 
     writeServerData(data);
 
-    // Trigger background Web Push for order updates (wakes up mobile screen & status bar)
+    // Trigger background Web Push for coordinated order lifecycle notifications
     try {
-      // Alert Driver if newly assigned
-      if ((updates.driverPhone && updates.driverPhone !== prevOrder.driverPhone) || (updates.driverName && !prevOrder.driverName)) {
-        dispatchPushNotification(
-          (s: any) => s.role === "driver" && (s.identifier === updates.driverPhone || s.identifier === updates.driverId),
-          {
-            title: `🛵 تم إسناد طلب جديد إليك #${orderId}!`,
-            body: `تم إسناد توصيل طلب متجر (${data.orders[idx].storeName}) إليك. انقر لفتح التفاصيل والموقع.`,
-            sound: "ringtone",
-            data: { url: `/?orderId=${orderId}`, orderId }
-          }
-        ).catch(() => {});
+      // 1. Alert Store Owner ONLY when Admin forwards the order to the store!
+      if (updates.forwardedToStore && !prevOrder.forwardedToStore) {
+        const storeDedupKey = `store_forwarded_${orderId}`;
+        if (canSendPush(storeDedupKey, 600000)) {
+          dispatchPushNotification(
+            (s: any) => s.role === "store" && (s.identifier === data.orders[idx].storeId || s.identifier === data.orders[idx].storePhone),
+            {
+              title: `🏪 طلب جديد محال لمتجرك #${orderId}!`,
+              body: `أحالت الإدارة إليك طلباً بقيمة ${data.orders[idx].total.toLocaleString()} ل.س - يرجى الاعتماد وبدء التجهيز 🛵`,
+              sound: "ringtone",
+              tag: `tw-order-${orderId}`,
+              data: { url: `/?store=${data.orders[idx].storeId}`, orderId }
+            }
+          ).catch(() => {});
+        }
       }
 
-      // Alert Customer when status progresses
-      if (updates.status && updates.status !== prevOrder.status) {
-        let custTitle = `تحديث طلبك #${orderId}`;
-        let custBody = "";
-        let custSound: "ringtone" | "chime" = "chime";
-
-        if (updates.status === "accepted") {
-          custTitle = `📋 تم قبول طلبك #${orderId}`;
-          custBody = `تم تأكيد وقبول طلبك من متجر (${data.orders[idx].storeName}).`;
-        } else if (updates.status === "preparing") {
-          custTitle = `🍳 جاري تجهيز طلبك #${orderId}`;
-          custBody = `بدأ متجر (${data.orders[idx].storeName}) بتجهيز طلبك وسيتم تسليمه للكابتن قريباً.`;
-        } else if (updates.status === "picked_up") {
-          custTitle = `🛵 طلبك #${orderId} خرج للتوصيل!`;
-          custBody = data.orders[idx].driverName
-            ? `الكابتن ${data.orders[idx].driverName} استلم طلبك وهو في الطريق إليك الآن.`
-            : "الكابتن استلم طلبك وهو الآن في الطريق إليك.";
-          custSound = "ringtone";
-        } else if (updates.status === "delivered") {
-          custTitle = `✅ تم تسليم طلبك #${orderId} بنجاح!`;
-          custBody = "تم تأكيد التسليم ومطابقة كود الأمان بنجاح. شكراً لاختيارك توصيل 🛵";
-        } else if (updates.status === "cancelled") {
-          custTitle = `❌ تم إلغاء طلبك #${orderId}`;
-          custBody = updates.cancellationReason || "تم إلغاء الطلب من قبل المتجر أو الإدارة.";
-        }
-
-        if (custBody) {
+      // 2. Alert Admin when Store accepts the order (to assign driver)
+      if (updates.storeAccepted && !prevOrder.storeAccepted) {
+        const adminStoreAcceptedKey = `admin_store_accepted_${orderId}`;
+        if (canSendPush(adminStoreAcceptedKey, 600000)) {
           dispatchPushNotification(
-            (s: any) => s.role === "customer" || s.identifier === data.orders[idx].customerPhone || s.identifier === orderId || s.orderId === orderId,
+            (s: any) => s.role === "admin",
             {
-              title: custTitle,
-              body: custBody,
-              sound: custSound,
+              title: `✅ اعتمد المتجر الطلب #${orderId}`,
+              body: `وافق متجر (${data.orders[idx].storeName}) على الطلب. يرجى توجيه واختيار الكابتن الآن 🛵`,
+              sound: "chime",
+              tag: `tw-order-${orderId}`,
+              data: { url: `/?orderId=${orderId}`, orderId }
+            }
+          ).catch(() => {});
+        }
+      }
+
+      // 3. Alert Driver ONLY when assigned to this specific order
+      const isNewDriverAssigned = 
+        (updates.driverPhone && updates.driverPhone !== prevOrder.driverPhone) || 
+        (updates.driverId && updates.driverId !== prevOrder.driverId) ||
+        (updates.driverName && !prevOrder.driverName);
+
+      if (isNewDriverAssigned) {
+        const driverTarget = updates.driverPhone || updates.driverId || data.orders[idx].driverPhone || data.orders[idx].driverId;
+        const driverDedupKey = `driver_assigned_${orderId}_${driverTarget}`;
+        if (canSendPush(driverDedupKey, 600000)) {
+          dispatchPushNotification(
+            (s: any) => s.role === "driver" && (
+              (updates.driverPhone && s.identifier === updates.driverPhone) ||
+              (updates.driverId && s.identifier === updates.driverId) ||
+              (data.orders[idx].driverPhone && s.identifier === data.orders[idx].driverPhone) ||
+              (data.orders[idx].driverId && s.identifier === data.orders[idx].driverId)
+            ),
+            {
+              title: `🛵 تم إسناد طلب جديد إليك #${orderId}!`,
+              body: `تم إسناد توصيل طلب متجر (${data.orders[idx].storeName}) إليك. انقر لفتح التفاصيل والموقع.`,
+              sound: "ringtone",
+              tag: `tw-order-${orderId}`,
+              data: { url: `/?orderId=${orderId}`, orderId }
+            }
+          ).catch(() => {});
+        }
+      }
+
+      // 4. Alert Customer: EXACTLY ONE notification when the captain picks up the order!
+      if (updates.status === "picked_up" && prevOrder.status !== "picked_up") {
+        const custDedupKey = `customer_picked_up_${orderId}`;
+        if (canSendPush(custDedupKey, 600000)) {
+          const driverName = data.orders[idx].driverName || updates.driverName || "الكابتن";
+          const custPhone = data.orders[idx].customerPhone;
+          dispatchPushNotification(
+            (s: any) => s.role === "customer" && (
+              (custPhone && s.identifier === custPhone) ||
+              s.identifier === orderId ||
+              s.orderId === orderId
+            ),
+            {
+              title: `🛵 طلبك #${orderId} استلمه الكابتن وهو في الطريق إليك!`,
+              body: `الكابتن (${driverName}) استلم طلبك من متجر (${data.orders[idx].storeName}) وهو في الطريق إليك الآن.`,
+              sound: "ringtone",
+              tag: `tw-order-${orderId}`,
+              data: { url: `/?orderId=${orderId}`, orderId }
+            }
+          ).catch(() => {});
+        }
+      }
+
+      // 5. Alert Customer if order is cancelled
+      if (updates.status === "cancelled" && prevOrder.status !== "cancelled") {
+        const custCancelKey = `customer_cancelled_${orderId}`;
+        if (canSendPush(custCancelKey, 600000)) {
+          const custPhone = data.orders[idx].customerPhone;
+          dispatchPushNotification(
+            (s: any) => s.role === "customer" && (
+              (custPhone && s.identifier === custPhone) ||
+              s.identifier === orderId ||
+              s.orderId === orderId
+            ),
+            {
+              title: `❌ تم إلغاء طلبك #${orderId}`,
+              body: updates.cancellationReason || "تم إلغاء الطلب من قبل المتجر أو الإدارة.",
+              sound: "chime",
+              tag: `tw-order-${orderId}`,
               data: { url: `/?orderId=${orderId}`, orderId }
             }
           ).catch(() => {});

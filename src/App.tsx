@@ -98,7 +98,9 @@ import {
   setSoundType,
   triggerOrderVibration,
   flashTabTitle,
-  SoundType
+  SoundType,
+  shouldDeliverNotification,
+  markNotificationDelivered
 } from "./utils/soundNotifications";
 import { initHistoryProtection, handleAppBackButton } from "./utils/historyManager";
 import { 
@@ -167,6 +169,8 @@ import { CategoryIcon } from "./components/CategoryIcon";
 import { getAppUrl, getShareTemplates } from "./utils/appUrl";
 
 export { getAppUrl };
+
+const cleanPhone = (p?: string) => (p || "").replace(/[^0-9]/g, "");
 
 export default function App() {
   const isOnline = useOnlineStatus();
@@ -737,13 +741,20 @@ export default function App() {
     }).catch(() => {});
   }, [isAdminMode, userRole, currentStoreId, isDriverMode]);
 
-  const addToastNotification = useCallback((toast: Omit<ToastItem, "id" | "createdAt">) => {
-    // Show system notification with app icon in Android status bar, audible chime/ringtone & vibration
-    showSystemNotification(toast.title, {
-      body: toast.message,
-      soundType: toast.type === "new_order" || toast.type === "driver_assigned" ? "ringtone" : "chime",
-      data: { orderId: toast.order?.id }
-    });
+  const addToastNotification = useCallback((toast: Omit<ToastItem, "id" | "createdAt"> & {
+    showSystemNotification?: boolean;
+    dedupKey?: string;
+  }) => {
+    // Only dispatch system / status-bar notification if explicitly flagged
+    if (toast.showSystemNotification) {
+      showSystemNotification(toast.title, {
+        body: toast.message,
+        soundType: toast.type === "new_order" || toast.type === "driver_assigned" ? "ringtone" : "chime",
+        data: { orderId: toast.order?.id },
+        dedupKey: toast.dedupKey,
+        tag: toast.dedupKey || (toast.order?.id ? `tw-order-${toast.order.id}` : undefined)
+      });
+    }
 
     setToasts((prev) => {
       // Prevent duplicate notification stacking if one with same title & message already exists
@@ -1108,31 +1119,45 @@ export default function App() {
       setTimeout(() => recentHandledOrders.delete(order.id), 4000);
 
       // CRITICAL USER REQUIREMENT:
-      // "عندما يطلب الزبون يصل تنبيه الى الادارة والادارة ترسل تنبيه الى المتجر وتختار الكابتن بعد اعتماد المتجر الطلب"
-      // "القصد ان طلب الزبون لا يذهب مباشرة الى المتجر"
-      // If the order has NOT yet been forwarded to the store by Admin:
-      if (order.forwardedToStore === false) {
-        // Keep in state silently for Admin sync
-        setAllOrders((prev) => {
-          if (prev.some((o) => o.id === order.id)) return prev;
-          return [order, ...prev];
-        });
+      // Coordinated notification pipeline:
+      // 1. When customer orders -> Only Admin receives alert (order.forwardedToStore === false)
+      // 2. When Admin forwards to Store -> Store receives exactly one alert
+      // 3. When driver is assigned -> Driver receives exactly one alert
+      // 4. When captain picks up order -> Customer receives exactly one alert
+      // Customers NEVER receive "new_order" system ringing notifications!
 
-        // Store Owners and Drivers do NOT receive this alert or ringtone!
-        if (currentStoreId || userRole === "store_owner" || isDriverMode || userRole === "driver") {
+      // Always keep order state updated
+      setAllOrders((prev) => {
+        if (prev.some((o) => o.id === order.id)) return prev;
+        return [order, ...prev];
+      });
+
+      const isActualAdmin = isAdminMode || userRole === "admin";
+      const isStoreOwner = Boolean(currentStoreId || userRole === "store_owner");
+      const isDriver = Boolean(isDriverMode || userRole === "driver");
+
+      // 1. If the order has NOT yet been forwarded to the store by Admin:
+      if (order.forwardedToStore === false) {
+        // ONLY Administration receives the ringing alert and notification!
+        if (!isActualAdmin) {
           return;
         }
 
-        // Only Administration receives the ringing alert and notification
+        const dedupKey = `admin_new_order_${order.id}`;
+        if (!shouldDeliverNotification(dedupKey, 600000)) return;
+
         playOrderAlertSound("ringtone");
         triggerOrderVibration();
         flashTabTitle(`🔔 (طلب جديد وارد للإدارة #${order.id})`);
 
         const toastTitle = "🔔 طلب جديد وارد للإدارة!";
-        const toastMessage = `طلب #${order.id} من الزبون ${order.customerName} إلى (${order.storeName}) - الإجمالي: ${order.total.toLocaleString()} ل.س (بانتظار المراجعة والإحالة للمتجر)`;
+        const toastMessage = `طلب #${order.id} من الزبون ${order.customerName} إلى (${order.storeName}) - الإجمالي: ${order.total.toLocaleString()} ل.س`;
 
         showSystemNotification(toastTitle, {
-          body: `متجر: ${order.storeName} | الزبون: ${order.customerName} | الإجمالي: ${order.total} ل.س`,
+          body: `متجر: ${order.storeName} | الزبون: ${order.customerName} | الإجمالي: ${order.total.toLocaleString()} ل.س`,
+          soundType: "ringtone",
+          dedupKey,
+          tag: `tw-order-${order.id}`
         });
 
         addToastNotification({
@@ -1145,57 +1170,84 @@ export default function App() {
         return;
       }
 
-      // If already forwarded or legacy order:
-      playOrderAlertSound("ringtone");
-      triggerOrderVibration();
-      flashTabTitle(`🔔 (طلب جديد #${order.id})`);
+      // 2. If already forwarded order:
+      // Alert Store Owner if this belongs to their store
+      if (isStoreOwner && currentStoreId && order.storeId === currentStoreId) {
+        const dedupKey = `store_forwarded_${order.id}`;
+        if (!shouldDeliverNotification(dedupKey, 600000)) return;
 
-      let toastTitle = "وصول طلب جديد إلى النظام! 🛍️";
-      let toastMessage = `طلب #${order.id} وارد إلى (${order.storeName}) من الزبون ${order.customerName} بقيمة ${order.total.toLocaleString()} ل.س`;
+        playOrderAlertSound("ringtone");
+        triggerOrderVibration();
+        flashTabTitle(`🏪 (طلب جديد وارد لمتجرك!)`);
 
-      if (isAdminMode || userRole === "admin") {
-        toastTitle = "🔔 طلب جديد وارد للإدارة!";
-        toastMessage = `طلب #${order.id} من الزبون ${order.customerName} إلى (${order.storeName}) - الإجمالي: ${order.total.toLocaleString()} ل.س`;
-      } else if (currentStoreId && order.storeId === currentStoreId) {
-        toastTitle = "🏪 طلب جديد وارد لمتجرك!";
-        toastMessage = `طلب جديد #${order.id} بقيمة ${order.total.toLocaleString()} ل.س من الزبون ${order.customerName}`;
-      } else if (isDriverMode || userRole === "driver") {
-        toastTitle = "🛵 طلب توصيل جديد متاح للكابتن!";
-        toastMessage = `طلب #${order.id} من (${order.storeName}) جاهز للاستلام والتوصيل إلى (${order.addressLandmark || "القرية"})`;
+        const toastTitle = "🏪 طلب جديد وارد لمتجرك!";
+        const toastMessage = `طلب جديد #${order.id} بقيمة ${order.total.toLocaleString()} ل.س من الزبون ${order.customerName}`;
+
+        showSystemNotification(toastTitle, {
+          body: `طلب #${order.id} | الإجمالي: ${order.total.toLocaleString()} ل.س`,
+          soundType: "ringtone",
+          dedupKey,
+          tag: `tw-order-${order.id}`
+        });
+
+        addToastNotification({
+          order,
+          title: toastTitle,
+          message: toastMessage,
+          type: "new_order",
+          targetRole: "store_owner"
+        });
+        return;
       }
 
-      showSystemNotification(toastTitle, {
-        body: `متجر: ${order.storeName} | الزبون: ${order.customerName} | الإجمالي: ${order.total} ل.س`,
-      });
+      // Alert Driver if assigned to them
+      const myDriverPhone = cleanPhone(userProfile?.phone);
+      const isAssignedDriver = isDriver && Boolean(
+        (myDriverPhone && cleanPhone(order.driverPhone) === myDriverPhone) ||
+        (userProfile?.name && order.driverName === userProfile.name)
+      );
 
-      addToastNotification({
-        order,
-        title: toastTitle,
-        message: toastMessage,
-        type: "new_order",
-        targetRole: "all"
-      });
+      if (isAssignedDriver) {
+        const dedupKey = `driver_assigned_${order.id}`;
+        if (!shouldDeliverNotification(dedupKey, 600000)) return;
 
-      setAllOrders((prev) => {
-        if (prev.some((o) => o.id === order.id)) return prev;
-        return [order, ...prev];
-      });
+        playOrderAlertSound("ringtone");
+        triggerOrderVibration();
+
+        const toastTitle = "🛵 تم إسناد طلب توصيل إليك!";
+        const toastMessage = `طلب #${order.id} من (${order.storeName}) جاهز للاستلام والتوصيل.`;
+
+        showSystemNotification(toastTitle, {
+          body: toastMessage,
+          soundType: "ringtone",
+          dedupKey,
+          tag: `tw-order-${order.id}`
+        });
+
+        addToastNotification({
+          order,
+          title: toastTitle,
+          message: toastMessage,
+          type: "driver_assigned",
+          targetRole: "driver"
+        });
+        return;
+      }
     };
 
     // Handler when Admin forwards an order to the Store
     const handleForwardedOrderEvent = (order: Order) => {
-      if (recentHandledOrders.has("fwd_" + order.id)) return;
-      recentHandledOrders.add("fwd_" + order.id);
-      setTimeout(() => recentHandledOrders.delete("fwd_" + order.id), 4000);
-
       // Update state
       setAllOrders((prev) =>
         prev.map((o) => (o.id === order.id ? { ...o, forwardedToStore: true, forwardedToStoreAt: order.forwardedToStoreAt } : o))
       );
 
       // If current user is the target store owner
-      const isTargetStore = (currentStoreId && (order.storeId === currentStoreId || order.storeName === stores.find(s => s.id === currentStoreId)?.name)) || userRole === "store_owner";
+      const isTargetStore = (currentStoreId && order.storeId === currentStoreId) || (userRole === "store_owner" && (!currentStoreId || order.storeId === currentStoreId));
       if (isTargetStore) {
+        const dedupKey = `store_forwarded_${order.id}`;
+        if (!shouldDeliverNotification(dedupKey, 600000)) return;
+
         playOrderAlertSound("ringtone");
         triggerOrderVibration();
         flashTabTitle(`🏪 (طلب جديد محال من الإدارة لمتجرك!)`);
@@ -1204,7 +1256,10 @@ export default function App() {
         const toastMessage = `طلب #${order.id} من الزبون ${order.customerName} بقيمة ${order.total.toLocaleString()} ل.س - تم تدقيقه من الإدارة، يرجى الاعتماد والبدء بالتحضير.`;
 
         showSystemNotification(toastTitle, {
-          body: `طلب #${order.id} | الزبون: ${order.customerName} | الإجمالي: ${order.total} ل.س`,
+          body: `طلب #${order.id} | الزبون: ${order.customerName} | الإجمالي: ${order.total.toLocaleString()} ل.س`,
+          soundType: "ringtone",
+          dedupKey,
+          tag: `tw-order-${order.id}`
         });
 
         addToastNotification({
@@ -1370,6 +1425,19 @@ export default function App() {
           }
 
           if (statusMsg) {
+            // ONLY trigger phone system ringtone and status bar notification when the captain picks up the order
+            if (fresh.status === "picked_up") {
+              const dedupKey = `customer_picked_up_${fresh.id}`;
+              if (shouldDeliverNotification(dedupKey, 600000)) {
+                showSystemNotification(statusTitle, {
+                  body: statusMsg,
+                  soundType: "ringtone",
+                  dedupKey,
+                  tag: `tw-order-${fresh.id}`
+                });
+              }
+            }
+
             addToastNotification({
               order: fresh,
               title: statusTitle,
@@ -2323,48 +2391,77 @@ export default function App() {
           }
 
           if (hasDiff) {
-            // Process newly arrived incoming orders alerts
+            // Process newly arrived incoming orders alerts strictly coordinated by role
             if (newlyArrivedOrders.length > 0) {
               newlyArrivedOrders.forEach((newOrd) => {
-                // If Store Owner:
-                if (userRole === "store_owner") {
-                  const uPhone = cleanPhone(userProfile?.phone);
-                  const isMyStoreOrder = 
-                    newOrd.storeId === currentStoreId || 
-                    (userProfile?.name && newOrd.storeName?.includes(userProfile.name));
-
-                  if (isMyStoreOrder) {
-                    playOrderAlertSound("ringtone");
-                    triggerOrderVibration();
-                    addToastNotification({
-                      order: newOrd,
-                      title: "🏪 طلب جديد وارد لمتجرك! 🛍️",
-                      message: `طلب جديد #${newOrd.id} بقيمة ${newOrd.total.toLocaleString()} ل.س من الزبون ${newOrd.customerName}`,
-                      type: "new_order"
-                    });
+                // 1. Admin: ONLY if order is pending and not forwarded to store yet
+                if (isAdminMode || userRole === "admin") {
+                  if (newOrd.forwardedToStore === false) {
+                    const dedupKey = `admin_new_order_${newOrd.id}`;
+                    if (shouldDeliverNotification(dedupKey, 600000)) {
+                      playOrderAlertSound("ringtone");
+                      triggerOrderVibration();
+                      addToastNotification({
+                        order: newOrd,
+                        title: "🔔 طلب جديد وارد للإدارة! 🛍️",
+                        message: `طلب #${newOrd.id} إلى (${newOrd.storeName}) من الزبون ${newOrd.customerName}`,
+                        type: "new_order",
+                        targetRole: "admin",
+                        showSystemNotification: true,
+                        dedupKey
+                      });
+                    }
                   }
                 }
 
-                // If Admin:
-                if (isAdminMode || userRole === "admin") {
-                  playOrderAlertSound("ringtone");
-                  addToastNotification({
-                    order: newOrd,
-                    title: "🔔 طلب جديد وارد للإدارة! 🛍️",
-                    message: `طلب #${newOrd.id} إلى (${newOrd.storeName}) من الزبون ${newOrd.customerName}`,
-                    type: "new_order"
-                  });
+                // 2. Store Owner: ONLY if forwarded to store AND it belongs to their store
+                if (userRole === "store_owner" || currentStoreId) {
+                  const isMyStoreOrder = 
+                    newOrd.forwardedToStore === true && 
+                    (newOrd.storeId === currentStoreId || (userProfile?.name && newOrd.storeName?.includes(userProfile.name)));
+
+                  if (isMyStoreOrder) {
+                    const dedupKey = `store_forwarded_${newOrd.id}`;
+                    if (shouldDeliverNotification(dedupKey, 600000)) {
+                      playOrderAlertSound("ringtone");
+                      triggerOrderVibration();
+                      addToastNotification({
+                        order: newOrd,
+                        title: "🏪 طلب جديد وارد لمتجرك! 🛍️",
+                        message: `طلب جديد #${newOrd.id} بقيمة ${newOrd.total.toLocaleString()} ل.س من الزبون ${newOrd.customerName}`,
+                        type: "new_order",
+                        targetRole: "store_owner",
+                        showSystemNotification: true,
+                        dedupKey
+                      });
+                    }
+                  }
                 }
 
-                // If Driver:
+                // 3. Driver: ONLY if assigned to this driver
                 if (isDriverMode || userRole === "driver") {
-                  playOrderAlertSound("chime");
-                  addToastNotification({
-                    order: newOrd,
-                    title: "🛵 طلب توصيل جديد متاح للكابتن!",
-                    message: `طلب #${newOrd.id} جاهز للتوصيل من (${newOrd.storeName})`,
-                    type: "new_order"
-                  });
+                  const myDriverPhone = cleanPhone(userProfile?.phone);
+                  const isAssignedToMe = Boolean(
+                    (myDriverPhone && cleanPhone(newOrd.driverPhone) === myDriverPhone) || 
+                    (userProfile?.name && newOrd.driverName === userProfile.name)
+                  );
+
+                  if (isAssignedToMe) {
+                    const dedupKey = `driver_assigned_${newOrd.id}`;
+                    if (shouldDeliverNotification(dedupKey, 600000)) {
+                      playOrderAlertSound("ringtone");
+                      triggerOrderVibration();
+                      addToastNotification({
+                        order: newOrd,
+                        title: "🛵 طلب توصيل جديد تم إسناده إليك!",
+                        message: `طلب #${newOrd.id} جاهز للتوصيل من (${newOrd.storeName})`,
+                        type: "driver_assigned",
+                        targetRole: "driver",
+                        showSystemNotification: true,
+                        dedupKey
+                      });
+                    }
+                  }
                 }
               });
             }
@@ -3086,13 +3183,20 @@ export default function App() {
       ])
     ]);
 
-    // Play ringing alert sound & dispatch real-time notifications to Admin & Store
-    playOrderAlertSound("ringtone");
-    triggerOrderVibration();
+    // Soft confirmation chime for customer + broadcast for Administration
+    playOrderAlertSound("chime");
     broadcastNewOrder(newOrder);
-    showSystemNotification(`طلب جديد #${newOrder.id} 🛍️`, {
-      body: `متجر: ${newOrder.storeName} | الزبون: ${newOrder.customerName} | الإجمالي: ${newOrder.total} ل.س`
-    });
+
+    // Register customer push subscription for this specific order so they get notified in background when driver picks up
+    if (isPushSupported()) {
+      subscribeToPushNotifications({
+        role: "customer",
+        identifier: newOrder.customerPhone || userProfile?.phone || newOrder.id,
+        name: newOrder.customerName || userProfile?.name || "",
+        orderId: newOrder.id
+      }).catch(() => {});
+    }
+
     addToastNotification({
       order: newOrder,
       title: "تم إرسال طلبكم بنجاح! 🛍️",
@@ -3170,13 +3274,20 @@ export default function App() {
       saveOrderOnServer(newOrder)
     ]);
 
-    // Play ringing alert sound & dispatch real-time notifications
-    playOrderAlertSound("ringtone");
-    triggerOrderVibration();
+    // Soft confirmation chime for customer + broadcast for Administration
+    playOrderAlertSound("chime");
     broadcastNewOrder(newOrder);
-    showSystemNotification(`طلب خاص جديد #${newOrder.id} 🔔`, {
-      body: `المرسل: ${newOrder.customerName} | ${newOrder.storeName}`
-    });
+
+    // Register customer push subscription for this specific custom order
+    if (isPushSupported()) {
+      subscribeToPushNotifications({
+        role: "customer",
+        identifier: newOrder.customerPhone || userProfile?.phone || newOrder.id,
+        name: newOrder.customerName || userProfile?.name || "",
+        orderId: newOrder.id
+      }).catch(() => {});
+    }
+
     addToastNotification({
       order: newOrder,
       title: "تم إرسال الطلب المخصص بنجاح 📋",

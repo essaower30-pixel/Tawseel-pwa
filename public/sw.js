@@ -519,7 +519,7 @@ self.addEventListener('message', (event) => {
       icon: iconUrl,
       badge: badgeUrl,
       vibrate: options.vibrate || [500, 150, 500, 150, 600, 200, 800],
-      tag: options.tag || 'tw-notif-' + Date.now(),
+      tag: options.tag || (options.data && options.data.orderId ? 'tw-order-' + options.data.orderId : 'tw-notif-app'),
       renotify: true,
       requireInteraction: options.requireInteraction ?? true,
       dir: 'rtl',
@@ -560,7 +560,7 @@ self.addEventListener('push', (event) => {
     badge: badgeUrl,
     // Strong vibration to wake up the phone from pocket/sleep
     vibrate: [500, 150, 500, 150, 600, 200, 800],
-    tag: data.tag || 'tw-push-' + (data.data?.orderId || Date.now()),
+    tag: data.tag || (data.data?.orderId ? 'tw-order-' + data.data.orderId : (data.orderId ? 'tw-order-' + data.orderId : 'tw-notif-app')),
     renotify: true,
     requireInteraction: true,
     dir: 'rtl',
