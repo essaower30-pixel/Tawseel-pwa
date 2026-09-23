@@ -12,6 +12,26 @@ const STORAGE_SOUND_VOLUME = "tw_sound_notification_volume";
 // Shared AudioContext
 let audioCtx: AudioContext | null = null;
 
+// Preloaded HTML5 Audio elements for instant, high-volume mobile audio playback
+const audioElementsCache: Record<string, HTMLAudioElement> = {};
+
+function getPreloadedAudio(soundType: SoundType): HTMLAudioElement | null {
+  if (typeof window === "undefined") return null;
+  const fileName = soundType === "chime" ? "chime.wav" : (soundType === "cashier" ? "cashier.wav" : "ringtone.wav");
+  const path = `/sounds/${fileName}`;
+  if (!audioElementsCache[soundType]) {
+    try {
+      const audio = new Audio(path);
+      audio.preload = "auto";
+      (audio as any).playsInline = true;
+      audioElementsCache[soundType] = audio;
+    } catch {
+      return null;
+    }
+  }
+  return audioElementsCache[soundType];
+}
+
 function getAudioContext(): AudioContext | null {
   if (typeof window === "undefined") return null;
   if (!audioCtx) {
@@ -33,6 +53,17 @@ if (typeof window !== "undefined") {
     if (ctx && ctx.state === "suspended") {
       ctx.resume().catch(() => {});
     }
+
+    // Prime all HTML5 audio elements on first interaction
+    ["ringtone", "chime", "cashier"].forEach((t) => {
+      try {
+        const audio = getPreloadedAudio(t as SoundType);
+        if (audio) {
+          audio.load();
+        }
+      } catch {}
+    });
+
     // Remove listeners once unlocked
     window.removeEventListener("click", unlockAudio);
     window.removeEventListener("touchstart", unlockAudio);
@@ -81,11 +112,9 @@ export function setSoundType(type: SoundType): void {
 }
 
 /**
- * Play a synthesized sound alert for incoming orders
+ * Play synthesized Web Audio oscillators as instant fallback
  */
-export function playOrderAlertSound(typeOverride?: SoundType): void {
-  if (!isSoundEnabled()) return;
-
+function playSynthesizedAudio(type: SoundType): void {
   try {
     const ctx = getAudioContext();
     if (!ctx) return;
@@ -94,11 +123,9 @@ export function playOrderAlertSound(typeOverride?: SoundType): void {
       ctx.resume().catch(() => {});
     }
 
-    const type = typeOverride || getSoundType();
     const now = ctx.currentTime;
-
     const masterGain = ctx.createGain();
-    masterGain.gain.setValueAtTime(0.7, now);
+    masterGain.gain.setValueAtTime(0.85, now);
     masterGain.connect(ctx.destination);
 
     if (type === "cashier") {
@@ -129,36 +156,33 @@ export function playOrderAlertSound(typeOverride?: SoundType): void {
     } else if (type === "ringtone") {
       // Authentic dual-tone phone/terminal ringing chime (صوت رنين هاتف وطلبات مميز)
       const playRingBurst = (startTime: number) => {
-        // Frequency pair 1: 853 Hz (telephony ringtone standard)
         const osc1 = ctx.createOscillator();
         const gain1 = ctx.createGain();
         osc1.type = "sine";
         osc1.frequency.setValueAtTime(853, startTime);
-        gain1.gain.setValueAtTime(0.45, startTime);
+        gain1.gain.setValueAtTime(0.55, startTime);
         gain1.gain.exponentialRampToValueAtTime(0.01, startTime + 0.38);
         osc1.connect(gain1);
         gain1.connect(masterGain);
         osc1.start(startTime);
         osc1.stop(startTime + 0.38);
 
-        // Frequency pair 2: 960 Hz
         const osc2 = ctx.createOscillator();
         const gain2 = ctx.createGain();
         osc2.type = "sine";
         osc2.frequency.setValueAtTime(960, startTime);
-        gain2.gain.setValueAtTime(0.45, startTime);
+        gain2.gain.setValueAtTime(0.55, startTime);
         gain2.gain.exponentialRampToValueAtTime(0.01, startTime + 0.38);
         osc2.connect(gain2);
         gain2.connect(masterGain);
         osc2.start(startTime);
         osc2.stop(startTime + 0.38);
 
-        // Harmonic bell overtone: 1209 Hz for crisp delivery alert
         const osc3 = ctx.createOscillator();
         const gain3 = ctx.createGain();
         osc3.type = "triangle";
         osc3.frequency.setValueAtTime(1209, startTime);
-        gain3.gain.setValueAtTime(0.25, startTime);
+        gain3.gain.setValueAtTime(0.35, startTime);
         gain3.gain.exponentialRampToValueAtTime(0.001, startTime + 0.35);
         osc3.connect(gain3);
         gain3.connect(masterGain);
@@ -166,21 +190,19 @@ export function playOrderAlertSound(typeOverride?: SoundType): void {
         osc3.stop(startTime + 0.35);
       };
 
-      // Play 4 ringing pulses in a classic double-ring sequence: (Trrrinng... Trrrinng... Pause... Trrrinng... Trrrinng!)
       playRingBurst(now);
       playRingBurst(now + 0.22);
       playRingBurst(now + 0.65);
       playRingBurst(now + 0.87);
 
     } else if (type === "urgent") {
-      // Vibrant attention-getting triple beep
       [0, 0.14, 0.28, 0.5, 0.64].forEach((offset, idx) => {
         const osc = ctx.createOscillator();
         const gain = ctx.createGain();
         osc.type = "square";
-        const freq = idx >= 3 ? 1046.5 : 880; // High A5 to C6
+        const freq = idx >= 3 ? 1046.5 : 880;
         osc.frequency.setValueAtTime(freq, now + offset);
-        gain.gain.setValueAtTime(0.35, now + offset);
+        gain.gain.setValueAtTime(0.4, now + offset);
         gain.gain.exponentialRampToValueAtTime(0.001, now + offset + 0.1);
         osc.connect(gain);
         gain.connect(masterGain);
@@ -189,12 +211,12 @@ export function playOrderAlertSound(typeOverride?: SoundType): void {
       });
 
     } else {
-      // "Chime" default: Elegant 3-note melodic arpeggio (C5 -> E5 -> G5 -> C6)
+      // Chime
       const notes = [
-        { freq: 523.25, time: 0, dur: 0.3 }, // C5
-        { freq: 659.25, time: 0.12, dur: 0.3 }, // E5
-        { freq: 783.99, time: 0.24, dur: 0.4 }, // G5
-        { freq: 1046.50, time: 0.38, dur: 0.9 }, // C6
+        { freq: 523.25, time: 0, dur: 0.3 },
+        { freq: 659.25, time: 0.12, dur: 0.3 },
+        { freq: 783.99, time: 0.24, dur: 0.4 },
+        { freq: 1046.50, time: 0.38, dur: 0.9 },
       ];
 
       notes.forEach((n) => {
@@ -202,11 +224,9 @@ export function playOrderAlertSound(typeOverride?: SoundType): void {
         const gain = ctx.createGain();
         osc.type = "sine";
         osc.frequency.setValueAtTime(n.freq, now + n.time);
-        
         gain.gain.setValueAtTime(0, now + n.time);
-        gain.gain.linearRampToValueAtTime(0.6, now + n.time + 0.03);
+        gain.gain.linearRampToValueAtTime(0.7, now + n.time + 0.03);
         gain.gain.exponentialRampToValueAtTime(0.0001, now + n.time + n.dur);
-
         osc.connect(gain);
         gain.connect(masterGain);
         osc.start(now + n.time);
@@ -216,6 +236,38 @@ export function playOrderAlertSound(typeOverride?: SoundType): void {
   } catch (err) {
     console.warn("Could not play synthesized order alert:", err);
   }
+}
+
+/**
+ * Play a high-volume sound alert for incoming orders
+ * Uses preloaded HTML5 Audio with fallback to Web Audio API synthesis
+ */
+export function playOrderAlertSound(typeOverride?: SoundType): void {
+  if (!isSoundEnabled()) return;
+
+  const type = typeOverride || getSoundType();
+
+  // 1. Try HTML5 Audio element first (works better in mobile browsers and background tabs)
+  try {
+    const audio = getPreloadedAudio(type);
+    if (audio) {
+      audio.currentTime = 0;
+      audio.volume = 1.0;
+      const playPromise = audio.play();
+      if (playPromise !== undefined) {
+        playPromise.catch((err) => {
+          // If browser policy throttled HTML5 Audio, trigger Web Audio synthesis
+          playSynthesizedAudio(type);
+        });
+      }
+      return;
+    }
+  } catch (e) {
+    // Fallback
+  }
+
+  // 2. Fallback to Web Audio synthesis
+  playSynthesizedAudio(type);
 }
 
 /**
@@ -345,19 +397,25 @@ export async function showSystemNotification(
     const iconUrl = options?.icon || `${origin}${basePath}/icon-192.png`;
     const badgeUrl = options?.badge || `${origin}${basePath}/icon-192.png`;
 
+    const soundType = options?.soundType || "ringtone";
+    const soundFileName = soundType === "chime" ? "chime.wav" : (soundType === "cashier" ? "cashier.wav" : "ringtone.wav");
+    const soundUrl = `${origin}${basePath}/sounds/${soundFileName}`;
+
     const fullOptions: any = {
       icon: iconUrl,
       badge: badgeUrl,
-      vibrate: options?.vibratePattern || options?.vibrate || [300, 120, 300, 120, 450],
+      sound: soundUrl,
+      vibrate: options?.vibratePattern || options?.vibrate || [600, 200, 600, 200, 1000],
       renotify: true,
       tag: options?.tag || options?.dedupKey || (options?.data?.orderId ? `tw-order-${options.data.orderId}` : `tw-notif-app`),
       dir: "rtl",
       lang: "ar",
       silent: false,
-      requireInteraction: options?.requireInteraction ?? false,
+      requireInteraction: options?.requireInteraction ?? true,
       ...options,
       data: {
         url: window.location.href,
+        sound: soundType,
         timestamp: Date.now(),
         ...(options?.data || {}),
       },

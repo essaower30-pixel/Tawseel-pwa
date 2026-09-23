@@ -12,7 +12,9 @@ import {
   Sparkles,
   Music,
   Check,
-  EyeOff
+  EyeOff,
+  Smartphone,
+  HelpCircle
 } from "lucide-react";
 import { Order } from "../types";
 import { 
@@ -23,6 +25,7 @@ import {
   setSoundType, 
   SoundType 
 } from "../utils/soundNotifications";
+import { AndroidSoundHelpModal } from "./AndroidSoundHelpModal";
 
 export type AlertOrigin = "customer" | "store_owner" | "driver" | "admin" | "system";
 
@@ -224,6 +227,7 @@ export const ToastNotification: React.FC<ToastNotificationProps> = ({
   const [soundOn, setSoundOn] = useState<boolean>(() => isSoundEnabled());
   const [soundChoice, setSoundChoice] = useState<SoundType>(() => getSoundType());
   const [showSoundSettings, setShowSoundSettings] = useState<boolean>(false);
+  const [showAndroidHelp, setShowAndroidHelp] = useState<boolean>(false);
 
   const toggleSound = () => {
     const next = !soundOn;
@@ -451,6 +455,18 @@ export const ToastNotification: React.FC<ToastNotificationProps> = ({
                           </button>
                         ))}
                       </div>
+
+                      {/* Android Sound Troubleshooting Button */}
+                      <div className="pt-1.5 flex items-center justify-between text-[10px]">
+                        <button
+                          type="button"
+                          onClick={() => setShowAndroidHelp(true)}
+                          className="w-full py-1 px-2 rounded-lg bg-orange-500/10 hover:bg-orange-500/20 border border-orange-500/30 text-orange-300 font-bold flex items-center justify-center gap-1.5 transition-colors"
+                        >
+                          <Smartphone className="w-3 h-3 text-orange-400" />
+                          <span>حل مشكلة عدم صدور الصوت عند قفل الهاتف (أندرويد)</span>
+                        </button>
+                      </div>
                     </motion.div>
                   )}
                 </div>
@@ -459,6 +475,11 @@ export const ToastNotification: React.FC<ToastNotificationProps> = ({
           );
         })}
       </AnimatePresence>
+
+      <AndroidSoundHelpModal
+        isOpen={showAndroidHelp}
+        onClose={() => setShowAndroidHelp(false)}
+      />
     </div>
   );
 };

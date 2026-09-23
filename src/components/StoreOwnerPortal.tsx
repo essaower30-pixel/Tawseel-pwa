@@ -38,13 +38,18 @@ import {
   Eye,
   EyeOff,
   Megaphone,
-  KeyRound
+  KeyRound,
+  Smartphone,
+  HelpCircle,
+  Sun
 } from "lucide-react";
 import { Order, Product, Store, UserProfile, Category, StoreBroadcast, StoreSize, StoreAddition } from "../types";
 import { ContactActions } from "./ContactActions";
 import { openWhatsApp } from "../utils/whatsapp";
 import { playOrderAlertSound, isSoundEnabled, setSoundEnabled, requestNotificationPermission, showSystemNotification } from "../utils/soundNotifications";
 import { subscribeToPushNotifications } from "../utils/pushManager";
+import { requestWakeLock, releaseWakeLock, isWakeLockActive, isWakeLockSupported } from "../utils/wakeLock";
+import { AndroidSoundHelpModal } from "./AndroidSoundHelpModal";
 import { StoreBroadcastViewer } from "./store/StoreBroadcastViewer";
 import { ImageUploader } from "./ImageUploader";
 import { BottomNavigation } from "./BottomNavigation";
@@ -105,6 +110,8 @@ export const StoreOwnerPortal: React.FC<StoreOwnerPortalProps> = ({
   const [archiveDateFilter, setArchiveDateFilter] = useState<"all" | "today" | "yesterday" | "week">("all");
   const [isOpen, setIsOpen] = useState<boolean>(currentStore.status !== "closed");
   const [soundAlerts, setSoundAlerts] = useState<boolean>(() => isSoundEnabled());
+  const [wakeLockActive, setWakeLockActive] = useState<boolean>(false);
+  const [showAndroidHelp, setShowAndroidHelp] = useState<boolean>(false);
   const [zoomedImage, setZoomedImage] = useState<string | null>(null);
   const [showAccountModal, setShowAccountModal] = useState(false);
   const [showStoreImageModal, setShowStoreImageModal] = useState(false);
@@ -244,6 +251,22 @@ export const StoreOwnerPortal: React.FC<StoreOwnerPortalProps> = ({
     const nextStatus = isOpen ? "closed" : "open";
     setIsOpen(!isOpen);
     onUpdateStore({ ...currentStore, status: nextStatus });
+  };
+
+  const handleToggleWakeLock = async () => {
+    if (wakeLockActive) {
+      await releaseWakeLock();
+      setWakeLockActive(false);
+    } else {
+      const ok = await requestWakeLock();
+      setWakeLockActive(ok);
+      if (ok) {
+        showSystemNotification("وضع الشاشة المتيقظة ☀️", {
+          body: "ستبقى الشاشة نشطة ولن تنطفئ لضمان رنين كل طلب وارد فوراً!",
+          soundType: "chime"
+        });
+      }
+    }
   };
 
   // Filter orders for this store (only orders forwarded by admin to the store)
@@ -562,6 +585,34 @@ export const StoreOwnerPortal: React.FC<StoreOwnerPortalProps> = ({
             >
               {soundAlerts ? <Volume2 className="w-4 h-4 text-emerald-400 animate-pulse shrink-0" /> : <VolumeX className="w-4 h-4 text-slate-400 shrink-0" />}
               <span className="truncate">{soundAlerts ? "رنين الطلبات 🔔" : "الصوت مكتوم"}</span>
+            </button>
+
+            {/* Screen WakeLock button so phone doesn't sleep while waiting for orders */}
+            {isWakeLockSupported() && (
+              <button
+                type="button"
+                onClick={handleToggleWakeLock}
+                className={`py-2 px-3 rounded-xl border text-xs font-black transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
+                  wakeLockActive
+                    ? "bg-amber-500/20 text-amber-300 border-amber-500/50 shadow-sm shadow-amber-500/20"
+                    : "bg-slate-800 text-slate-400 border-slate-700 hover:bg-slate-700"
+                }`}
+                title={wakeLockActive ? "الشاشة متيقظة ولن تنطفئ (انقر للتعطيل)" : "إبقاء الشاشة مفعلة لتلقي الطلبات فوراً دون نوم الهاتف"}
+              >
+                <Sun className={`w-4 h-4 shrink-0 ${wakeLockActive ? "text-amber-400 animate-spin-slow" : "text-slate-400"}`} />
+                <span className="truncate">{wakeLockActive ? "شاشة يقظة ☀️" : "إبقاء الشاشة"}</span>
+              </button>
+            )}
+
+            {/* Android Sound Troubleshooting button */}
+            <button
+              type="button"
+              onClick={() => setShowAndroidHelp(true)}
+              className="py-2 px-2.5 rounded-xl border border-slate-700 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1"
+              title="طريقة تفعيل الرنين عند قفل الهاتف (أندرويد)"
+            >
+              <Smartphone className="w-3.5 h-3.5 text-orange-400 shrink-0" />
+              <span className="hidden xl:inline text-[11px]">رنين القفل</span>
             </button>
 
             <button
@@ -2100,6 +2151,12 @@ export const StoreOwnerPortal: React.FC<StoreOwnerPortalProps> = ({
           onLogout={onLogout}
         />
       )}
+
+      {/* Android Sound Troubleshooting Modal */}
+      <AndroidSoundHelpModal
+        isOpen={showAndroidHelp}
+        onClose={() => setShowAndroidHelp(false)}
+      />
     </div>
   );
 };

@@ -1,10 +1,10 @@
 // ==============================================================================
 // Tawseel Progressive Web App (PWA) - Service Worker
-// Version: tawseel-v39-background-webpush
+// Version: tawseel-v40-background-audio
 // Designed for instant startup and automatic freshness for all customers & staff
 // ==============================================================================
 
-const CACHE_NAME = 'tawseel-v39-background-webpush';
+const CACHE_NAME = 'tawseel-v40-background-audio';
 
 // Dynamically determine the base path (e.g. '/Tawseel-pwa' on GitHub Pages or '' on root domain)
 const getBasePath = () => {
@@ -33,7 +33,10 @@ const getCoreAssets = () => {
     './icon-192.png',
     './icon-512.png',
     './icon-maskable-192.png',
-    './icon-maskable-512.png'
+    './icon-maskable-512.png',
+    './sounds/ringtone.wav',
+    './sounds/chime.wav',
+    './sounds/cashier.wav'
   ];
 
   if (base) {
@@ -45,7 +48,10 @@ const getCoreAssets = () => {
       `${base}/favicon.png`,
       `${base}/apple-touch-icon.png`,
       `${base}/icon-192.png`,
-      `${base}/icon-512.png`
+      `${base}/icon-512.png`,
+      `${base}/sounds/ringtone.wav`,
+      `${base}/sounds/chime.wav`,
+      `${base}/sounds/cashier.wav`
     );
   }
 
@@ -510,15 +516,24 @@ self.addEventListener('notificationclose', (event) => {
 self.addEventListener('message', (event) => {
   if (!event.data) return;
 
+  const resolveSoundUrl = (soundName = 'ringtone') => {
+    const base = getBasePath();
+    const origin = self.location.origin;
+    const file = soundName === 'chime' ? 'chime.wav' : (soundName === 'cashier' ? 'cashier.wav' : 'ringtone.wav');
+    return base ? `${origin}${base}/sounds/${file}` : `${origin}/sounds/${file}`;
+  };
+
   if (event.data.type === 'SHOW_NOTIFICATION') {
     const { title, options = {} } = event.data;
     const { iconUrl, badgeUrl } = resolveNotifIconUrls(options);
+    const soundUrl = resolveSoundUrl(options.sound || options.soundType || 'ringtone');
 
     const notifOptions = {
       body: options.body || '',
       icon: iconUrl,
       badge: badgeUrl,
-      vibrate: options.vibrate || [500, 150, 500, 150, 600, 200, 800],
+      sound: soundUrl,
+      vibrate: options.vibrate || [600, 200, 600, 200, 1000],
       tag: options.tag || (options.data && options.data.orderId ? 'tw-order-' + options.data.orderId : 'tw-notif-app'),
       renotify: true,
       requireInteraction: options.requireInteraction ?? true,
@@ -532,6 +547,7 @@ self.addEventListener('message', (event) => {
       ...options,
       data: {
         url: (options.data && options.data.url) || self.location.href,
+        sound: options.sound || options.soundType || 'ringtone',
         timestamp: Date.now(),
         ...(options.data || {})
       }
@@ -553,13 +569,19 @@ self.addEventListener('push', (event) => {
   }
 
   const { iconUrl, badgeUrl } = resolveNotifIconUrls(data.options || {});
+  const base = getBasePath();
+  const origin = self.location.origin;
+  const soundName = data.sound || data.data?.sound || 'ringtone';
+  const soundFile = soundName === 'chime' ? 'chime.wav' : (soundName === 'cashier' ? 'cashier.wav' : 'ringtone.wav');
+  const soundUrl = base ? `${origin}${base}/sounds/${soundFile}` : `${origin}/sounds/${soundFile}`;
 
   const pushOptions = {
     body: data.body || '',
     icon: iconUrl,
     badge: badgeUrl,
+    sound: soundUrl,
     // Strong vibration to wake up the phone from pocket/sleep
-    vibrate: [500, 150, 500, 150, 600, 200, 800],
+    vibrate: [600, 200, 600, 200, 1000],
     tag: data.tag || (data.data?.orderId ? 'tw-order-' + data.data.orderId : (data.orderId ? 'tw-order-' + data.orderId : 'tw-notif-app')),
     renotify: true,
     requireInteraction: true,
@@ -569,7 +591,7 @@ self.addEventListener('push', (event) => {
     timestamp: Date.now(),
     data: {
       url: (data.data && data.data.url) || self.location.origin,
-      sound: data.sound || 'ringtone',
+      sound: soundName,
       orderId: data.data?.orderId,
       ...(data.data || {})
     },
@@ -584,7 +606,7 @@ self.addEventListener('push', (event) => {
     for (const client of clients) {
       client.postMessage({
         type: 'PLAY_SOUND',
-        sound: data.sound || 'ringtone'
+        sound: soundName
       });
     }
   }).catch(() => {});
