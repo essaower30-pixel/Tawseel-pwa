@@ -4,7 +4,7 @@
 // Designed for instant startup and automatic freshness for all customers & staff
 // ==============================================================================
 
-const CACHE_NAME = 'tawseel-v41-reliable-push-badge';
+const CACHE_NAME = 'tawseel-v42-clean-dismiss-badge';
 
 // Dynamically determine the base path (e.g. '/Tawseel-pwa' on GitHub Pages or '' on root domain)
 const getBasePath = () => {
@@ -493,10 +493,32 @@ const syncAppBadge = async () => {
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
 
-  // Sync remaining badge count
-  syncAppBadge().catch(() => {});
+  // If close action clicked, dismiss all notifications and clear badge
+  if (event.action === 'close') {
+    event.waitUntil(
+      self.registration.getNotifications().then((notifications) => {
+        for (const notif of notifications) {
+          try { notif.close(); } catch {}
+        }
+        if (typeof self !== 'undefined' && self.navigator && 'clearAppBadge' in self.navigator) {
+          return self.navigator.clearAppBadge().catch(() => {});
+        }
+      }).catch(() => {})
+    );
+    return;
+  }
 
-  if (event.action === 'close') return;
+  // Dismiss any remaining notifications to keep status bar clean when user opens app
+  event.waitUntil(
+    self.registration.getNotifications().then((notifications) => {
+      for (const notif of notifications) {
+        try { notif.close(); } catch {}
+      }
+      if (typeof self !== 'undefined' && self.navigator && 'clearAppBadge' in self.navigator) {
+        return self.navigator.clearAppBadge().catch(() => {});
+      }
+    }).catch(() => {})
+  );
 
   const notifData = event.notification.data || {};
   const base = getBasePath();
@@ -536,6 +558,22 @@ self.addEventListener('notificationclose', (event) => {
 // D. Message handler for showing notifications with status bar badge
 self.addEventListener('message', (event) => {
   if (!event.data) return;
+
+  if (event.data.type === 'CLEAR_ALL_NOTIFICATIONS' || event.data.type === 'CLEAR_NOTIFICATIONS') {
+    event.waitUntil(
+      self.registration.getNotifications().then((notifications) => {
+        for (const notif of notifications) {
+          try {
+            notif.close();
+          } catch {}
+        }
+        if (typeof self !== 'undefined' && self.navigator && 'clearAppBadge' in self.navigator) {
+          return self.navigator.clearAppBadge().catch(() => {});
+        }
+      }).catch(() => {})
+    );
+    return;
+  }
 
   const resolveSoundUrl = (soundName = 'ringtone') => {
     const base = getBasePath();
@@ -603,8 +641,8 @@ self.addEventListener('push', (event) => {
     icon: iconUrl,
     badge: badgeUrl,
     sound: soundUrl,
-    // Strong vibration to wake up the phone from pocket/sleep
-    vibrate: [600, 200, 600, 200, 1000],
+    // Strong, repeating vibration to wake up the phone from pocket/sleep
+    vibrate: [1000, 300, 1000, 300, 1000, 300, 1500],
     tag: data.tag || (data.data?.orderId ? 'tw-order-' + data.data.orderId : (data.orderId ? 'tw-order-' + data.orderId : 'tw-notif-' + Date.now())),
     renotify: true,
     requireInteraction: true,

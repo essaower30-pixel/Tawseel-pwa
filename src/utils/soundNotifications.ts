@@ -300,6 +300,7 @@ export interface CustomNotificationOptions extends NotificationOptions {
   requireInteraction?: boolean;
   dedupKey?: string;
   dedupCooldownMs?: number;
+  forceSystemNotification?: boolean;
 }
 
 // Global in-memory + localStorage deduplication registry
@@ -378,7 +379,16 @@ export async function showSystemNotification(
     flashTabTitle(`🔔 ${title}`);
   } catch {}
 
-  // 4. Check notification permission
+  // 4. Check if the app is currently in the foreground and active
+  const isAppInForeground = typeof document !== "undefined" && document.visibilityState === "visible" && !options?.forceSystemNotification;
+  if (isAppInForeground) {
+    // The user is actively viewing the app: sound, vibration, and in-app banner handle the alert cleanly.
+    // Dismiss any old notifications from the Android status bar and clear the launcher icon badge.
+    clearAllSystemNotifications().catch(() => {});
+    return;
+  }
+
+  // 5. Check notification permission
   if (!("Notification" in window) || Notification.permission !== "granted") {
     return;
   }
@@ -608,5 +618,38 @@ export function clearAppBadgeCount(): void {
     try {
       (navigator as any).clearAppBadge().catch(() => {});
     } catch {}
+  }
+}
+
+/**
+ * Dismiss all active notifications from Android notification tray / status bar,
+ * and clear the app launcher badge (number 1) from the home screen icon.
+ */
+export async function clearAllSystemNotifications(): Promise<void> {
+  // 1. Clear badge from mobile launcher icon immediately
+  clearAppBadgeCount();
+
+  // 2. Dismiss all active system notifications from the Android status bar / tray
+  if (typeof navigator !== "undefined" && "serviceWorker" in navigator) {
+    try {
+      const reg = await navigator.serviceWorker.ready;
+      if (reg && typeof reg.getNotifications === "function") {
+        const activeNotifs = await reg.getNotifications();
+        for (const notif of activeNotifs) {
+          try {
+            notif.close();
+          } catch {}
+        }
+      }
+
+      // Also instruct Service Worker to close all notifications & clear its internal badge
+      if (navigator.serviceWorker.controller) {
+        navigator.serviceWorker.controller.postMessage({
+          type: "CLEAR_ALL_NOTIFICATIONS"
+        });
+      }
+    } catch (e) {
+      console.warn("Could not clear active system notifications:", e);
+    }
   }
 }

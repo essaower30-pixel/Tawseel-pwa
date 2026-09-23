@@ -23,7 +23,8 @@ import {
   playOrderAlertSound, 
   getSoundType, 
   setSoundType, 
-  SoundType 
+  SoundType,
+  clearAllSystemNotifications
 } from "../utils/soundNotifications";
 import { AndroidSoundHelpModal } from "./AndroidSoundHelpModal";
 
@@ -305,7 +306,10 @@ export const ToastNotification: React.FC<ToastNotificationProps> = ({
                     {/* Close button */}
                     <button
                       type="button"
-                      onClick={() => onDismiss(toast.id)}
+                      onClick={() => {
+                        clearAllSystemNotifications().catch(() => {});
+                        onDismiss(toast.id);
+                      }}
                       className="text-slate-400 hover:text-white p-1 rounded-xl hover:bg-slate-800 transition-colors cursor-pointer"
                     >
                       <X className="w-4 h-4" />
@@ -349,6 +353,7 @@ export const ToastNotification: React.FC<ToastNotificationProps> = ({
                       <button
                         type="button"
                         onClick={() => {
+                          clearAllSystemNotifications().catch(() => {});
                           if (onDismissAll) {
                             onDismissAll();
                           } else {
@@ -364,6 +369,7 @@ export const ToastNotification: React.FC<ToastNotificationProps> = ({
                       <button
                         type="button"
                         onClick={() => {
+                          clearAllSystemNotifications().catch(() => {});
                           if (toast.order) {
                             onViewOrder(toast.order);
                           }

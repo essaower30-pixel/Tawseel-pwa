@@ -102,7 +102,8 @@ import {
   shouldDeliverNotification,
   markNotificationDelivered,
   clearAppBadgeCount,
-  setAppBadgeCount
+  setAppBadgeCount,
+  clearAllSystemNotifications
 } from "./utils/soundNotifications";
 import { initHistoryProtection, handleAppBackButton } from "./utils/historyManager";
 import { 
@@ -692,6 +693,9 @@ export default function App() {
 
   // Web Push Background Notifications: Listen for Service Worker sound signals
   useEffect(() => {
+    // Clear any lingering system notifications and home screen app badge on app open
+    clearAllSystemNotifications().catch(() => {});
+
     if (typeof window === "undefined" || !("serviceWorker" in navigator)) return;
 
     const handleSwMessage = (event: MessageEvent) => {
@@ -699,6 +703,7 @@ export default function App() {
         playOrderAlertSound(event.data.sound || "ringtone");
         triggerOrderVibration();
       } else if (event.data?.type === "NOTIFICATION_CLICKED") {
+        clearAllSystemNotifications().catch(() => {});
         playOrderAlertSound("chime");
       }
     };
@@ -1030,6 +1035,7 @@ export default function App() {
   };
 
   const handleViewToastOrder = useCallback((order: Order) => {
+    clearAllSystemNotifications().catch(() => {});
     if (isAdminMode || userRole === "admin") {
       setIsAdminMode(true);
       setIsDriverMode(false);
@@ -2573,13 +2579,13 @@ export default function App() {
 
     const handleVisibility = () => {
       if (document.visibilityState === "visible") {
-        clearAppBadgeCount();
+        clearAllSystemNotifications().catch(() => {});
         performSync();
       }
     };
     window.addEventListener("visibilitychange", handleVisibility);
     window.addEventListener("focus", () => {
-      clearAppBadgeCount();
+      clearAllSystemNotifications().catch(() => {});
       performSync();
     });
 
@@ -2902,6 +2908,8 @@ export default function App() {
     if (activeOrder && activeOrder.id === orderId) {
       setActiveOrder(updatedOrder);
     }
+
+    clearAllSystemNotifications().catch(() => {});
 
     // Save to Firestore & server
     await Promise.allSettled([
@@ -5084,6 +5092,7 @@ export default function App() {
               setActiveOrder(null);
               setShowCustomerArchiveModal(false);
             } else if (tab === "orders" || tab === "archive") {
+              clearAllSystemNotifications().catch(() => {});
               if (userRole === "guest" || !userProfile) {
                 setShowAuthModal(true);
               } else {
