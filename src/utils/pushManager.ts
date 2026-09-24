@@ -11,6 +11,8 @@ export interface PushSubscriptionData {
   identifier?: string;
   name?: string;
   orderId?: string;
+  orderIds?: string[];
+  customerPhone?: string;
 }
 
 export interface PushPayload {
@@ -147,6 +149,8 @@ export async function subscribeToPushNotifications(
         identifier: options.identifier || "",
         name: options.name || "",
         orderId: options.orderId || "",
+        orderIds: options.orderIds || (options.orderId ? [options.orderId] : []),
+        customerPhone: options.customerPhone || options.identifier || "",
       }),
     });
 

@@ -46,6 +46,9 @@ function getAudioContext(): AudioContext | null {
   return audioCtx;
 }
 
+// Pending sound alert queued before user interaction (handles browser autoplay restriction)
+let pendingAlertSound: SoundType | null = null;
+
 // Unlock audio on first touch/click
 if (typeof window !== "undefined") {
   const unlockAudio = () => {
@@ -63,6 +66,13 @@ if (typeof window !== "undefined") {
         }
       } catch {}
     });
+
+    // Play any pending sound that was queued while screen was locked or on app open
+    if (pendingAlertSound) {
+      const s = pendingAlertSound;
+      pendingAlertSound = null;
+      setTimeout(() => playOrderAlertSound(s), 60);
+    }
 
     // Remove listeners once unlocked
     window.removeEventListener("click", unlockAudio);
@@ -256,14 +266,15 @@ export function playOrderAlertSound(typeOverride?: SoundType): void {
       const playPromise = audio.play();
       if (playPromise !== undefined) {
         playPromise.catch((err) => {
-          // If browser policy throttled HTML5 Audio, trigger Web Audio synthesis
+          // If browser policy throttled HTML5 Audio, queue pending sound and trigger Web Audio synthesis
+          pendingAlertSound = type;
           playSynthesizedAudio(type);
         });
       }
       return;
     }
   } catch (e) {
-    // Fallback
+    pendingAlertSound = type;
   }
 
   // 2. Fallback to Web Audio synthesis
@@ -301,6 +312,7 @@ export interface CustomNotificationOptions extends NotificationOptions {
   dedupKey?: string;
   dedupCooldownMs?: number;
   forceSystemNotification?: boolean;
+  bypassDedup?: boolean;
 }
 
 // Global in-memory + localStorage deduplication registry
@@ -352,8 +364,8 @@ export async function showSystemNotification(
 ): Promise<void> {
   if (typeof window === "undefined") return;
 
-  // 0. Deduplication check: Do not deliver duplicate notifications for the same event key
-  if (options?.dedupKey) {
+  // 0. Deduplication check: Do not deliver duplicate notifications for the same event key unless bypassed
+  if (options?.dedupKey && options?.bypassDedup !== true) {
     const shouldDeliver = shouldDeliverNotification(options.dedupKey, options.dedupCooldownMs || 600000);
     if (!shouldDeliver) {
       return;
@@ -379,16 +391,17 @@ export async function showSystemNotification(
     flashTabTitle(`🔔 ${title}`);
   } catch {}
 
-  // 4. Check if the app is currently in the foreground and active
+  // 4. Update mobile launcher icon badge with count 1
+  setAppBadgeCount(1);
+
+  // 5. Check if the app is currently in the foreground and active
   const isAppInForeground = typeof document !== "undefined" && document.visibilityState === "visible" && !options?.forceSystemNotification;
   if (isAppInForeground) {
-    // The user is actively viewing the app: sound, vibration, and in-app banner handle the alert cleanly.
-    // Dismiss any old notifications from the Android status bar and clear the launcher icon badge.
-    clearAllSystemNotifications().catch(() => {});
+    // In foreground, toast banner and sound already alerted the user
     return;
   }
 
-  // 5. Check notification permission
+  // 6. Check notification permission
   if (!("Notification" in window) || Notification.permission !== "granted") {
     return;
   }
@@ -594,15 +607,13 @@ export function flashTabTitle(alertTitle: string = "🔔 (طلب جديد وار
 }
 
 /**
- * Update the App Badge count on the mobile home screen icon
+ * Update the App Badge count on the mobile home screen icon (defaults to 1)
  */
-export function setAppBadgeCount(count?: number): void {
+export function setAppBadgeCount(count: number = 1): void {
   if (typeof navigator !== "undefined" && "setAppBadge" in navigator) {
     try {
-      if (count !== undefined && count > 0) {
+      if (count > 0) {
         (navigator as any).setAppBadge(count).catch(() => {});
-      } else if (count === undefined) {
-        (navigator as any).setAppBadge().catch(() => {});
       } else {
         (navigator as any).clearAppBadge().catch(() => {});
       }

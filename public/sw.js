@@ -474,12 +474,21 @@ const resolveNotifIconUrls = (options = {}) => {
 };
 
 // A. Helper to sync App Badge on device icon
-const syncAppBadge = async () => {
+const syncAppBadge = async (countOverride) => {
   try {
     if (typeof self !== 'undefined' && self.navigator && 'setAppBadge' in self.navigator) {
+      if (typeof countOverride === 'number') {
+        if (countOverride > 0) {
+          await self.navigator.setAppBadge(countOverride);
+        } else if ('clearAppBadge' in self.navigator) {
+          await self.navigator.clearAppBadge();
+        }
+        return;
+      }
       const activeNotifs = await self.registration.getNotifications();
-      if (activeNotifs && activeNotifs.length > 0) {
-        await self.navigator.setAppBadge(activeNotifs.length);
+      const count = (activeNotifs && activeNotifs.length > 0) ? activeNotifs.length : 0;
+      if (count > 0) {
+        await self.navigator.setAppBadge(count);
       } else if ('clearAppBadge' in self.navigator) {
         await self.navigator.clearAppBadge();
       }
@@ -683,8 +692,8 @@ self.addEventListener('push', (event) => {
         }
       }
 
-      // 2. Set App Badge number directly on Android launcher icon
-      await syncAppBadge();
+      // 2. Set App Badge number directly on Android launcher icon (always at least 1)
+      await syncAppBadge(1);
 
       // 3. Broadcast to open clients if any exist to trigger sound player
       try {

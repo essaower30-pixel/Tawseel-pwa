@@ -445,6 +445,16 @@ interface PushPayload {
 // Server-side deduplication tracker to prevent duplicate bursts
 const sentPushTimestamps = new Map<string, number>();
 
+function normalizePhone(p: any): string {
+  if (!p) return "";
+  let s = String(p).trim();
+  s = s.replace(/[٠-٩]/g, (d) => "٠١٢٣٤٥٦٧٨٩".indexOf(d).toString());
+  s = s.replace(/\D/g, "");
+  if (s.startsWith("00963")) s = "0" + s.slice(5);
+  else if (s.startsWith("963")) s = "0" + s.slice(3);
+  return s;
+}
+
 function canSendPush(key: string, cooldownMs: number = 3000): boolean {
   if (!key) return true;
   const now = Date.now();
@@ -510,7 +520,7 @@ app.get("/api/push/public-key", (req, res) => {
 });
 
 app.post("/api/push/subscribe", (req, res) => {
-  const { subscription, role, identifier, name, orderId } = req.body;
+  const { subscription, role, identifier, name, orderId, orderIds, customerPhone } = req.body;
   if (!subscription || !subscription.endpoint) {
     return res.status(400).json({ error: "بيانات الاشتراك غير مكتملة" });
   }
@@ -518,16 +528,33 @@ app.post("/api/push/subscribe", (req, res) => {
   const data = readServerData();
   if (!data.pushSubscriptions) data.pushSubscriptions = [];
 
+  const existing = data.pushSubscriptions.find(
+    (s: any) => s.subscription?.endpoint === subscription.endpoint
+  );
+
+  const mergedOrderIds = Array.from(new Set([
+    ...(existing?.orderIds || []),
+    ...(Array.isArray(orderIds) ? orderIds : []),
+    ...(orderId ? [orderId] : []),
+    ...(existing?.orderId ? [existing.orderId] : [])
+  ])).filter(Boolean);
+
+  const resolvedRole = role || existing?.role || "customer";
+  const resolvedIdentifier = identifier || customerPhone || existing?.identifier || "";
+  const resolvedPhone = customerPhone || identifier || existing?.customerPhone || "";
+
   data.pushSubscriptions = [
     ...data.pushSubscriptions.filter(
       (s: any) => s.subscription?.endpoint !== subscription.endpoint
     ),
     {
       subscription,
-      role: role || "customer",
-      identifier: identifier || "",
-      name: name || "",
-      orderId: orderId || "",
+      role: resolvedRole,
+      identifier: resolvedIdentifier,
+      customerPhone: resolvedPhone,
+      name: name || existing?.name || "",
+      orderId: orderId || existing?.orderId || (mergedOrderIds[0] || ""),
+      orderIds: mergedOrderIds,
       updatedAt: Date.now()
     }
   ];
@@ -1062,15 +1089,20 @@ app.put("/api/orders/:id", (req, res) => {
         if (canSendPush(custDedupKey, 3000)) {
           const driverName = data.orders[idx].driverName || updates.driverName || "الكابتن";
           const custPhone = data.orders[idx].customerPhone;
+          const storeName = data.orders[idx].storeName || "المتجر";
           dispatchPushNotification(
-            (s: any) => s.role === "customer" && (
-              (custPhone && s.identifier === custPhone) ||
-              s.identifier === orderId ||
-              s.orderId === orderId
-            ),
+            (s: any) => {
+              if (s.orderId === orderId || s.identifier === orderId) return true;
+              if (Array.isArray(s.orderIds) && s.orderIds.includes(orderId)) return true;
+              if (s.role && s.role !== "customer") return false;
+              const normCustPhone = normalizePhone(custPhone);
+              const normSubPhone = normalizePhone(s.customerPhone || s.identifier);
+              if (normCustPhone && normSubPhone && normCustPhone === normSubPhone) return true;
+              return false;
+            },
             {
               title: `🛵 طلبك #${orderId} استلمه الكابتن وهو في الطريق إليك!`,
-              body: `الكابتن (${driverName}) استلم طلبك من متجر (${data.orders[idx].storeName}) وهو في الطريق إليك الآن.`,
+              body: `الكابتن (${driverName}) استلم طلبك من متجر (${storeName}) وهو في الطريق إليك الآن.`,
               sound: "ringtone",
               tag: `tw-order-${orderId}`,
               data: { url: `/?orderId=${orderId}`, orderId }
@@ -1085,11 +1117,15 @@ app.put("/api/orders/:id", (req, res) => {
         if (canSendPush(custDeliveredKey, 3000)) {
           const custPhone = data.orders[idx].customerPhone;
           dispatchPushNotification(
-            (s: any) => s.role === "customer" && (
-              (custPhone && s.identifier === custPhone) ||
-              s.identifier === orderId ||
-              s.orderId === orderId
-            ),
+            (s: any) => {
+              if (s.orderId === orderId || s.identifier === orderId) return true;
+              if (Array.isArray(s.orderIds) && s.orderIds.includes(orderId)) return true;
+              if (s.role && s.role !== "customer") return false;
+              const normCustPhone = normalizePhone(custPhone);
+              const normSubPhone = normalizePhone(s.customerPhone || s.identifier);
+              if (normCustPhone && normSubPhone && normCustPhone === normSubPhone) return true;
+              return false;
+            },
             {
               title: `🎉 تم تسليم طلبك بنجاح #${orderId}!`,
               body: `شكراً لاستخدامك تطبيق توصيل! نتمنى لك تجربة ممتعة دائماً.`,
@@ -1107,11 +1143,15 @@ app.put("/api/orders/:id", (req, res) => {
         if (canSendPush(custCancelKey, 3000)) {
           const custPhone = data.orders[idx].customerPhone;
           dispatchPushNotification(
-            (s: any) => s.role === "customer" && (
-              (custPhone && s.identifier === custPhone) ||
-              s.identifier === orderId ||
-              s.orderId === orderId
-            ),
+            (s: any) => {
+              if (s.orderId === orderId || s.identifier === orderId) return true;
+              if (Array.isArray(s.orderIds) && s.orderIds.includes(orderId)) return true;
+              if (s.role && s.role !== "customer") return false;
+              const normCustPhone = normalizePhone(custPhone);
+              const normSubPhone = normalizePhone(s.customerPhone || s.identifier);
+              if (normCustPhone && normSubPhone && normCustPhone === normSubPhone) return true;
+              return false;
+            },
             {
               title: `❌ تم إلغاء طلبك #${orderId}`,
               body: updates.cancellationReason || "تم إلغاء الطلب من قبل المتجر أو الإدارة.",

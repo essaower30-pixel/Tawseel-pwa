@@ -173,7 +173,80 @@ import { getAppUrl, getShareTemplates } from "./utils/appUrl";
 
 export { getAppUrl };
 
-const cleanPhone = (p?: string) => (p || "").replace(/[^0-9]/g, "");
+const cleanPhone = (p?: string) => {
+  if (!p) return "";
+  let s = String(p).trim();
+  s = s.replace(/[٠-٩]/g, (d) => "٠١٢٣٤٥٦٧٨٩".indexOf(d).toString());
+  s = s.replace(/[^0-9]/g, "");
+  if (s.startsWith("00963")) s = "0" + s.slice(5);
+  else if (s.startsWith("963")) s = "0" + s.slice(3);
+  return s;
+};
+
+export const recordCustomerOrderId = (orderId: string): void => {
+  if (!orderId) return;
+  try {
+    const raw = localStorage.getItem("tw_my_order_ids");
+    const list: string[] = raw ? JSON.parse(raw) : [];
+    if (!list.includes(orderId)) {
+      list.push(orderId);
+      localStorage.setItem("tw_my_order_ids", JSON.stringify(list));
+    }
+  } catch {}
+};
+
+export const getMyCustomerOrderIds = (): string[] => {
+  try {
+    const raw = localStorage.getItem("tw_my_order_ids");
+    const list = raw ? JSON.parse(raw) : [];
+    return Array.isArray(list) ? list : [];
+  } catch {
+    return [];
+  }
+};
+
+const isOrderBelongingToCustomer = (
+  order: Order,
+  profile: UserProfile | null,
+  activeOrd: Order | null
+): boolean => {
+  if (!order) return false;
+  if (activeOrd && activeOrd.id === order.id) return true;
+
+  const lastSubmitted = typeof window !== "undefined" ? localStorage.getItem("tw_last_submitted_order_id") : null;
+  if (lastSubmitted && lastSubmitted === order.id) return true;
+
+  const activeRaw = typeof window !== "undefined" ? localStorage.getItem("tw_active_order") : null;
+  if (activeRaw) {
+    try {
+      const activeObj = JSON.parse(activeRaw);
+      if (activeObj && activeObj.id === order.id) return true;
+    } catch {}
+  }
+
+  const myOrderIds = getMyCustomerOrderIds();
+  if (myOrderIds.includes(order.id)) return true;
+
+  const myPhone = cleanPhone(
+    profile?.phone ||
+      (typeof window !== "undefined" ? localStorage.getItem("tw_user_phone") : "") ||
+      (typeof window !== "undefined" ? localStorage.getItem("tw_customer_phone") : "")
+  );
+  const orderPhone = cleanPhone(order.customerPhone);
+  if (myPhone && orderPhone && myPhone === orderPhone) return true;
+
+  const myName = profile?.name || (typeof window !== "undefined" ? localStorage.getItem("tw_user_name") : "");
+  if (
+    myName &&
+    myName !== "زائر متسوق" &&
+    order.customerName &&
+    order.customerName.trim().toLowerCase() === myName.trim().toLowerCase()
+  ) {
+    return true;
+  }
+
+  return false;
+};
 
 export default function App() {
   const isOnline = useOnlineStatus();
@@ -493,7 +566,22 @@ export default function App() {
   const [activeOrder, setActiveOrder] = useState<Order | null>(() => {
     try {
       const raw = localStorage.getItem("tw_active_order");
-      return raw ? JSON.parse(raw) : null;
+      if (raw) return JSON.parse(raw);
+
+      if (typeof window !== "undefined") {
+        const params = new URLSearchParams(window.location.search);
+        const qOrderId = params.get("orderId");
+        const lastId = qOrderId || localStorage.getItem("tw_last_submitted_order_id");
+        if (lastId) {
+          const rawOrders = localStorage.getItem("tw_orders_list") || localStorage.getItem("tw_all_orders");
+          const list: Order[] = rawOrders ? JSON.parse(rawOrders) : [];
+          const found = list.find((o) => o.id === lastId);
+          if (found && found.status !== "delivered" && found.status !== "cancelled") {
+            return found;
+          }
+        }
+      }
+      return null;
     } catch (e) {
       return null;
     }
@@ -693,9 +781,6 @@ export default function App() {
 
   // Web Push Background Notifications: Listen for Service Worker sound signals
   useEffect(() => {
-    // Clear any lingering system notifications and home screen app badge on app open
-    clearAllSystemNotifications().catch(() => {});
-
     if (typeof window === "undefined" || !("serviceWorker" in navigator)) return;
 
     const handleSwMessage = (event: MessageEvent) => {
@@ -703,8 +788,16 @@ export default function App() {
         playOrderAlertSound(event.data.sound || "ringtone");
         triggerOrderVibration();
       } else if (event.data?.type === "NOTIFICATION_CLICKED") {
-        clearAllSystemNotifications().catch(() => {});
         playOrderAlertSound("chime");
+        const clickedOrderId = event.data?.data?.orderId;
+        if (clickedOrderId) {
+          const rawOrders = localStorage.getItem("tw_orders_list") || localStorage.getItem("tw_all_orders");
+          const list: Order[] = rawOrders ? JSON.parse(rawOrders) : [];
+          const found = list.find((o) => o.id === clickedOrderId);
+          if (found) {
+            setActiveOrder(found);
+          }
+        }
       }
     };
 
@@ -739,18 +832,32 @@ export default function App() {
       identifier = localStorage.getItem("tw_driver_phone") || "";
     } else {
       role = "customer";
-      identifier = localStorage.getItem("tw_user_phone") || "";
+      identifier = cleanPhone(
+        userProfile?.phone ||
+        localStorage.getItem("tw_user_phone") ||
+        localStorage.getItem("tw_customer_phone") ||
+        activeOrder?.customerPhone ||
+        ""
+      );
     }
 
     const matchedStore = stores.find(s => s.id === (currentStoreId || userProfile?.storeId) || (userProfile?.phone && s.ownerPhone === userProfile?.phone));
     const subName = matchedStore?.name || userProfile?.name || localStorage.getItem("tw_user_name") || "";
 
+    const customerOrderIds = Array.from(new Set([
+      ...getMyCustomerOrderIds(),
+      ...(activeOrder ? [activeOrder.id] : [])
+    ]));
+
     subscribeToPushNotifications({
       role,
       identifier,
+      customerPhone: role === "customer" ? identifier : undefined,
       name: subName,
+      orderId: activeOrder?.id || customerOrderIds[0] || "",
+      orderIds: customerOrderIds,
     }).catch(() => {});
-  }, [isAdminMode, userRole, currentStoreId, isDriverMode, userProfile, stores]);
+  }, [isAdminMode, userRole, currentStoreId, isDriverMode, userProfile, stores, activeOrder]);
 
   const addToastNotification = useCallback((toast: Omit<ToastItem, "id" | "createdAt"> & {
     showSystemNotification?: boolean;
@@ -758,11 +865,13 @@ export default function App() {
   }) => {
     // Only dispatch system / status-bar notification if explicitly flagged
     if (toast.showSystemNotification) {
+      const isRingtone = toast.type === "new_order" || toast.type === "driver_assigned" || toast.order?.status === "picked_up";
       showSystemNotification(toast.title, {
         body: toast.message,
-        soundType: toast.type === "new_order" || toast.type === "driver_assigned" ? "ringtone" : "chime",
+        soundType: isRingtone ? "ringtone" : "chime",
         data: { orderId: toast.order?.id },
         dedupKey: toast.dedupKey,
+        bypassDedup: true,
         tag: toast.dedupKey || (toast.order?.id ? `tw-order-${toast.order.id}` : undefined)
       });
     }
@@ -1441,6 +1550,9 @@ export default function App() {
             if (fresh.status === "picked_up") {
               const dedupKey = `customer_picked_up_${fresh.id}`;
               if (shouldDeliverNotification(dedupKey, 600000)) {
+                playOrderAlertSound("ringtone");
+                triggerOrderVibration();
+                flashTabTitle(`🛵 طلبك #${fresh.id} مع الكابتن الآن!`);
                 showSystemNotification(statusTitle, {
                   body: statusMsg,
                   soundType: "ringtone",
@@ -1448,6 +1560,9 @@ export default function App() {
                   tag: `tw-order-${fresh.id}`
                 });
               }
+            } else if (fresh.status === "delivered" || fresh.status === "accepted" || fresh.status === "preparing") {
+              playOrderAlertSound("chime");
+              triggerOrderVibration();
             }
 
             addToastNotification({
@@ -1472,6 +1587,63 @@ export default function App() {
       }
     }
   }, [allOrders]);
+
+  // Customer Background Status Transition Tracker:
+  // Detects if customer's order transitioned (e.g. to picked_up / delivered) while the app was closed
+  useEffect(() => {
+    if (!allOrders || allOrders.length === 0) return;
+
+    for (const order of allOrders) {
+      if (isOrderBelongingToCustomer(order, userProfile, activeOrder)) {
+        const seenKey = `tw_customer_seen_status_${order.id}`;
+        const prevSeen = typeof window !== "undefined" ? localStorage.getItem(seenKey) : null;
+
+        if (prevSeen && prevSeen !== order.status) {
+          localStorage.setItem(seenKey, order.status);
+
+          // Order was picked up by the captain while customer had the app closed!
+          if (order.status === "picked_up" && prevSeen !== "picked_up") {
+            const dedupKey = `customer_picked_up_${order.id}`;
+            if (shouldDeliverNotification(dedupKey, 60000)) {
+              playOrderAlertSound("ringtone");
+              triggerOrderVibration();
+              flashTabTitle(`🛵 طلبك #${order.id} مع الكابتن الآن!`);
+              setActiveOrder(order);
+              addToastNotification({
+                order,
+                title: `🛵 طلبك #${order.id} خرج للتوصيل!`,
+                message: order.driverName 
+                  ? `الكابتن (${order.driverName}) استلم طلبك من متجر (${order.storeName}) وهو في الطريق إليك الآن.` 
+                  : `الكابتن استلم طلبك من متجر (${order.storeName}) وهو في الطريق إليك الآن.`,
+                type: "status_change",
+                targetRole: "customer",
+                showSystemNotification: true,
+                dedupKey
+              });
+            }
+          } else if (order.status === "delivered" && prevSeen !== "delivered") {
+            const dedupKey = `customer_delivered_${order.id}`;
+            if (shouldDeliverNotification(dedupKey, 60000)) {
+              playOrderAlertSound("chime");
+              triggerOrderVibration();
+              setActiveOrder(order);
+              addToastNotification({
+                order,
+                title: `🎉 تم تسليم طلبك #${order.id} بنجاح!`,
+                message: `تم تسليم الطلب ومطابقة كود الأمان بنجاح. شكراً لاختيارك توصيل!`,
+                type: "success",
+                targetRole: "customer",
+                showSystemNotification: true,
+                dedupKey
+              });
+            }
+          }
+        } else if (!prevSeen) {
+          localStorage.setItem(seenKey, order.status);
+        }
+      }
+    }
+  }, [allOrders, userProfile, activeOrder]);
 
   // Handlers for store registration and management with instant local update + Firebase & server persistence
   const handleAddNewStore = async (newStore: Store) => {
@@ -2384,6 +2556,7 @@ export default function App() {
           const currentMap = new Map<string, Order>(currentLocal.map((o) => [o.id, o]));
           let hasDiff = false;
           const newlyArrivedOrders: Order[] = [];
+          const statusChangedOrders: { oldOrder: Order; newOrder: Order }[] = [];
 
           for (const sOrder of serverData.orders) {
             const localOrder = currentMap.get(sOrder.id);
@@ -2396,9 +2569,12 @@ export default function App() {
             } else if (
               localOrder.status !== sOrder.status || 
               localOrder.driverId !== sOrder.driverId || 
-              localOrder.driverName !== sOrder.driverName
+              localOrder.driverName !== sOrder.driverName ||
+              localOrder.forwardedToStore !== sOrder.forwardedToStore ||
+              localOrder.storeAccepted !== sOrder.storeAccepted
             ) {
               hasDiff = true;
+              statusChangedOrders.push({ oldOrder: localOrder, newOrder: sOrder });
             }
           }
 
@@ -2469,6 +2645,147 @@ export default function App() {
                         message: `طلب #${newOrd.id} جاهز للتوصيل من (${newOrd.storeName})`,
                         type: "driver_assigned",
                         targetRole: "driver",
+                        showSystemNotification: true,
+                        dedupKey
+                      });
+                    }
+                  }
+                }
+              });
+            }
+
+            // Process orders whose status or assignment changed
+            if (statusChangedOrders.length > 0) {
+              statusChangedOrders.forEach(({ oldOrder, newOrder }) => {
+                // 1. Customer: if this order belongs to the customer
+                const isCust = isOrderBelongingToCustomer(newOrder, userProfile, activeOrder);
+                if (isCust) {
+                  // Track this order ID as belonging to this customer
+                  recordCustomerOrderId(newOrder.id);
+
+                  if (newOrder.status === "picked_up" && oldOrder.status !== "picked_up") {
+                    const dedupKey = `customer_picked_up_${newOrder.id}`;
+                    if (shouldDeliverNotification(dedupKey, 60000)) {
+                      playOrderAlertSound("ringtone");
+                      triggerOrderVibration();
+                      flashTabTitle(`🛵 طلبك #${newOrder.id} مع الكابتن الآن!`);
+                      addToastNotification({
+                        order: newOrder,
+                        title: `🛵 طلبك #${newOrder.id} خرج للتوصيل!`,
+                        message: newOrder.driverName 
+                          ? `الكابتن (${newOrder.driverName}) استلم طلبك من متجر (${newOrder.storeName}) وهو في الطريق إليك الآن.` 
+                          : `الكابتن استلم طلبك من متجر (${newOrder.storeName}) وهو في الطريق إليك الآن.`,
+                        type: "status_change",
+                        targetRole: "customer",
+                        showSystemNotification: true,
+                        dedupKey
+                      });
+                    }
+                  } else if (newOrder.status === "delivered" && oldOrder.status !== "delivered") {
+                    const dedupKey = `customer_delivered_${newOrder.id}`;
+                    if (shouldDeliverNotification(dedupKey, 60000)) {
+                      playOrderAlertSound("chime");
+                      triggerOrderVibration();
+                      addToastNotification({
+                        order: newOrder,
+                        title: `🎉 تم تسليم طلبك #${newOrder.id} بنجاح!`,
+                        message: `تم تسليم الطلب ومطابقة كود الأمان بنجاح. شكراً لاختيارك توصيل!`,
+                        type: "success",
+                        targetRole: "customer",
+                        showSystemNotification: true,
+                        dedupKey
+                      });
+                    }
+                  } else if ((newOrder.status === "accepted" || newOrder.status === "preparing") && oldOrder.status === "pending") {
+                    const dedupKey = `customer_accepted_${newOrder.id}`;
+                    if (shouldDeliverNotification(dedupKey, 60000)) {
+                      playOrderAlertSound("chime");
+                      addToastNotification({
+                        order: newOrder,
+                        title: `🍳 بدأ تجهيز طلبك #${newOrder.id}!`,
+                        message: `المتجر (${newOrder.storeName}) اعتمد طلبك وبدأ في التجهيز.`,
+                        type: "status_change",
+                        targetRole: "customer",
+                        showSystemNotification: true,
+                        dedupKey
+                      });
+                    }
+                  }
+
+                  // Update activeOrder so live tracker shows status update instantly
+                  if (!activeOrder || activeOrder.id === newOrder.id) {
+                    setActiveOrder(newOrder);
+                  }
+                  if (typeof window !== "undefined") {
+                    localStorage.setItem(`tw_customer_seen_status_${newOrder.id}`, newOrder.status);
+                  }
+                }
+
+                // 2. Driver assigned notifications
+                if (isDriverMode || userRole === "driver") {
+                  const myDriverPhone = cleanPhone(userProfile?.phone);
+                  const wasAssigned = Boolean(
+                    (myDriverPhone && cleanPhone(oldOrder.driverPhone) === myDriverPhone) || 
+                    (userProfile?.name && oldOrder.driverName === userProfile.name)
+                  );
+                  const isNowAssigned = Boolean(
+                    (myDriverPhone && cleanPhone(newOrder.driverPhone) === myDriverPhone) || 
+                    (userProfile?.name && newOrder.driverName === userProfile.name)
+                  );
+
+                  if (!wasAssigned && isNowAssigned) {
+                    const dedupKey = `driver_assigned_${newOrder.id}`;
+                    if (shouldDeliverNotification(dedupKey, 600000)) {
+                      playOrderAlertSound("ringtone");
+                      triggerOrderVibration();
+                      addToastNotification({
+                        order: newOrder,
+                        title: "🛵 طلب توصيل جديد تم إسناده إليك!",
+                        message: `طلب #${newOrder.id} جاهز للتوصيل من (${newOrder.storeName})`,
+                        type: "driver_assigned",
+                        targetRole: "driver",
+                        showSystemNotification: true,
+                        dedupKey
+                      });
+                    }
+                  }
+                }
+
+                // 3. Store Owner: if store was forwarded an existing order
+                if (userRole === "store_owner" || currentStoreId) {
+                  const isMyStore = 
+                    newOrder.storeId === currentStoreId || 
+                    (userProfile?.name && newOrder.storeName?.includes(userProfile.name));
+                  if (isMyStore && newOrder.forwardedToStore === true && oldOrder.forwardedToStore !== true) {
+                    const dedupKey = `store_forwarded_${newOrder.id}`;
+                    if (shouldDeliverNotification(dedupKey, 600000)) {
+                      playOrderAlertSound("ringtone");
+                      triggerOrderVibration();
+                      addToastNotification({
+                        order: newOrder,
+                        title: "🏪 طلب جديد وارد لمتجرك! 🛍️",
+                        message: `طلب جديد #${newOrder.id} بقيمة ${newOrder.total.toLocaleString()} ل.س من الزبون ${newOrder.customerName}`,
+                        type: "new_order",
+                        targetRole: "store_owner",
+                        showSystemNotification: true,
+                        dedupKey
+                      });
+                    }
+                  }
+                }
+
+                // 4. Admin: if store accepted the order
+                if (isAdminMode || userRole === "admin") {
+                  if (newOrder.storeAccepted === true && oldOrder.storeAccepted !== true) {
+                    const dedupKey = `admin_store_accepted_${newOrder.id}`;
+                    if (shouldDeliverNotification(dedupKey, 60000)) {
+                      playOrderAlertSound("chime");
+                      addToastNotification({
+                        order: newOrder,
+                        title: "✅ اعتمد المتجر الطلب! (يرجى اختيار الكابتن 🛵)",
+                        message: `متجر (${newOrder.storeName}) وافق على الطلب #${newOrder.id}. يرجى توجيه الكابتن الآن.`,
+                        type: "status_change",
+                        targetRole: "admin",
                         showSystemNotification: true,
                         dedupKey
                       });
@@ -3205,13 +3522,31 @@ export default function App() {
     playOrderAlertSound("chime");
     broadcastNewOrder(newOrder);
 
+    // Record customer ownership and initialize persistent status tracker
+    recordCustomerOrderId(newOrder.id);
+    if (typeof window !== "undefined") {
+      localStorage.setItem("tw_last_submitted_order_id", newOrder.id);
+      localStorage.setItem(`tw_customer_seen_status_${newOrder.id}`, "pending");
+      if (newOrder.customerPhone) {
+        localStorage.setItem("tw_customer_phone", newOrder.customerPhone);
+        localStorage.setItem("tw_user_phone", newOrder.customerPhone);
+      }
+      if (newOrder.customerName) {
+        localStorage.setItem("tw_user_name", newOrder.customerName);
+      }
+      localStorage.setItem("tw_active_order", JSON.stringify(newOrder));
+    }
+
     // Register customer push subscription for this specific order so they get notified in background when driver picks up
     if (isPushSupported()) {
+      const allMyOrderIds = Array.from(new Set([newOrder.id, ...getMyCustomerOrderIds()]));
       subscribeToPushNotifications({
         role: "customer",
-        identifier: newOrder.customerPhone || userProfile?.phone || newOrder.id,
+        identifier: cleanPhone(newOrder.customerPhone) || cleanPhone(userProfile?.phone) || newOrder.id,
+        customerPhone: newOrder.customerPhone || userProfile?.phone || "",
         name: newOrder.customerName || userProfile?.name || "",
-        orderId: newOrder.id
+        orderId: newOrder.id,
+        orderIds: allMyOrderIds
       }).catch(() => {});
     }
 
@@ -3296,13 +3631,31 @@ export default function App() {
     playOrderAlertSound("chime");
     broadcastNewOrder(newOrder);
 
+    // Record customer ownership and initialize persistent status tracker
+    recordCustomerOrderId(newOrder.id);
+    if (typeof window !== "undefined") {
+      localStorage.setItem("tw_last_submitted_order_id", newOrder.id);
+      localStorage.setItem(`tw_customer_seen_status_${newOrder.id}`, "pending");
+      if (newOrder.customerPhone) {
+        localStorage.setItem("tw_customer_phone", newOrder.customerPhone);
+        localStorage.setItem("tw_user_phone", newOrder.customerPhone);
+      }
+      if (newOrder.customerName) {
+        localStorage.setItem("tw_user_name", newOrder.customerName);
+      }
+      localStorage.setItem("tw_active_order", JSON.stringify(newOrder));
+    }
+
     // Register customer push subscription for this specific custom order
     if (isPushSupported()) {
+      const allMyOrderIds = Array.from(new Set([newOrder.id, ...getMyCustomerOrderIds()]));
       subscribeToPushNotifications({
         role: "customer",
-        identifier: newOrder.customerPhone || userProfile?.phone || newOrder.id,
+        identifier: cleanPhone(newOrder.customerPhone) || cleanPhone(userProfile?.phone) || newOrder.id,
+        customerPhone: newOrder.customerPhone || userProfile?.phone || "",
         name: newOrder.customerName || userProfile?.name || "",
-        orderId: newOrder.id
+        orderId: newOrder.id,
+        orderIds: allMyOrderIds
       }).catch(() => {});
     }
 
