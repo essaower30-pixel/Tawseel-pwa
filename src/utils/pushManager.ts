@@ -8,11 +8,13 @@ import { requestNotificationPermission } from "./soundNotifications";
 
 export interface PushSubscriptionData {
   role: "admin" | "store" | "driver" | "customer";
+  roles?: string[];
   identifier?: string;
   name?: string;
   orderId?: string;
   orderIds?: string[];
   customerPhone?: string;
+  receiveAllAlerts?: boolean;
 }
 
 export interface PushPayload {
@@ -146,11 +148,13 @@ export async function subscribeToPushNotifications(
       body: JSON.stringify({
         subscription: subJSON,
         role: options.role,
+        roles: options.roles || [options.role],
         identifier: options.identifier || "",
         name: options.name || "",
         orderId: options.orderId || "",
         orderIds: options.orderIds || (options.orderId ? [options.orderId] : []),
         customerPhone: options.customerPhone || options.identifier || "",
+        receiveAllAlerts: options.receiveAllAlerts ?? (options.role === "admin"),
       }),
     });
 

@@ -4,7 +4,7 @@
 // Designed for instant startup and automatic freshness for all customers & staff
 // ==============================================================================
 
-const CACHE_NAME = 'tawseel-v42-clean-dismiss-badge';
+const CACHE_NAME = 'tawseel-v45-reliable-background-push';
 
 // Dynamically determine the base path (e.g. '/Tawseel-pwa' on GitHub Pages or '' on root domain)
 const getBasePath = () => {
@@ -638,13 +638,14 @@ self.addEventListener('push', (event) => {
     }
   }
 
-  const { iconUrl, badgeUrl } = resolveNotifIconUrls(data.options || {});
+  const { iconUrl, badgeUrl } = resolveNotifIconUrls(data.options || data || {});
   const base = getBasePath();
   const origin = self.location.origin;
   const soundName = data.sound || data.data?.sound || 'ringtone';
   const soundFile = soundName === 'chime' ? 'chime.wav' : (soundName === 'cashier' ? 'cashier.wav' : 'ringtone.wav');
   const soundUrl = base ? `${origin}${base}/sounds/${soundFile}` : `${origin}/sounds/${soundFile}`;
 
+  const targetOrderId = data.data?.orderId || data.orderId;
   const pushOptions = {
     body: data.body || '',
     icon: iconUrl,
@@ -652,7 +653,7 @@ self.addEventListener('push', (event) => {
     sound: soundUrl,
     // Strong, repeating vibration to wake up the phone from pocket/sleep
     vibrate: [1000, 300, 1000, 300, 1000, 300, 1500],
-    tag: data.tag || (data.data?.orderId ? 'tw-order-' + data.data.orderId : (data.orderId ? 'tw-order-' + data.orderId : 'tw-notif-' + Date.now())),
+    tag: data.tag || (targetOrderId ? 'tw-order-' + targetOrderId : 'tw-notif-' + Date.now()),
     renotify: true,
     requireInteraction: true,
     dir: 'rtl',
@@ -660,9 +661,9 @@ self.addEventListener('push', (event) => {
     silent: false,
     timestamp: Date.now(),
     data: {
-      url: (data.data && data.data.url) || self.location.origin,
+      url: (data.data && data.data.url) || (targetOrderId ? `${self.location.origin}/?orderId=${targetOrderId}` : self.location.origin),
       sound: soundName,
-      orderId: data.data?.orderId,
+      orderId: targetOrderId,
       ...(data.data || {})
     },
     actions: [
@@ -683,9 +684,10 @@ self.addEventListener('push', (event) => {
             body: data.body || '',
             icon: iconUrl,
             badge: badgeUrl,
-            vibrate: [600, 200, 600],
-            tag: 'tw-notif-' + Date.now(),
-            data: { url: self.location.origin }
+            vibrate: [800, 250, 800],
+            tag: data.tag || (targetOrderId ? 'tw-order-' + targetOrderId : 'tw-notif-' + Date.now()),
+            renotify: true,
+            data: { url: self.location.origin, orderId: targetOrderId }
           });
         } catch (fallbackErr) {
           console.error('All showNotification attempts failed:', fallbackErr);
@@ -701,7 +703,8 @@ self.addEventListener('push', (event) => {
         for (const client of clients) {
           client.postMessage({
             type: 'PLAY_SOUND',
-            sound: soundName
+            sound: soundName,
+            orderId: targetOrderId
           });
         }
       } catch (broadcastErr) {}

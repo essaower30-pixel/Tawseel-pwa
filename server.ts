@@ -492,11 +492,21 @@ async function dispatchPushNotification(
     console.log(`[Push] Dispatching to ${matchingSubs.length} matching subscribers. Title: "${payload.title}"`);
   }
 
+  // Web Push delivery options: urgency "high" instructs FCM / mobile OS to deliver immediately and wake up device
+  const pushOptions = {
+    TTL: 86400, // 24 hours retention
+    urgency: "high" as const,
+    headers: {
+      "Urgency": "high",
+      "Topic": payload.tag ? payload.tag.substring(0, 32) : "tw-push"
+    }
+  };
+
   await Promise.allSettled(
     matchingSubs.map(async (item: any) => {
       try {
         if (!item.subscription || !item.subscription.endpoint) return;
-        await webpush.sendNotification(item.subscription, stringified);
+        await webpush.sendNotification(item.subscription, stringified, pushOptions);
       } catch (err: any) {
         console.warn(`[Push Error] for endpoint ${item.subscription?.endpoint?.substring(0, 30)}:`, err?.statusCode || err?.message);
         if (err?.statusCode === 404 || err?.statusCode === 410) {
@@ -520,7 +530,7 @@ app.get("/api/push/public-key", (req, res) => {
 });
 
 app.post("/api/push/subscribe", (req, res) => {
-  const { subscription, role, identifier, name, orderId, orderIds, customerPhone } = req.body;
+  const { subscription, role, roles, identifier, name, orderId, orderIds, customerPhone, receiveAllAlerts } = req.body;
   if (!subscription || !subscription.endpoint) {
     return res.status(400).json({ error: "بيانات الاشتراك غير مكتملة" });
   }
@@ -540,8 +550,14 @@ app.post("/api/push/subscribe", (req, res) => {
   ])).filter(Boolean);
 
   const resolvedRole = role || existing?.role || "customer";
+  const resolvedRoles = Array.from(new Set([
+    ...(Array.isArray(roles) ? roles : []),
+    resolvedRole,
+    ...(existing?.roles || [])
+  ]));
   const resolvedIdentifier = identifier || customerPhone || existing?.identifier || "";
   const resolvedPhone = customerPhone || identifier || existing?.customerPhone || "";
+  const resolvedReceiveAll = receiveAllAlerts !== undefined ? Boolean(receiveAllAlerts) : (existing?.receiveAllAlerts ?? (resolvedRole === "admin"));
 
   data.pushSubscriptions = [
     ...data.pushSubscriptions.filter(
@@ -550,11 +566,14 @@ app.post("/api/push/subscribe", (req, res) => {
     {
       subscription,
       role: resolvedRole,
+      roles: resolvedRoles,
       identifier: resolvedIdentifier,
       customerPhone: resolvedPhone,
       name: name || existing?.name || "",
       orderId: orderId || existing?.orderId || (mergedOrderIds[0] || ""),
       orderIds: mergedOrderIds,
+      receiveAllAlerts: resolvedReceiveAll,
+      isAdmin: resolvedRole === "admin" || resolvedRoles.includes("admin"),
       updatedAt: Date.now()
     }
   ];
@@ -1021,8 +1040,13 @@ app.put("/api/orders/:id", (req, res) => {
         const storeDedupKey = `store_forwarded_${orderId}`;
         if (canSendPush(storeDedupKey, 3000)) {
           dispatchPushNotification(
-            (s: any) => s.role === "store" && (
+            (s: any) => (
+              s.role === "store" || 
+              (s.roles && s.roles.includes("store")) ||
+              (s.receiveAllAlerts && s.role === "admin")
+            ) && (
               !s.identifier ||
+              s.role === "admin" ||
               s.identifier === data.orders[idx].storeId ||
               s.identifier === data.orders[idx].storePhone ||
               (data.orders[idx].storeName && s.name && s.name.includes(data.orders[idx].storeName))
@@ -1043,7 +1067,7 @@ app.put("/api/orders/:id", (req, res) => {
         const adminStoreAcceptedKey = `admin_store_accepted_${orderId}`;
         if (canSendPush(adminStoreAcceptedKey, 3000)) {
           dispatchPushNotification(
-            (s: any) => s.role === "admin",
+            (s: any) => s.role === "admin" || (s.roles && s.roles.includes("admin")),
             {
               title: `✅ اعتمد المتجر الطلب #${orderId}`,
               body: `وافق متجر (${data.orders[idx].storeName}) على الطلب. يرجى توجيه واختيار الكابتن الآن 🛵`,
@@ -1066,7 +1090,12 @@ app.put("/api/orders/:id", (req, res) => {
         const driverDedupKey = `driver_assigned_${orderId}_${driverTarget}`;
         if (canSendPush(driverDedupKey, 3000)) {
           dispatchPushNotification(
-            (s: any) => s.role === "driver" && (
+            (s: any) => (
+              s.role === "driver" || 
+              (s.roles && s.roles.includes("driver")) ||
+              (s.receiveAllAlerts && s.role === "admin")
+            ) && (
+              s.role === "admin" ||
               (updates.driverPhone && s.identifier === updates.driverPhone) ||
               (updates.driverId && s.identifier === updates.driverId) ||
               (data.orders[idx].driverPhone && s.identifier === data.orders[idx].driverPhone) ||
@@ -1094,7 +1123,7 @@ app.put("/api/orders/:id", (req, res) => {
             (s: any) => {
               if (s.orderId === orderId || s.identifier === orderId) return true;
               if (Array.isArray(s.orderIds) && s.orderIds.includes(orderId)) return true;
-              if (s.role && s.role !== "customer") return false;
+              if (s.role && s.role !== "customer" && !s.roles?.includes("customer")) return false;
               const normCustPhone = normalizePhone(custPhone);
               const normSubPhone = normalizePhone(s.customerPhone || s.identifier);
               if (normCustPhone && normSubPhone && normCustPhone === normSubPhone) return true;
@@ -1120,7 +1149,7 @@ app.put("/api/orders/:id", (req, res) => {
             (s: any) => {
               if (s.orderId === orderId || s.identifier === orderId) return true;
               if (Array.isArray(s.orderIds) && s.orderIds.includes(orderId)) return true;
-              if (s.role && s.role !== "customer") return false;
+              if (s.role && s.role !== "customer" && !s.roles?.includes("customer")) return false;
               const normCustPhone = normalizePhone(custPhone);
               const normSubPhone = normalizePhone(s.customerPhone || s.identifier);
               if (normCustPhone && normSubPhone && normCustPhone === normSubPhone) return true;
@@ -1146,7 +1175,7 @@ app.put("/api/orders/:id", (req, res) => {
             (s: any) => {
               if (s.orderId === orderId || s.identifier === orderId) return true;
               if (Array.isArray(s.orderIds) && s.orderIds.includes(orderId)) return true;
-              if (s.role && s.role !== "customer") return false;
+              if (s.role && s.role !== "customer" && !s.roles?.includes("customer")) return false;
               const normCustPhone = normalizePhone(custPhone);
               const normSubPhone = normalizePhone(s.customerPhone || s.identifier);
               if (normCustPhone && normSubPhone && normCustPhone === normSubPhone) return true;

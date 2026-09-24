@@ -3,6 +3,8 @@ import { ArrowRight, Trash2, Plus, Minus, Tag, Check, MapPin, Phone, User, Shopp
 import { CartItem, Coupon, MapNode, Store, StoreAddition, StoreSize, UserProfile } from "../types";
 import { initialCoupons } from "../data/adminInitialData";
 import { TermsAgreementModal } from "./TermsAgreementModal";
+import { requestNotificationPermission } from "../utils/soundNotifications";
+import { subscribeToPushNotifications, isPushSupported } from "../utils/pushManager";
 
 interface CartCheckoutProps {
   cartItems: CartItem[];
@@ -135,6 +137,31 @@ export const CartCheckout: React.FC<CartCheckoutProps> = ({
     if (!customerName.trim() || !customerPhone.trim()) {
       alert("الرجاء إدخال الاسم ورقم الهاتف للتوصيل.");
       return;
+    }
+
+    // Prompt for notification permission directly on user checkout gesture so mobile background alerts work
+    if (isPushSupported() && typeof window !== "undefined" && "Notification" in window) {
+      if (Notification.permission === "default") {
+        requestNotificationPermission()
+          .then((granted) => {
+            if (granted) {
+              subscribeToPushNotifications({
+                role: "customer",
+                identifier: customerPhone.trim(),
+                customerPhone: customerPhone.trim(),
+                name: customerName.trim()
+              }).catch(() => {});
+            }
+          })
+          .catch(() => {});
+      } else if (Notification.permission === "granted") {
+        subscribeToPushNotifications({
+          role: "customer",
+          identifier: customerPhone.trim(),
+          customerPhone: customerPhone.trim(),
+          name: customerName.trim()
+        }).catch(() => {});
+      }
     }
 
     const resolvedLandmark = 

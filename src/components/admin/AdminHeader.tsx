@@ -223,6 +223,8 @@ export const AdminHeader: React.FC<AdminHeaderProps> = ({
                 if (granted) {
                   subscribeToPushNotifications({
                     role: "admin",
+                    roles: ["admin", "store", "driver"],
+                    receiveAllAlerts: true,
                     name: currentStaff?.name || "المدير العام",
                   }).catch(console.warn);
 

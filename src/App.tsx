@@ -851,11 +851,13 @@ export default function App() {
 
     subscribeToPushNotifications({
       role,
+      roles: (isAdminMode || userRole === "admin") ? ["admin", "store", "driver"] : [role],
       identifier,
       customerPhone: role === "customer" ? identifier : undefined,
       name: subName,
       orderId: activeOrder?.id || customerOrderIds[0] || "",
       orderIds: customerOrderIds,
+      receiveAllAlerts: isAdminMode || userRole === "admin",
     }).catch(() => {});
   }, [isAdminMode, userRole, currentStoreId, isDriverMode, userProfile, stores, activeOrder]);
 
@@ -877,10 +879,16 @@ export default function App() {
     }
 
     setToasts((prev) => {
-      // Prevent duplicate notification stacking if one with same title & message already exists
-      const isAlreadyShowing = prev.some(
-        (t) => t.title === toast.title && t.message === toast.message
-      );
+      // Prevent duplicate notification stacking if one with same order event or title/message already exists
+      const isAlreadyShowing = prev.some((t) => {
+        if (toast.order && t.order && t.order.id === toast.order.id && t.order.status === toast.order.status) {
+          return true;
+        }
+        if (toast.dedupKey && (t as any).dedupKey && (t as any).dedupKey === toast.dedupKey) {
+          return true;
+        }
+        return t.title === toast.title && t.message === toast.message;
+      });
       if (isAlreadyShowing) {
         return prev;
       }
@@ -1536,9 +1544,11 @@ export default function App() {
             statusMsg = `بدأ متجر (${fresh.storeName}) بتجهيز طلبك وسيتم تسليمه للكابتن قريباً.`;
           } else if (fresh.status === "picked_up") {
             statusTitle = `🛵 طلبك #${fresh.id} خرج للتوصيل!`;
-            statusMsg = fresh.driverName ? `الكابتن ${fresh.driverName} استلم طلبك وهو في الطريق إليك الآن.` : "الكابتن استلم طلبك وهو الآن في الطريق إليك.";
+            statusMsg = fresh.driverName 
+              ? `الكابتن (${fresh.driverName}) استلم طلبك من متجر (${fresh.storeName}) وهو في الطريق إليك الآن.` 
+              : `الكابتن استلم طلبك من متجر (${fresh.storeName}) وهو في الطريق إليك الآن.`;
           } else if (fresh.status === "delivered") {
-            statusTitle = `✅ تم تسليم طلبك #${fresh.id} بنجاح!`;
+            statusTitle = `🎉 تم تسليم طلبك #${fresh.id} بنجاح!`;
             statusMsg = "تم تأكيد التسليم ومطابقة كود الأمان بنجاح. شكراً لاختيارك توصيل!";
           } else if (fresh.status === "cancelled") {
             statusTitle = `❌ تم إلغاء طلبك #${fresh.id}`;
@@ -1546,10 +1556,9 @@ export default function App() {
           }
 
           if (statusMsg) {
-            // ONLY trigger phone system ringtone and status bar notification when the captain picks up the order
-            if (fresh.status === "picked_up") {
-              const dedupKey = `customer_picked_up_${fresh.id}`;
-              if (shouldDeliverNotification(dedupKey, 600000)) {
+            const dedupKey = `customer_status_${fresh.id}_${fresh.status}`;
+            if (shouldDeliverNotification(dedupKey, 300000)) {
+              if (fresh.status === "picked_up") {
                 playOrderAlertSound("ringtone");
                 triggerOrderVibration();
                 flashTabTitle(`🛵 طلبك #${fresh.id} مع الكابتن الآن!`);
@@ -1559,91 +1568,42 @@ export default function App() {
                   dedupKey,
                   tag: `tw-order-${fresh.id}`
                 });
+              } else {
+                playOrderAlertSound("chime");
+                triggerOrderVibration();
               }
-            } else if (fresh.status === "delivered" || fresh.status === "accepted" || fresh.status === "preparing") {
-              playOrderAlertSound("chime");
-              triggerOrderVibration();
-            }
 
-            addToastNotification({
-              order: fresh,
-              title: statusTitle,
-              message: statusMsg,
-              type: fresh.status === "delivered" ? "success" : "status_change",
-              targetRole: "customer"
-            });
+              addToastNotification({
+                order: fresh,
+                title: statusTitle,
+                message: statusMsg,
+                type: fresh.status === "delivered" ? "success" : "status_change",
+                targetRole: "customer",
+                dedupKey
+              });
+            }
           }
         } else if (fresh.driverName && !activeOrder.driverName) {
-          addToastNotification({
-            order: fresh,
-            title: `🛵 تم تعيين كابتن التوصيل لطلبك #${fresh.id}`,
-            message: `الكابتن (${fresh.driverName}) سيتولى نقل وتوصيل طلبك.`,
-            type: "driver_assigned",
-            targetRole: "customer"
-          });
+          const driverDedup = `driver_assigned_cust_${fresh.id}`;
+          if (shouldDeliverNotification(driverDedup, 300000)) {
+            addToastNotification({
+              order: fresh,
+              title: `🛵 تم تعيين كابتن التوصيل لطلبك #${fresh.id}`,
+              message: `الكابتن (${fresh.driverName}) سيتولى نقل وتوصيل طلبك.`,
+              type: "driver_assigned",
+              targetRole: "customer",
+              dedupKey: driverDedup
+            });
+          }
         }
 
         setActiveOrder(fresh);
-      }
-    }
-  }, [allOrders]);
-
-  // Customer Background Status Transition Tracker:
-  // Detects if customer's order transitioned (e.g. to picked_up / delivered) while the app was closed
-  useEffect(() => {
-    if (!allOrders || allOrders.length === 0) return;
-
-    for (const order of allOrders) {
-      if (isOrderBelongingToCustomer(order, userProfile, activeOrder)) {
-        const seenKey = `tw_customer_seen_status_${order.id}`;
-        const prevSeen = typeof window !== "undefined" ? localStorage.getItem(seenKey) : null;
-
-        if (prevSeen && prevSeen !== order.status) {
-          localStorage.setItem(seenKey, order.status);
-
-          // Order was picked up by the captain while customer had the app closed!
-          if (order.status === "picked_up" && prevSeen !== "picked_up") {
-            const dedupKey = `customer_picked_up_${order.id}`;
-            if (shouldDeliverNotification(dedupKey, 60000)) {
-              playOrderAlertSound("ringtone");
-              triggerOrderVibration();
-              flashTabTitle(`🛵 طلبك #${order.id} مع الكابتن الآن!`);
-              setActiveOrder(order);
-              addToastNotification({
-                order,
-                title: `🛵 طلبك #${order.id} خرج للتوصيل!`,
-                message: order.driverName 
-                  ? `الكابتن (${order.driverName}) استلم طلبك من متجر (${order.storeName}) وهو في الطريق إليك الآن.` 
-                  : `الكابتن استلم طلبك من متجر (${order.storeName}) وهو في الطريق إليك الآن.`,
-                type: "status_change",
-                targetRole: "customer",
-                showSystemNotification: true,
-                dedupKey
-              });
-            }
-          } else if (order.status === "delivered" && prevSeen !== "delivered") {
-            const dedupKey = `customer_delivered_${order.id}`;
-            if (shouldDeliverNotification(dedupKey, 60000)) {
-              playOrderAlertSound("chime");
-              triggerOrderVibration();
-              setActiveOrder(order);
-              addToastNotification({
-                order,
-                title: `🎉 تم تسليم طلبك #${order.id} بنجاح!`,
-                message: `تم تسليم الطلب ومطابقة كود الأمان بنجاح. شكراً لاختيارك توصيل!`,
-                type: "success",
-                targetRole: "customer",
-                showSystemNotification: true,
-                dedupKey
-              });
-            }
-          }
-        } else if (!prevSeen) {
-          localStorage.setItem(seenKey, order.status);
+        if (typeof window !== "undefined") {
+          localStorage.setItem(`tw_customer_seen_status_${fresh.id}`, fresh.status);
         }
       }
     }
-  }, [allOrders, userProfile, activeOrder]);
+  }, [allOrders]);
 
   // Handlers for store registration and management with instant local update + Firebase & server persistence
   const handleAddNewStore = async (newStore: Store) => {
@@ -2664,8 +2624,8 @@ export default function App() {
                   recordCustomerOrderId(newOrder.id);
 
                   if (newOrder.status === "picked_up" && oldOrder.status !== "picked_up") {
-                    const dedupKey = `customer_picked_up_${newOrder.id}`;
-                    if (shouldDeliverNotification(dedupKey, 60000)) {
+                    const dedupKey = `customer_status_${newOrder.id}_picked_up`;
+                    if (shouldDeliverNotification(dedupKey, 300000)) {
                       playOrderAlertSound("ringtone");
                       triggerOrderVibration();
                       flashTabTitle(`🛵 طلبك #${newOrder.id} مع الكابتن الآن!`);
@@ -2682,8 +2642,8 @@ export default function App() {
                       });
                     }
                   } else if (newOrder.status === "delivered" && oldOrder.status !== "delivered") {
-                    const dedupKey = `customer_delivered_${newOrder.id}`;
-                    if (shouldDeliverNotification(dedupKey, 60000)) {
+                    const dedupKey = `customer_status_${newOrder.id}_delivered`;
+                    if (shouldDeliverNotification(dedupKey, 300000)) {
                       playOrderAlertSound("chime");
                       triggerOrderVibration();
                       addToastNotification({
@@ -2697,8 +2657,8 @@ export default function App() {
                       });
                     }
                   } else if ((newOrder.status === "accepted" || newOrder.status === "preparing") && oldOrder.status === "pending") {
-                    const dedupKey = `customer_accepted_${newOrder.id}`;
-                    if (shouldDeliverNotification(dedupKey, 60000)) {
+                    const dedupKey = `customer_status_${newOrder.id}_${newOrder.status}`;
+                    if (shouldDeliverNotification(dedupKey, 300000)) {
                       playOrderAlertSound("chime");
                       addToastNotification({
                         order: newOrder,
@@ -3508,21 +3468,7 @@ export default function App() {
       }
     }
 
-    // Save order & updated products to Firebase Firestore & server storage for multi-device sync
-    await Promise.allSettled([
-      saveOrderToFirestore(newOrder),
-      saveOrderOnServer(newOrder),
-      ...updatedProductsToSync.flatMap((prod) => [
-        saveProductToFirestore(prod),
-        updateProductOnServer(prod)
-      ])
-    ]);
-
-    // Soft confirmation chime for customer + broadcast for Administration
-    playOrderAlertSound("chime");
-    broadcastNewOrder(newOrder);
-
-    // Record customer ownership and initialize persistent status tracker
+    // Record customer ownership and initialize persistent status tracker immediately
     recordCustomerOrderId(newOrder.id);
     if (typeof window !== "undefined") {
       localStorage.setItem("tw_last_submitted_order_id", newOrder.id);
@@ -3537,7 +3483,7 @@ export default function App() {
       localStorage.setItem("tw_active_order", JSON.stringify(newOrder));
     }
 
-    // Register customer push subscription for this specific order so they get notified in background when driver picks up
+    // Register customer push subscription immediately for this order
     if (isPushSupported()) {
       const allMyOrderIds = Array.from(new Set([newOrder.id, ...getMyCustomerOrderIds()]));
       subscribeToPushNotifications({
@@ -3549,6 +3495,20 @@ export default function App() {
         orderIds: allMyOrderIds
       }).catch(() => {});
     }
+
+    // Save order & updated products to Firebase Firestore & server storage for multi-device sync
+    await Promise.allSettled([
+      saveOrderToFirestore(newOrder),
+      saveOrderOnServer(newOrder),
+      ...updatedProductsToSync.flatMap((prod) => [
+        saveProductToFirestore(prod),
+        updateProductOnServer(prod)
+      ])
+    ]);
+
+    // Soft confirmation chime for customer + broadcast for Administration
+    playOrderAlertSound("chime");
+    broadcastNewOrder(newOrder);
 
     addToastNotification({
       order: newOrder,
@@ -3621,17 +3581,7 @@ export default function App() {
     setActiveOrder(newOrder);
     setAllOrders((prev) => [newOrder, ...prev.filter((o) => o.id !== newOrder.id)]);
 
-    // Save custom order to Firebase Firestore & server storage
-    await Promise.allSettled([
-      saveOrderToFirestore(newOrder),
-      saveOrderOnServer(newOrder)
-    ]);
-
-    // Soft confirmation chime for customer + broadcast for Administration
-    playOrderAlertSound("chime");
-    broadcastNewOrder(newOrder);
-
-    // Record customer ownership and initialize persistent status tracker
+    // Record customer ownership and initialize persistent status tracker immediately
     recordCustomerOrderId(newOrder.id);
     if (typeof window !== "undefined") {
       localStorage.setItem("tw_last_submitted_order_id", newOrder.id);
@@ -3646,7 +3596,7 @@ export default function App() {
       localStorage.setItem("tw_active_order", JSON.stringify(newOrder));
     }
 
-    // Register customer push subscription for this specific custom order
+    // Register customer push subscription immediately for this custom order
     if (isPushSupported()) {
       const allMyOrderIds = Array.from(new Set([newOrder.id, ...getMyCustomerOrderIds()]));
       subscribeToPushNotifications({
@@ -3658,6 +3608,16 @@ export default function App() {
         orderIds: allMyOrderIds
       }).catch(() => {});
     }
+
+    // Save custom order to Firebase Firestore & server storage
+    await Promise.allSettled([
+      saveOrderToFirestore(newOrder),
+      saveOrderOnServer(newOrder)
+    ]);
+
+    // Soft confirmation chime for customer + broadcast for Administration
+    playOrderAlertSound("chime");
+    broadcastNewOrder(newOrder);
 
     addToastNotification({
       order: newOrder,
