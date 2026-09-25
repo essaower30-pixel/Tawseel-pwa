@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>تطبيق توصيل - جاري التحويل</title>
+    <script>
+      // GitHub Pages SPA router fallback
+      (function() {
+        var path = window.location.pathname || "";
+        var repoName = "/Tawseel-app";
+        
+        // If within repo but on a sub-path or 404, redirect to base with clean hash or query
+        if (path.indexOf(repoName) !== -1) {
+          window.location.replace(repoName + "/" + (window.location.search || "") + (window.location.hash || ""));
+        } else {
+          // Direct fallback to working repo
+          window.location.replace("https://essaower30-pixel.github.io/Tawseel-app/");
+        }
+      })();
+    </script>
+    <style>
+      body {
+        margin: 0;
+        font-family: system-ui, -apple-system, sans-serif;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 100vh;
+        background: #f8fafc;
+        color: #0f172a;
+        text-align: center;
+        padding: 20px;
+      }
+      .card {
+        background: white;
+        padding: 30px;
+        border-radius: 24px;
+        box-shadow: 0 10px 25px rgba(0,0,0,0.08);
+        max-width: 400px;
+      }
+      a {
+        display: inline-block;
+        margin-top: 15px;
+        padding: 12px 24px;
+        background: #f97316;
+        color: white;
+        text-decoration: none;
+        border-radius: 14px;
+        font-weight: bold;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="card">
+      <h2>جاري فتح تطبيق توصيل... 🚀</h2>
+      <p>يتم تحويلك الآن إلى الصفحة الرئيسية المباشرة للتطبيق.</p>
+      <a href="https://essaower30-pixel.github.io/Tawseel-app/">اضغط هنا إذا لم يتم التحويل تلقائياً</a>
+    </div>
+  </body>
+</html>
