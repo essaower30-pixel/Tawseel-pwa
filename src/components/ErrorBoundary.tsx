@@ -1,5 +1,6 @@
 import React, { Component, ErrorInfo, ReactNode } from "react";
 import { AlertTriangle, RefreshCw, Home } from "lucide-react";
+import { getAppUrl } from "../utils/appUrl";
 
 interface Props {
   children: ReactNode;
@@ -31,7 +32,11 @@ export class ErrorBoundary extends Component<Props, State> {
     if (this.props.onReset) {
       this.props.onReset();
     } else {
-      window.location.reload();
+      try {
+        window.location.href = getAppUrl();
+      } catch {
+        window.location.reload();
+      }
     }
   };
 
@@ -40,7 +45,11 @@ export class ErrorBoundary extends Component<Props, State> {
     if (this.props.onReset) {
       this.props.onReset();
     } else {
-      window.location.href = "/";
+      try {
+        window.location.href = getAppUrl();
+      } catch {
+        window.location.reload();
+      }
     }
   };
 
