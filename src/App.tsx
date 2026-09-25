@@ -180,7 +180,20 @@ const cleanPhone = (p?: string) => {
   s = s.replace(/[^0-9]/g, "");
   if (s.startsWith("00963")) s = "0" + s.slice(5);
   else if (s.startsWith("963")) s = "0" + s.slice(3);
+  if (s.length === 9 && s.startsWith("9")) s = "0" + s;
   return s;
+};
+
+export const normalizeArabic = (text?: string): string => {
+  if (!text) return "";
+  return String(text)
+    .trim()
+    .toLowerCase()
+    .replace(/[أإآٱ]/g, "ا")
+    .replace(/[ة]/g, "ه")
+    .replace(/[ى]/g, "ي")
+    .replace(/[\u064B-\u065F\u0670]/g, "")
+    .replace(/\s+/g, " ");
 };
 
 export const recordCustomerOrderId = (orderId: string): void => {
@@ -2195,9 +2208,18 @@ export default function App() {
         let hasChanges = false;
         const newOrders: Order[] = [];
         const newlyAssignedDriverOrders: Order[] = [];
+        const newlyForwardedStoreOrders: Order[] = [];
 
-        const cleanPhone = (p?: string) => (p || "").replace(/[^0-9]/g, "");
         const uPhone = cleanPhone(userProfile?.phone);
+
+        // Resolve current store details for store owner matching
+        const matchedMyStore = stores.find((s) => 
+          (currentStoreId && s.id === currentStoreId) ||
+          (userProfile?.storeId && s.id === userProfile.storeId) ||
+          (uPhone && (cleanPhone(s.ownerPhone) === uPhone || cleanPhone(s.contactPhone) === uPhone))
+        );
+        const myStoreId = currentStoreId || userProfile?.storeId || matchedMyStore?.id;
+        const myStoreName = normalizeArabic(matchedMyStore?.name || userProfile?.name);
 
         for (const co of cloudOrders) {
           const existing = prevMap.get(co.id);
@@ -2210,7 +2232,8 @@ export default function App() {
           } else if (
             existing.status !== co.status ||
             existing.driverId !== co.driverId ||
-            existing.driverName !== co.driverName
+            existing.driverName !== co.driverName ||
+            existing.forwardedToStore !== co.forwardedToStore
           ) {
             hasChanges = true;
 
@@ -2229,6 +2252,29 @@ export default function App() {
             if (isMeDriver && !wasAssignedToMeBefore && co.driverId) {
               newlyAssignedDriverOrders.push(co);
             }
+
+            // Check if this order was forwarded to the logged-in store owner
+            const wasForwardedBefore = existing.forwardedToStore === true;
+            const isNowForwarded = co.forwardedToStore === true;
+            if (isNowForwarded && !wasForwardedBefore && userRole === "store_owner") {
+              const ordStoreName = normalizeArabic(co.storeName);
+              const isMyStore = Boolean(
+                (myStoreId && co.storeId === myStoreId) ||
+                (matchedMyStore?.id && co.storeId === matchedMyStore.id) ||
+                (uPhone && matchedMyStore && (
+                  (matchedMyStore.ownerPhone && cleanPhone(matchedMyStore.ownerPhone) === uPhone) ||
+                  (matchedMyStore.contactPhone && cleanPhone(matchedMyStore.contactPhone) === uPhone)
+                )) ||
+                (myStoreName && ordStoreName && (
+                  myStoreName.includes(ordStoreName) ||
+                  ordStoreName.includes(myStoreName)
+                ))
+              );
+
+              if (isMyStore) {
+                newlyForwardedStoreOrders.push(co);
+              }
+            }
           }
         }
 
@@ -2236,7 +2282,7 @@ export default function App() {
           return prev;
         }
 
-        // Process newly assigned orders directly to the captain
+        // Process newly assigned orders directly to the assigned captain
         if (newlyAssignedDriverOrders.length > 0) {
           newlyAssignedDriverOrders.forEach((assignedOrd) => {
             playOrderAlertSound("ringtone");
@@ -2255,15 +2301,46 @@ export default function App() {
           });
         }
 
+        // Process newly forwarded orders directly to the store owner
+        if (newlyForwardedStoreOrders.length > 0) {
+          newlyForwardedStoreOrders.forEach((fwdOrd) => {
+            playOrderAlertSound("ringtone");
+            triggerOrderVibration();
+            flashTabTitle(`🏪 (طلب جديد محال لمتجرك #${fwdOrd.id})`);
+            showSystemNotification(`🏪 طلب جديد محال لمتجرك #${fwdOrd.id}!`, {
+              body: `أحالت الإدارة إليك طلباً بقيمة ${fwdOrd.total.toLocaleString()} ل.س - انقر للاعتماد وبدء التجهيز`
+            });
+            addToastNotification({
+              order: fwdOrd,
+              title: "🏪 طلب جديد وارد لمتجرك! 🛍️",
+              message: `أحالت الإدارة طلباً جديداً #${fwdOrd.id} بقيمة ${fwdOrd.total.toLocaleString()} ل.س من الزبون ${fwdOrd.customerName}`,
+              type: "new_order",
+              targetRole: "store_owner",
+              showSystemNotification: true
+            });
+          });
+        }
+
         // Process newly incoming orders notifications
         if (newOrders.length > 0) {
           newOrders.forEach((newOrd) => {
             if (userRole === "store_owner") {
-              const isMyStoreOrder =
-                newOrd.storeId === currentStoreId ||
-                (userProfile?.name && newOrd.storeName?.includes(userProfile.name));
+              const ordStoreName = normalizeArabic(newOrd.storeName);
+              const isMyStoreOrder = Boolean(
+                (myStoreId && newOrd.storeId === myStoreId) ||
+                (matchedMyStore?.id && newOrd.storeId === matchedMyStore.id) ||
+                (uPhone && matchedMyStore && (
+                  (matchedMyStore.ownerPhone && cleanPhone(matchedMyStore.ownerPhone) === uPhone) ||
+                  (matchedMyStore.contactPhone && cleanPhone(matchedMyStore.contactPhone) === uPhone)
+                )) ||
+                (myStoreName && ordStoreName && (
+                  myStoreName.includes(ordStoreName) ||
+                  ordStoreName.includes(myStoreName)
+                ))
+              );
 
-              if (isMyStoreOrder) {
+              // Notify store owner only if the order is already forwarded or direct
+              if (isMyStoreOrder && newOrd.forwardedToStore !== false) {
                 playOrderAlertSound("ringtone");
                 triggerOrderVibration();
                 showSystemNotification(`🏪 طلب جديد وارد لمتجرك #${newOrd.id}!`, {
@@ -2285,18 +2362,6 @@ export default function App() {
                 order: newOrd,
                 title: "🔔 طلب جديد وارد للإدارة! 🛍️",
                 message: `طلب #${newOrd.id} إلى (${newOrd.storeName}) من الزبون ${newOrd.customerName}`,
-                type: "new_order"
-              });
-            } else if (isDriverMode || userRole === "driver") {
-              playOrderAlertSound("ringtone");
-              triggerOrderVibration();
-              showSystemNotification(`🛵 طلب توصيل جديد متاح للكابتن #${newOrd.id}!`, {
-                body: `من (${newOrd.storeName}) للتوصيل إلى (${newOrd.addressLandmark || "القرية"})`
-              });
-              addToastNotification({
-                order: newOrd,
-                title: "🛵 طلب توصيل جديد متاح للكابتن!",
-                message: `طلب #${newOrd.id} جاهز للتوصيل من (${newOrd.storeName})`,
                 type: "new_order"
               });
             }
@@ -2331,6 +2396,38 @@ export default function App() {
           }
         }
       });
+
+      // Check if logged-in store owner's store was just approved by Admin!
+      if (userRole === "store_owner" || currentStoreId) {
+        const uPhone = cleanPhone(userProfile?.phone);
+        cloudStores.forEach((st) => {
+          const isMyStore = Boolean(
+            (currentStoreId && st.id === currentStoreId) ||
+            (userProfile?.storeId && st.id === userProfile.storeId) ||
+            (uPhone && (cleanPhone(st.ownerPhone) === uPhone || cleanPhone(st.contactPhone) === uPhone)) ||
+            (userProfile?.name && normalizeArabic(st.name).includes(normalizeArabic(userProfile.name)))
+          );
+
+          if (isMyStore && st.isApproved === true) {
+            setStores((currentLocal) => {
+              const prevSt = currentLocal.find((s) => s.id === st.id);
+              if (prevSt && prevSt.isApproved === false) {
+                addToastNotification({
+                  title: "🎉 مبارك! تم اعتماد وتفعيل متجرك!",
+                  message: `تمت موافقة الإدارة على تفعيل متجر "${st.name}". متجرك الآن معتمد وظاهر لجميع زبائن القرية!`,
+                  type: "info"
+                });
+                playOrderAlertSound("chime");
+              }
+              return currentLocal;
+            });
+            if (!currentStoreId || currentStoreId !== st.id) {
+              setCurrentStoreId(st.id);
+              localStorage.setItem("tw_current_store_id", st.id);
+            }
+          }
+        });
+      }
 
       setStores((prev) => {
         const merged = ensureInitialStoresPreserved(cloudStores);
@@ -2481,26 +2578,32 @@ export default function App() {
             }
 
             // Check if Store Owner's store was just approved by Admin!
-            if (userRole === "store_owner" && userProfile) {
-              const uPhone = cleanPhone(userProfile.phone);
+            if (userRole === "store_owner" || currentStoreId) {
+              const uPhone = cleanPhone(userProfile?.phone);
               const myServerStore = serverData.stores.find((s) => 
                 (currentStoreId && s.id === currentStoreId) || 
-                (uPhone && cleanPhone(s.ownerPhone) === uPhone) ||
-                (uPhone && cleanPhone(s.contactPhone) === uPhone)
+                (userProfile?.storeId && s.id === userProfile.storeId) ||
+                (uPhone && (cleanPhone(s.ownerPhone) === uPhone || cleanPhone(s.contactPhone) === uPhone)) ||
+                (userProfile?.name && normalizeArabic(s.name).includes(normalizeArabic(userProfile.name)))
               );
               const myLocalStore = currentLocal.find((s) => 
                 (currentStoreId && s.id === currentStoreId) || 
-                (uPhone && cleanPhone(s.ownerPhone) === uPhone) ||
-                (uPhone && cleanPhone(s.contactPhone) === uPhone)
+                (userProfile?.storeId && s.id === userProfile.storeId) ||
+                (uPhone && (cleanPhone(s.ownerPhone) === uPhone || cleanPhone(s.contactPhone) === uPhone)) ||
+                (userProfile?.name && normalizeArabic(s.name).includes(normalizeArabic(userProfile.name)))
               );
 
-              if (myServerStore && myServerStore.isApproved === true && myLocalStore && myLocalStore.isApproved === false) {
+              if (myServerStore && myServerStore.isApproved === true && (!myLocalStore || myLocalStore.isApproved === false)) {
                 addToastNotification({
                   title: "🎉 مبارك! تم اعتماد وتفعيل متجرك!",
                   message: `تمت موافقة الإدارة على تفعيل متجر "${myServerStore.name}". متجرك الآن معتمد وظاهر لجميع زبائن القرية!`,
                   type: "info"
                 });
                 playOrderAlertSound("chime");
+                if (!currentStoreId || currentStoreId !== myServerStore.id) {
+                  setCurrentStoreId(myServerStore.id);
+                  localStorage.setItem("tw_current_store_id", myServerStore.id);
+                }
               }
             }
 
@@ -2564,9 +2667,30 @@ export default function App() {
 
                 // 2. Store Owner: ONLY if forwarded to store AND it belongs to their store
                 if (userRole === "store_owner" || currentStoreId) {
+                  const uPhone = cleanPhone(userProfile?.phone);
+                  const matchedMyStore = stores.find((s) => 
+                    (currentStoreId && s.id === currentStoreId) ||
+                    (userProfile?.storeId && s.id === userProfile.storeId) ||
+                    (uPhone && (cleanPhone(s.ownerPhone) === uPhone || cleanPhone(s.contactPhone) === uPhone))
+                  );
+                  const myStoreId = currentStoreId || userProfile?.storeId || matchedMyStore?.id;
+                  const myStoreName = normalizeArabic(matchedMyStore?.name || userProfile?.name);
+                  const ordStoreName = normalizeArabic(newOrd.storeName);
+
                   const isMyStoreOrder = 
                     newOrd.forwardedToStore === true && 
-                    (newOrd.storeId === currentStoreId || (userProfile?.name && newOrd.storeName?.includes(userProfile.name)));
+                    Boolean(
+                      (myStoreId && newOrd.storeId === myStoreId) ||
+                      (matchedMyStore?.id && newOrd.storeId === matchedMyStore.id) ||
+                      (uPhone && matchedMyStore && (
+                        (matchedMyStore.ownerPhone && cleanPhone(matchedMyStore.ownerPhone) === uPhone) ||
+                        (matchedMyStore.contactPhone && cleanPhone(matchedMyStore.contactPhone) === uPhone)
+                      )) ||
+                      (myStoreName && ordStoreName && (
+                        myStoreName.includes(ordStoreName) ||
+                        ordStoreName.includes(myStoreName)
+                      ))
+                    );
 
                   if (isMyStoreOrder) {
                     const dedupKey = `store_forwarded_${newOrd.id}`;
@@ -2713,9 +2837,28 @@ export default function App() {
 
                 // 3. Store Owner: if store was forwarded an existing order
                 if (userRole === "store_owner" || currentStoreId) {
-                  const isMyStore = 
-                    newOrder.storeId === currentStoreId || 
-                    (userProfile?.name && newOrder.storeName?.includes(userProfile.name));
+                  const uPhone = cleanPhone(userProfile?.phone);
+                  const matchedMyStore = stores.find((s) => 
+                    (currentStoreId && s.id === currentStoreId) ||
+                    (userProfile?.storeId && s.id === userProfile.storeId) ||
+                    (uPhone && (cleanPhone(s.ownerPhone) === uPhone || cleanPhone(s.contactPhone) === uPhone))
+                  );
+                  const myStoreId = currentStoreId || userProfile?.storeId || matchedMyStore?.id;
+                  const myStoreName = normalizeArabic(matchedMyStore?.name || userProfile?.name);
+                  const ordStoreName = normalizeArabic(newOrder.storeName);
+
+                  const isMyStore = Boolean(
+                    (myStoreId && newOrder.storeId === myStoreId) ||
+                    (matchedMyStore?.id && newOrder.storeId === matchedMyStore.id) ||
+                    (uPhone && matchedMyStore && (
+                      (matchedMyStore.ownerPhone && cleanPhone(matchedMyStore.ownerPhone) === uPhone) ||
+                      (matchedMyStore.contactPhone && cleanPhone(matchedMyStore.contactPhone) === uPhone)
+                    )) ||
+                    (myStoreName && ordStoreName && (
+                      myStoreName.includes(ordStoreName) ||
+                      ordStoreName.includes(myStoreName)
+                    ))
+                  );
                   if (isMyStore && newOrder.forwardedToStore === true && oldOrder.forwardedToStore !== true) {
                     const dedupKey = `store_forwarded_${newOrder.id}`;
                     if (shouldDeliverNotification(dedupKey, 600000)) {

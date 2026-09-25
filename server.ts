@@ -445,6 +445,18 @@ interface PushPayload {
 // Server-side deduplication tracker to prevent duplicate bursts
 const sentPushTimestamps = new Map<string, number>();
 
+function normalizeArabic(text?: string): string {
+  if (!text) return "";
+  return String(text)
+    .trim()
+    .toLowerCase()
+    .replace(/[أإآٱ]/g, "ا")
+    .replace(/[ة]/g, "ه")
+    .replace(/[ى]/g, "ي")
+    .replace(/[\u064B-\u065F\u0670]/g, "")
+    .replace(/\s+/g, " ");
+}
+
 function normalizePhone(p: any): string {
   if (!p) return "";
   let s = String(p).trim();
@@ -452,6 +464,7 @@ function normalizePhone(p: any): string {
   s = s.replace(/\D/g, "");
   if (s.startsWith("00963")) s = "0" + s.slice(5);
   else if (s.startsWith("963")) s = "0" + s.slice(3);
+  if (s.length === 9 && s.startsWith("9")) s = "0" + s;
   return s;
 }
 
@@ -804,6 +817,20 @@ app.post("/api/stores/:id/approve", (req, res) => {
     store.description = isFood ? "متجر مواد غذائية وتموينية طازجة معتمد في المنصة" : "متجر معتمد ونشط في المنصة";
   }
 
+  // Also auto-approve all products belonging to this store so they become visible and orderable immediately!
+  if (data.products && Array.isArray(data.products)) {
+    data.products = data.products.map((p: any) => {
+      if (p.storeId === storeId || (p.storeName && (p.storeName === store.name || normalizeArabic(p.storeName) === normalizeArabic(store.name)))) {
+        return {
+          ...p,
+          isApproved: true,
+          approvalStatus: "approved"
+        };
+      }
+      return p;
+    });
+  }
+
   // Add approval broadcast notification
   data.notifications = [
     {
@@ -818,6 +845,47 @@ app.post("/api/stores/:id/approve", (req, res) => {
   ];
 
   writeServerData(data);
+
+  // Send immediate high-priority Push Notification to Store Owner on mobile
+  const storeDedupKey = `store_approved_${store.id}`;
+  if (canSendPush(storeDedupKey, 3000)) {
+    const normOwnerPhone = normalizePhone(store.ownerPhone);
+    const normContactPhone = normalizePhone(store.contactPhone);
+    const normStoreName = normalizeArabic(store.name);
+
+    dispatchPushNotification(
+      (s: any) => {
+        if (s.receiveAllAlerts && s.role === "admin") return true;
+        const normSubPhone = normalizePhone(s.identifier || s.customerPhone);
+        const phoneMatch = Boolean(
+          (normOwnerPhone && normSubPhone === normOwnerPhone) ||
+          (normContactPhone && normSubPhone === normContactPhone)
+        );
+        const idMatch = s.identifier === store.id || s.storeId === store.id;
+        const subName = normalizeArabic(s.name);
+        const nameMatch = Boolean(
+          normStoreName && subName && (
+            subName.includes(normStoreName) ||
+            normStoreName.includes(subName)
+          )
+        );
+        return (
+          s.role === "store" || 
+          (s.roles && s.roles.includes("store")) ||
+          phoneMatch ||
+          idMatch
+        ) && (idMatch || phoneMatch || nameMatch || !s.identifier);
+      },
+      {
+        title: `🎉 تمت الموافقة واعتماد متجرك (${store.name})!`,
+        body: `مبروك! تم اعتماد وتفعيل متجرك في المنصة من قبل الإدارة وأصبح ظاهراً ومتاحاً لجميع الزبائن 🏪`,
+        sound: "ringtone",
+        tag: `tw-store-approved-${store.id}`,
+        data: { url: `/?store=${store.id}`, storeId: store.id }
+      }
+    ).catch(() => {});
+  }
+
   return res.json({ success: true, store });
 });
 
@@ -1039,18 +1107,45 @@ app.put("/api/orders/:id", (req, res) => {
       if (updates.forwardedToStore && !prevOrder.forwardedToStore) {
         const storeDedupKey = `store_forwarded_${orderId}`;
         if (canSendPush(storeDedupKey, 3000)) {
+          const currentOrder = data.orders[idx];
+          const targetStoreId = currentOrder.storeId;
+          const targetStoreName = currentOrder.storeName;
+          const matchedStore = data.stores?.find((st: any) => 
+            st.id === targetStoreId || 
+            (targetStoreName && normalizeArabic(st.name) === normalizeArabic(targetStoreName))
+          );
+
+          const normOwnerPhone = normalizePhone(matchedStore?.ownerPhone || currentOrder.storePhone);
+          const normContactPhone = normalizePhone(matchedStore?.contactPhone || currentOrder.storePhone);
+          const normStoreName = normalizeArabic(targetStoreName || matchedStore?.name);
+
           dispatchPushNotification(
-            (s: any) => (
-              s.role === "store" || 
-              (s.roles && s.roles.includes("store")) ||
-              (s.receiveAllAlerts && s.role === "admin")
-            ) && (
-              !s.identifier ||
-              s.role === "admin" ||
-              s.identifier === data.orders[idx].storeId ||
-              s.identifier === data.orders[idx].storePhone ||
-              (data.orders[idx].storeName && s.name && s.name.includes(data.orders[idx].storeName))
-            ),
+            (s: any) => {
+              if (s.receiveAllAlerts && s.role === "admin") return true;
+
+              const isStoreRole = s.role === "store" || (s.roles && s.roles.includes("store"));
+              const normSubPhone = normalizePhone(s.identifier || s.customerPhone);
+              const phoneMatch = Boolean(
+                (normOwnerPhone && normSubPhone === normOwnerPhone) ||
+                (normContactPhone && normSubPhone === normContactPhone)
+              );
+              const idMatch = Boolean(
+                (targetStoreId && s.identifier === targetStoreId) ||
+                (matchedStore?.id && s.identifier === matchedStore.id) ||
+                (targetStoreId && s.storeId === targetStoreId)
+              );
+              const subName = normalizeArabic(s.name);
+              const nameMatch = Boolean(
+                normStoreName && subName && (
+                  subName.includes(normStoreName) ||
+                  normStoreName.includes(subName)
+                )
+              );
+
+              return (isStoreRole || phoneMatch || idMatch) && (
+                idMatch || phoneMatch || nameMatch || !s.identifier
+              );
+            },
             {
               title: `🏪 طلب جديد محال لمتجرك #${orderId}!`,
               body: `أحالت الإدارة إليك طلباً بقيمة ${data.orders[idx].total.toLocaleString()} ل.س - يرجى الاعتماد وبدء التجهيز 🛵`,
@@ -1089,18 +1184,28 @@ app.put("/api/orders/:id", (req, res) => {
         const driverTarget = updates.driverPhone || updates.driverId || data.orders[idx].driverPhone || data.orders[idx].driverId;
         const driverDedupKey = `driver_assigned_${orderId}_${driverTarget}`;
         if (canSendPush(driverDedupKey, 3000)) {
+          const normDriverPhone = normalizePhone(updates.driverPhone || data.orders[idx].driverPhone);
+          const assignedDriverId = updates.driverId || data.orders[idx].driverId;
+          const assignedDriverName = normalizeArabic(updates.driverName || data.orders[idx].driverName);
+
           dispatchPushNotification(
-            (s: any) => (
-              s.role === "driver" || 
-              (s.roles && s.roles.includes("driver")) ||
-              (s.receiveAllAlerts && s.role === "admin")
-            ) && (
-              s.role === "admin" ||
-              (updates.driverPhone && s.identifier === updates.driverPhone) ||
-              (updates.driverId && s.identifier === updates.driverId) ||
-              (data.orders[idx].driverPhone && s.identifier === data.orders[idx].driverPhone) ||
-              (data.orders[idx].driverId && s.identifier === data.orders[idx].driverId)
-            ),
+            (s: any) => {
+              if (s.receiveAllAlerts && s.role === "admin") return true;
+
+              const isDriverRole = s.role === "driver" || (s.roles && s.roles.includes("driver"));
+              const normSubPhone = normalizePhone(s.identifier || s.customerPhone);
+              const phoneMatch = Boolean(normDriverPhone && normSubPhone === normDriverPhone);
+              const idMatch = Boolean(assignedDriverId && s.identifier === assignedDriverId);
+              const subName = normalizeArabic(s.name);
+              const nameMatch = Boolean(
+                assignedDriverName && subName && (
+                  subName.includes(assignedDriverName) ||
+                  assignedDriverName.includes(subName)
+                )
+              );
+
+              return (isDriverRole || phoneMatch || idMatch) && (phoneMatch || idMatch || nameMatch);
+            },
             {
               title: `🛵 تم إسناد طلب جديد إليك #${orderId}!`,
               body: `تم إسناد توصيل طلب متجر (${data.orders[idx].storeName}) إليك. انقر لفتح التفاصيل والموقع.`,

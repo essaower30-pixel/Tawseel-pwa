@@ -47,7 +47,7 @@ import { Order, Product, Store, UserProfile, Category, StoreBroadcast, StoreSize
 import { ContactActions } from "./ContactActions";
 import { openWhatsApp } from "../utils/whatsapp";
 import { playOrderAlertSound, isSoundEnabled, setSoundEnabled, requestNotificationPermission, showSystemNotification } from "../utils/soundNotifications";
-import { subscribeToPushNotifications } from "../utils/pushManager";
+import { subscribeToPushNotifications, isIOS, isStandalone } from "../utils/pushManager";
 import { requestWakeLock, releaseWakeLock, isWakeLockActive, isWakeLockSupported } from "../utils/wakeLock";
 import { AndroidSoundHelpModal } from "./AndroidSoundHelpModal";
 import { StoreBroadcastViewer } from "./store/StoreBroadcastViewer";
@@ -109,6 +109,11 @@ export const StoreOwnerPortal: React.FC<StoreOwnerPortalProps> = ({
   const [productFilter, setProductFilter] = useState<"all" | "approved" | "pending" | "offers" | "hidden">("all");
   const [archiveDateFilter, setArchiveDateFilter] = useState<"all" | "today" | "yesterday" | "week">("all");
   const [isOpen, setIsOpen] = useState<boolean>(currentStore.status !== "closed");
+
+  useEffect(() => {
+    setIsOpen(currentStore.status !== "closed");
+  }, [currentStore.status]);
+
   const [soundAlerts, setSoundAlerts] = useState<boolean>(() => isSoundEnabled());
   const [wakeLockActive, setWakeLockActive] = useState<boolean>(false);
   const [showAndroidHelp, setShowAndroidHelp] = useState<boolean>(false);
@@ -218,12 +223,22 @@ export const StoreOwnerPortal: React.FC<StoreOwnerPortalProps> = ({
   const [additionName, setAdditionName] = useState("");
   const [additionPrice, setAdditionPrice] = useState("");
 
-  // Request notification permissions for store owner to see app icon in top status bar
+  // Request notification permissions for store owner and auto-subscribe to push notifications
   useEffect(() => {
-    if ("Notification" in window && Notification.permission === "default") {
-      requestNotificationPermission().catch(() => {});
+    if ("Notification" in window) {
+      if (Notification.permission === "default") {
+        requestNotificationPermission().catch(() => {});
+      } else if (Notification.permission === "granted") {
+        subscribeToPushNotifications({
+          role: "store",
+          roles: ["store"],
+          identifier: currentStore.id,
+          name: currentStore.name,
+          customerPhone: currentStore.ownerPhone || currentStore.contactPhone || userProfile.phone || "",
+        }).catch(console.warn);
+      }
     }
-  }, []);
+  }, [currentStore.id, currentStore.name, currentStore.ownerPhone, currentStore.contactPhone, userProfile.phone]);
 
   const handleToggleSound = async () => {
     const next = !soundAlerts;
@@ -235,8 +250,10 @@ export const StoreOwnerPortal: React.FC<StoreOwnerPortalProps> = ({
       if (granted) {
         subscribeToPushNotifications({
           role: "store",
+          roles: ["store"],
           identifier: currentStore.id,
           name: currentStore.name,
+          customerPhone: currentStore.ownerPhone || currentStore.contactPhone || userProfile.phone || "",
         }).catch(console.warn);
 
         showSystemNotification(`متجر ${currentStore.name} 🏪`, {
@@ -680,6 +697,21 @@ export const StoreOwnerPortal: React.FC<StoreOwnerPortalProps> = ({
         broadcasts={broadcasts}
         onAcknowledgeBroadcast={onAcknowledgeBroadcast || (() => {})}
       />
+
+      {/* iOS Safari Home Screen Helper Banner */}
+      {isIOS() && !isStandalone() && (
+        <div className="bg-gradient-to-r from-blue-950 via-slate-900 to-indigo-950 border border-blue-500/40 rounded-3xl p-4 text-white shadow-md flex items-center gap-3">
+          <div className="w-10 h-10 rounded-2xl bg-blue-500/20 border border-blue-400/40 flex items-center justify-center text-xl shrink-0">
+            📲
+          </div>
+          <div className="text-xs space-y-0.5">
+            <h4 className="font-black text-blue-300">مستخدمي آيفون (iOS): تفعيل رنين الطلبات</h4>
+            <p className="text-slate-300 leading-relaxed text-[11px]">
+              لضمان استلام إشعارات ورنين الطلبات حتى لو كان هاتفك مقفلاً، اضغط زر المشاركة <span className="inline-block px-1.5 py-0.5 bg-white/20 rounded font-mono">⎋</span> في سفاري ثم اختر <strong className="text-white font-bold">"إضافة إلى الصفحة الرئيسية"</strong>.
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* Pending Approval Notice for Store Owner */}
       {currentStore.isApproved === false && (

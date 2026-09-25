@@ -132,6 +132,7 @@ export interface Order {
   id: string;
   storeId: string;
   storeName: string;
+  storePhone?: string;
   items: CartItem[];
   subtotal: number;
   deliveryFee: number;

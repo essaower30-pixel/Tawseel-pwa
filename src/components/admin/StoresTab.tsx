@@ -50,6 +50,7 @@ interface StoresTabProps {
   onAddStore: (store: Store) => void;
   onUpdateStore: (store: Store) => void;
   onDeleteStore: (storeId: string) => void;
+  onUpdateProduct?: (product: Product) => void;
   onAddCategory: (category: Category) => void;
   onUpdateCategory?: (category: Category) => void;
   onDeleteCategory: (categoryId: string) => void;
@@ -68,6 +69,7 @@ export const StoresTab: React.FC<StoresTabProps> = ({
   onAddStore,
   onUpdateStore,
   onDeleteStore,
+  onUpdateProduct,
   onAddCategory,
   onUpdateCategory,
   onDeleteCategory,
@@ -288,6 +290,21 @@ export const StoresTab: React.FC<StoresTabProps> = ({
     };
     onUpdateStore(updated);
     await approveStoreOnServer(st.id);
+
+    // Also auto-approve all products belonging to this store so they become visible immediately!
+    if (products && onUpdateProduct) {
+      products
+        .filter((p) => p.storeId === st.id || (p.storeName && (p.storeName === st.name || p.storeName.includes(st.name))))
+        .forEach((p) => {
+          if (p.isApproved === false || p.approvalStatus === "pending") {
+            onUpdateProduct({
+              ...p,
+              isApproved: true,
+              approvalStatus: "approved"
+            });
+          }
+        });
+    }
   };
 
   // Generate congratulatory approval message for merchant

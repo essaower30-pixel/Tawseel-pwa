@@ -588,6 +588,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 onAddStore={onAddStore}
                 onUpdateStore={onUpdateStore}
                 onDeleteStore={onDeleteStore}
+                onUpdateProduct={onUpdateProduct}
                 onAddCategory={onAddCategory || (() => {})}
                 onUpdateCategory={onUpdateCategory}
                 onDeleteCategory={onDeleteCategory || (() => {})}

@@ -172,6 +172,7 @@ export const CartCheckout: React.FC<CartCheckoutProps> = ({
     onCheckout({
       storeId: currentStoreId,
       storeName: currentStore ? currentStore.name : "متجر محلي",
+      storePhone: currentStore?.ownerPhone || currentStore?.contactPhone || "",
       items: cartItems,
       subtotal,
       deliveryFee,
