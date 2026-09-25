@@ -90,10 +90,12 @@ export const AccountSettingsModal: React.FC<AccountSettingsModalProps> = ({
   const [isSaving, setIsSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
 
   // Sync state whenever modal opens or profile changes
   useEffect(() => {
     if (isOpen) {
+      setShowLogoutConfirm(false);
       if (userRole === "admin" && currentStaff) {
         setName(currentStaff.name || userProfile?.name || "");
         setPhone(currentStaff.phone || userProfile?.phone || "");
@@ -981,19 +983,43 @@ export const AccountSettingsModal: React.FC<AccountSettingsModalProps> = ({
                 )}
               </button>
 
-              <button
-                type="button"
-                onClick={() => {
-                  if (confirm("هل ترغب بتسجيل الخروج من الحساب الحالي؟")) {
-                    onClose();
-                    onLogout();
-                  }
-                }}
-                className="w-full sm:w-auto py-3 px-4 bg-slate-100 hover:bg-red-50 hover:text-red-700 text-slate-600 rounded-2xl text-xs font-black transition-all flex items-center justify-center gap-1.5 cursor-pointer border border-slate-200 shrink-0"
-              >
-                <LogOut className="w-4 h-4 text-red-500" />
-                <span>تسجيل الخروج</span>
-              </button>
+              {showLogoutConfirm ? (
+                <div className="w-full bg-red-50 border border-red-200 rounded-2xl p-3 flex flex-col sm:flex-row items-center justify-between gap-3 animate-fade-in">
+                  <div className="flex items-center gap-2 text-xs font-bold text-red-800 text-center sm:text-right">
+                    <LogOut className="w-4 h-4 text-red-600 shrink-0" />
+                    <span>هل ترغب بالتأكيد بتسجيل الخروج من الحساب الحالي؟</span>
+                  </div>
+                  <div className="flex items-center gap-2 w-full sm:w-auto justify-end shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowLogoutConfirm(false);
+                        onClose();
+                        onLogout();
+                      }}
+                      className="flex-1 sm:flex-none py-2 px-4 bg-red-600 hover:bg-red-700 active:scale-95 text-white rounded-xl text-xs font-black transition-all cursor-pointer shadow-sm"
+                    >
+                      نعم، خروج
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setShowLogoutConfirm(false)}
+                      className="flex-1 sm:flex-none py-2 px-3 bg-white hover:bg-slate-100 active:scale-95 text-slate-700 rounded-xl text-xs font-bold border border-slate-200 transition-all cursor-pointer"
+                    >
+                      إلغاء
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setShowLogoutConfirm(true)}
+                  className="w-full sm:w-auto py-3 px-4 bg-slate-100 hover:bg-red-50 hover:text-red-700 text-slate-600 rounded-2xl text-xs font-black transition-all flex items-center justify-center gap-1.5 cursor-pointer border border-slate-200 shrink-0"
+                >
+                  <LogOut className="w-4 h-4 text-red-500" />
+                  <span>تسجيل الخروج</span>
+                </button>
+              )}
             </div>
 
             {/* Direct button to enter Admin Dashboard under Logout button */}

@@ -3443,9 +3443,14 @@ export default function App() {
     }
 
     if (cartItems.length > 0 && cartItems[0].product.storeId !== product.storeId) {
-      const confirmClear = window.confirm(
-        "لقد قمت بإضافة منتج من متجر مختلف. هل تود إفراغ السلة وتحديثها بمنتجات المتجر الجديد؟"
-      );
+      let confirmClear = true;
+      try {
+        confirmClear = window.confirm(
+          "لقد قمت بإضافة منتج من متجر مختلف. هل تود إفراغ السلة وتحديثها بمنتجات المتجر الجديد؟"
+        );
+      } catch {
+        confirmClear = true;
+      }
       if (!confirmClear) return;
       const basePrice = selectedSize ? selectedSize.price : product.price;
       const additionsTotal = selectedAdditions.reduce((sum, a) => sum + a.price, 0);
@@ -3851,7 +3856,14 @@ export default function App() {
     setIsViewingCart(false);
     setIsAdminMode(false);
     setIsDriverMode(false);
+    setShowAccountModal(false);
     setShowAuthModal(true);
+
+    addToastNotification({
+      title: "تم تسجيل الخروج بنجاح 👋",
+      message: "تم حفظ بياناتك بنجاح والرجوع إلى شاشة الدخول الرئيسية.",
+      type: "info"
+    });
   };
 
   const handleCleanSlateData = async (options: { target: "all" | "orders_only" | "restore_defaults" }) => {
@@ -4274,11 +4286,11 @@ export default function App() {
                   <>
                     <div 
                       className="py-1.5 px-2 sm:px-3 rounded-xl border border-slate-200/90 bg-slate-100 text-slate-800 text-xs font-black flex items-center gap-1 shadow-xs whitespace-nowrap select-none shrink-0"
-                      title={`صاحب المتجر: ${userProfile.name}`}
+                      title={`صاحب المتجر: ${userProfile?.name || ""}`}
                     >
                       <StoreIcon className="w-3.5 h-3.5 text-orange-600 shrink-0" />
                       <span className="truncate max-w-[70px] xs:max-w-[110px] sm:max-w-[170px]">
-                        {userProfile.name || stores.find((s) => s.id === currentStoreId || (userProfile?.phone && s.ownerPhone === userProfile.phone))?.name || "المتجر"}
+                        {userProfile?.name || stores.find((s) => s.id === currentStoreId || (userProfile?.phone && s.ownerPhone === userProfile.phone))?.name || "المتجر"}
                       </span>
                     </div>
 
@@ -4331,11 +4343,11 @@ export default function App() {
                   <>
                     <div 
                       className="py-1.5 px-2 sm:px-3 rounded-xl border border-slate-200/90 bg-slate-100 text-slate-800 text-xs font-black flex items-center gap-1 shadow-xs whitespace-nowrap select-none shrink-0"
-                      title={`الكابتن: ${userProfile.name}`}
+                      title={`الكابتن: ${userProfile?.name || ""}`}
                     >
                       <Bike className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
                       <span className="truncate max-w-[70px] xs:max-w-[110px] sm:max-w-[170px]">
-                        {userProfile.name || "الكابتن"}
+                        {userProfile?.name || "الكابتن"}
                       </span>
                     </div>
 
@@ -4392,11 +4404,11 @@ export default function App() {
                   <>
                     <div 
                       className="py-1.5 px-2 sm:px-3 rounded-xl border border-slate-200/90 bg-slate-100 text-slate-800 text-xs font-black flex items-center gap-1 shadow-xs whitespace-nowrap select-none shrink-0"
-                      title={`الإدارة: ${userProfile.name}`}
+                      title={`الإدارة: ${userProfile?.name || ""}`}
                     >
                       <ShieldCheck className="w-3.5 h-3.5 text-purple-600 shrink-0" />
                       <span className="truncate max-w-[70px] xs:max-w-[110px] sm:max-w-[170px]">
-                        {userProfile.name || "الإدارة"}
+                        {userProfile?.name || "الإدارة"}
                       </span>
                     </div>
 
@@ -4454,11 +4466,11 @@ export default function App() {
                 {userRole === "customer" && (
                   <div 
                     className="py-1.5 px-2 sm:px-3 rounded-xl border border-slate-200/90 bg-slate-100 text-slate-800 text-xs font-black flex items-center gap-1 shadow-xs whitespace-nowrap select-none shrink-0"
-                    title={`الزبون: ${userProfile.name}`}
+                    title={`الزبون: ${userProfile?.name || ""}`}
                   >
                     <User className="w-3.5 h-3.5 text-orange-600 shrink-0" />
                     <span className="truncate max-w-[85px] xs:max-w-[120px] sm:max-w-[180px]">
-                      {userProfile.name || "الزبون"}
+                      {userProfile?.name || "الزبون"}
                     </span>
                   </div>
                 )}
