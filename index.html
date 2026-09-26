@@ -86,19 +86,52 @@
         const isIframePreview = window.self !== window.top && !window.location.search.includes('enable_sw');
 
         if (!isLocalDev && !isIframePreview) {
+          // Listen for controllerchange to reload the page when a new service worker takes over
+          let refreshing = false;
+          navigator.serviceWorker.addEventListener('controllerchange', () => {
+            if (!refreshing) {
+              refreshing = true;
+              window.location.reload();
+            }
+          });
+
+          // Also listen for SW_VERSION_UPDATED postMessage from SW activate
+          navigator.serviceWorker.addEventListener('message', (event) => {
+            if (event.data && event.data.type === 'SW_VERSION_UPDATED') {
+              if (!refreshing) {
+                refreshing = true;
+                window.location.reload();
+              }
+            }
+          });
+
           window.addEventListener('load', () => {
             // Dynamically resolve service worker path and scope based on current location
             const pathname = window.location.pathname;
             const dir = pathname.substring(0, pathname.lastIndexOf('/') + 1) || '/';
             // Version query string ensures browser bypasses HTTP caching of sw.js
-            const swPath = dir + 'sw.js?v=37';
+            const swPath = dir + 'sw.js?v=55';
             const swScope = dir;
             navigator.serviceWorker.register(swPath, { scope: swScope }).then((reg) => {
               reg.update();
+              reg.onupdatefound = () => {
+                const installingWorker = reg.installing;
+                if (installingWorker) {
+                  installingWorker.onstatechange = () => {
+                    if (installingWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                      // New worker installed over existing controller - force reload to activate!
+                      if (!refreshing) {
+                        refreshing = true;
+                        window.location.reload();
+                      }
+                    }
+                  };
+                }
+              };
               window.addEventListener('focus', () => reg.update());
               setInterval(() => {
                 reg.update();
-              }, 60000);
+              }, 30000);
             }).catch((err) => {
               console.warn('SW registration notice:', err);
             });

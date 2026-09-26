@@ -27,7 +27,8 @@ import {
   KeyRound,
   ShieldAlert,
   Smartphone,
-  Sun
+  Sun,
+  RefreshCw
 } from "lucide-react";
 import { DriverMember, Order, Store, UserProfile } from "../types";
 import { ContactActions } from "./ContactActions";
@@ -250,6 +251,22 @@ export const DriverPortal: React.FC<DriverPortalProps> = ({
     }
   };
 
+  const handleForceRefreshApp = async () => {
+    try {
+      if ("caches" in window) {
+        const keys = await caches.keys();
+        await Promise.all(keys.map((k) => caches.delete(k)));
+      }
+      if ("serviceWorker" in navigator) {
+        const regs = await navigator.serviceWorker.getRegistrations();
+        for (const r of regs) {
+          await r.unregister();
+        }
+      }
+    } catch {}
+    window.location.reload();
+  };
+
   const cleanDriverPhone = (p?: string) => {
     if (!p) return "";
     let s = String(p).trim();
@@ -388,6 +405,16 @@ export const DriverPortal: React.FC<DriverPortalProps> = ({
               title="طريقة ضبط رنين أندرويد عند قفل الهاتف"
             >
               <Smartphone className="w-4 h-4 text-orange-400 shrink-0" />
+            </button>
+
+            {/* Quick cache buster / refresh button for Captain */}
+            <button
+              type="button"
+              onClick={handleForceRefreshApp}
+              className="p-2 rounded-xl border border-slate-700 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-emerald-400 text-xs font-bold transition-all cursor-pointer flex items-center"
+              title="تحديث التطبيق ومسح التخزين المؤقت للإصدار الأخير 🔄"
+            >
+              <RefreshCw className="w-4 h-4 text-emerald-400 shrink-0" />
             </button>
           </div>
         </div>
