@@ -40,7 +40,7 @@ import { OrdersArchiveReportsTab } from "./admin/OrdersArchiveReportsTab";
 import { PlatformFeaturesTab } from "./admin/PlatformFeaturesTab";
 import { BottomNavigation } from "./BottomNavigation";
 import { AccountSettingsModal } from "./AccountSettingsModal";
-import { saveStaffToFirestore, deleteStaffFromFirestore, subscribeToStaff } from "../services/firebaseService";
+import { saveStaffToFirestore, deleteStaffFromFirestore, subscribeToStaff, saveAppSettingsToFirestore } from "../services/firebaseService";
 
 interface DashboardProps {
   userRole: "admin" | "store_owner" | "driver";
@@ -407,6 +407,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
   const handleUpdateAppSettings = (settings: AppSettings) => {
     setAppSettings(settings);
     localStorage.setItem("tw_app_settings", JSON.stringify(settings));
+    saveAppSettingsToFirestore(settings);
   };
 
   // Registered Customers State (Manual registration by admin + customers)

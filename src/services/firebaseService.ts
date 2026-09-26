@@ -163,7 +163,10 @@ export function subscribeToStores(
     const unsub = onSnapshot(
       storesRef,
       (snapshot) => {
-        if (snapshot.empty) return;
+        if (snapshot.empty) {
+          onStoresUpdated([]);
+          return;
+        }
         const list: Store[] = [];
         snapshot.forEach((d) => {
           let st = { ...(d.data() as Store), id: d.id };
@@ -206,7 +209,10 @@ export function subscribeToProducts(
     const unsub = onSnapshot(
       productsRef,
       (snapshot) => {
-        if (snapshot.empty) return;
+        if (snapshot.empty) {
+          onProductsUpdated([]);
+          return;
+        }
         const list: Product[] = [];
         snapshot.forEach((d) => {
           list.push({ ...(d.data() as Product), id: d.id });
@@ -234,7 +240,10 @@ export function subscribeToDrivers(
     const unsub = onSnapshot(
       driversRef,
       (snapshot) => {
-        if (snapshot.empty) return;
+        if (snapshot.empty) {
+          onDriversUpdated([]);
+          return;
+        }
         const list: DriverMember[] = [];
         snapshot.forEach((d) => {
           list.push({ ...(d.data() as DriverMember), id: d.id });
@@ -646,6 +655,13 @@ export async function cleanSlateFirestore(target: "all" | "orders_only" | "zero_
         console.warn("Error resetting customer stats in Firestore:", err);
       }
 
+      // Record clean slate event to broadcast to all open devices immediately
+      await setDoc(doc(db, "settings", "systemStatus"), {
+        cleanSlateTarget: target,
+        cleanSlateTimestamp: Date.now(),
+        updatedAt: new Date().toISOString()
+      }, { merge: true });
+
       return true;
     }
 
@@ -656,6 +672,14 @@ export async function cleanSlateFirestore(target: "all" | "orders_only" | "zero_
       clearFirestoreCollection("reviews"),
       clearFirestoreCollection("broadcasts")
     ]);
+
+    await setDoc(doc(db, "settings", "systemStatus"), {
+      isCleanSlate: true,
+      cleanSlateTarget: "all",
+      cleanSlateTimestamp: Date.now(),
+      updatedAt: new Date().toISOString()
+    }, { merge: true });
+
     return true;
   } catch (err) {
     console.error("Error in cleanSlateFirestore:", err);
@@ -684,6 +708,14 @@ export async function reseedFirestoreDemoData(): Promise<boolean> {
         updatedAt: new Date().toISOString()
       }));
     }
+
+    await setDoc(doc(db, "settings", "systemStatus"), {
+      isCleanSlate: false,
+      cleanSlateTarget: "restore_defaults",
+      cleanSlateTimestamp: Date.now(),
+      updatedAt: new Date().toISOString()
+    }, { merge: true });
+
     return true;
   } catch (err) {
     console.error("Error reseeding Firestore demo data:", err);
@@ -783,8 +815,22 @@ export async function deleteCategoryFromFirestore(categoryId: string): Promise<v
 }
 
 // -------------------------------------------------------------
-// EMERGENCY RUSH / SYSTEM FREEZE (Real-time synchronization)
+// SYSTEM STATUS & GLOBAL ADMIN CONTROL (Real-time synchronization)
 // -------------------------------------------------------------
+export interface SystemStatusData {
+  emergencyRush?: boolean;
+  isCleanSlate?: boolean;
+  cleanSlateTarget?: "all" | "orders_only" | "zero_transactions" | "restore_defaults";
+  cleanSlateTimestamp?: number;
+  appSettings?: AppSettings;
+  adminCommand?: {
+    action: string;
+    timestamp: number;
+    payload?: any;
+  };
+  updatedAt?: string;
+}
+
 export async function saveEmergencyRushToFirestore(isRush: boolean): Promise<void> {
   try {
     const docRef = doc(db, "settings", "systemStatus");
@@ -798,6 +844,22 @@ export async function saveEmergencyRushToFirestore(isRush: boolean): Promise<voi
     );
   } catch (err) {
     console.warn("Could not save emergencyRush to Firestore:", err);
+  }
+}
+
+export async function saveAppSettingsToFirestore(settings: AppSettings): Promise<void> {
+  try {
+    const docRef = doc(db, "settings", "systemStatus");
+    await setDoc(
+      docRef,
+      {
+        appSettings: sanitizeForFirestore(settings),
+        updatedAt: new Date().toISOString()
+      },
+      { merge: true }
+    );
+  } catch (err) {
+    console.warn("Could not save appSettings to Firestore:", err);
   }
 }
 
@@ -825,6 +887,34 @@ export function subscribeToEmergencyRush(
     return unsub;
   } catch (err) {
     console.warn("Could not subscribe to emergency rush in Firestore:", err);
+    return () => {};
+  }
+}
+
+export function subscribeToSystemStatus(
+  onStatusUpdated: (status: SystemStatusData) => void,
+  onError?: (err: Error) => void
+): () => void {
+  try {
+    const docRef = doc(db, "settings", "systemStatus");
+    const unsub = onSnapshot(
+      docRef,
+      (snapshot) => {
+        if (snapshot.exists()) {
+          const data = snapshot.data() as SystemStatusData;
+          if (data) {
+            onStatusUpdated(data);
+          }
+        }
+      },
+      (err) => {
+        console.warn("System status subscription error:", err);
+        if (onError) onError(err);
+      }
+    );
+    return unsub;
+  } catch (err) {
+    console.warn("Could not subscribe to system status in Firestore:", err);
     return () => {};
   }
 }

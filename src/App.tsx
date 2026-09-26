@@ -165,7 +165,9 @@ import {
   cleanSlateFirestore,
   reseedFirestoreDemoData,
   saveEmergencyRushToFirestore,
-  subscribeToEmergencyRush
+  subscribeToEmergencyRush,
+  subscribeToSystemStatus,
+  saveAppSettingsToFirestore
 } from "./services/firebaseService";
 import { testFirestoreConnection } from "./firebase";
 import { CategoryIcon } from "./components/CategoryIcon";
@@ -651,13 +653,68 @@ export default function App() {
     }
   }, [currentStoreId]);
 
-  // Real-time synchronization for emergency rush freeze status across devices and sessions
+  // Real-time synchronization for emergency rush, clean slate, and admin commands across all devices and sessions
+  const lastProcessedCleanSlateRef = useRef<number>(0);
   useEffect(() => {
-    const unsub = subscribeToEmergencyRush((isRush) => {
-      setEmergencyRush(isRush);
-      try {
-        localStorage.setItem("tw_emergency_rush", String(isRush));
-      } catch {}
+    const unsub = subscribeToSystemStatus((sysStatus) => {
+      // 1. Emergency Rush sync
+      if (typeof sysStatus.emergencyRush === "boolean") {
+        setEmergencyRush(sysStatus.emergencyRush);
+        try {
+          localStorage.setItem("tw_emergency_rush", String(sysStatus.emergencyRush));
+        } catch {}
+      }
+
+      // 2. Real-time Clean Slate sync across all active user devices without reload
+      if (sysStatus.cleanSlateTimestamp && sysStatus.cleanSlateTimestamp > lastProcessedCleanSlateRef.current) {
+        lastProcessedCleanSlateRef.current = sysStatus.cleanSlateTimestamp;
+        const target = sysStatus.cleanSlateTarget;
+
+        if (target === "zero_transactions" || target === "orders_only") {
+          setAllOrders([]);
+          try {
+            localStorage.setItem("tw_orders", JSON.stringify([]));
+            localStorage.setItem("tw_orders_list", JSON.stringify([]));
+            localStorage.setItem("tw_all_orders", JSON.stringify([]));
+          } catch {}
+          setDriversList((prev) =>
+            prev.map((d) => ({
+              ...d,
+              totalDeliveries: 0,
+              earnings: 0
+            }))
+          );
+        } else if (target === "all") {
+          try {
+            localStorage.setItem("tw_clean_slate_active", "true");
+            localStorage.setItem("tw_stores", JSON.stringify([]));
+            localStorage.setItem("tw_products", JSON.stringify([]));
+            localStorage.setItem("tw_orders", JSON.stringify([]));
+            localStorage.setItem("tw_orders_list", JSON.stringify([]));
+            localStorage.setItem("tw_all_orders", JSON.stringify([]));
+          } catch {}
+          setStores([]);
+          setProducts([]);
+          setAllOrders([]);
+          setDriversList((prev) =>
+            prev.map((d) => ({
+              ...d,
+              totalDeliveries: 0,
+              earnings: 0
+            }))
+          );
+        } else if (target === "restore_defaults") {
+          try {
+            localStorage.removeItem("tw_clean_slate_active");
+            localStorage.removeItem("tw_stores");
+            localStorage.removeItem("tw_products");
+            localStorage.removeItem("tw_orders");
+          } catch {}
+          setStores(initialStores);
+          setProducts(initialProducts);
+          setAllOrders(initialOrders);
+        }
+      }
     });
 
     fetchSystemStatusFromServer()
@@ -2440,6 +2497,9 @@ export default function App() {
       }
 
       setStores((prev) => {
+        if (cloudStores.length === 0 && localStorage.getItem("tw_clean_slate_active") === "true") {
+          return [];
+        }
         const merged = ensureInitialStoresPreserved(cloudStores);
         if (merged.length !== prev.length || JSON.stringify(merged) !== JSON.stringify(prev)) {
           return merged;
@@ -2450,7 +2510,11 @@ export default function App() {
 
     // 4. Real-time products listener
     const unsubProducts = subscribeToProducts((cloudProducts) => {
-      if (!cloudProducts || cloudProducts.length === 0) return;
+      if (!cloudProducts) return;
+      if (cloudProducts.length === 0 && localStorage.getItem("tw_clean_slate_active") === "true") {
+        setProducts([]);
+        return;
+      }
       setProducts(ensureInitialProductsPreserved(cloudProducts));
     });
 
