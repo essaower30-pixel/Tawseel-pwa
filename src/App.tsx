@@ -167,7 +167,8 @@ import {
   saveEmergencyRushToFirestore,
   subscribeToEmergencyRush,
   subscribeToSystemStatus,
-  saveAppSettingsToFirestore
+  saveAppSettingsToFirestore,
+  syncOrderStatusRealtime
 } from "./services/firebaseService";
 import { testFirestoreConnection } from "./firebase";
 import { CategoryIcon } from "./components/CategoryIcon";
@@ -2320,6 +2321,42 @@ export default function App() {
               newlyAssignedDriverOrders.push(co);
             }
 
+            // Real-time alert when assigned order status changes (e.g. store marks ready for pickup or cancelled)
+            if (isMeDriver && existing && existing.status !== co.status) {
+              if (co.status === "ready_for_pickup") {
+                playOrderAlertSound("chime");
+                triggerOrderVibration();
+                flashTabTitle(`🔔 (طلبك جاهز للاستلام #${co.id})`);
+                showSystemNotification(`🔔 طلبك جاهز للاستلام الآن!`, {
+                  body: `الطلب #${co.id} من متجر (${co.storeName}) جاهز للاستلام والتوجه للزبون.`
+                });
+                addToastNotification({
+                  order: co,
+                  title: "🔔 الطلب جاهز للاستلام في المتجر!",
+                  message: `أنهى متجر (${co.storeName}) تجهيز الطلب #${co.id}. يمكنك التوجه لاستلامه وتوصيله.`,
+                  type: "status_change",
+                  targetRole: "driver"
+                });
+              } else if (co.status === "cancelled") {
+                playOrderAlertSound("chime");
+                addToastNotification({
+                  order: co,
+                  title: "⚠️ تم إلغاء الطلب من المتجر أو الإدارة",
+                  message: `تم إلغاء الطلب #${co.id}. تم تحديث قائمتك ومحفظتك تلقائياً.`,
+                  type: "warning",
+                  targetRole: "driver"
+                });
+              } else if (co.status === "delivered") {
+                addToastNotification({
+                  order: co,
+                  title: "✅ تم تأكيد تسليم الطلب!",
+                  message: `تم تسجيل الطلب #${co.id} كمسلّم بنجاح وإيداع أجور التوصيل في محفظتك.`,
+                  type: "success",
+                  targetRole: "driver"
+                });
+              }
+            }
+
             // Check if this order was forwarded to the logged-in store owner
             const wasForwardedBefore = existing.forwardedToStore === true;
             const isNowForwarded = co.forwardedToStore === true;
@@ -3196,7 +3233,11 @@ export default function App() {
     ]).catch((err) => console.warn("Error reconciling inventory with orders:", err));
   }, [allOrders, products]);
 
-  const handleUpdateOrderStatus = async (orderId: string, status: any) => {
+  const handleUpdateOrderStatus = async (
+    orderId: string,
+    status: any,
+    extraFields: Partial<Order> = {}
+  ) => {
     const isStoreAccepting = status === "accepted" || status === "preparing";
     const nowIso = new Date().toISOString();
 
@@ -3237,13 +3278,18 @@ export default function App() {
       })
     );
     await Promise.allSettled([
-      updateOrderStatusInFirestore(orderId, {
-        status,
-        ...(isStoreAccepting ? { storeAccepted: true, storeAcceptedAt: nowIso } : {})
-      } as any),
+      syncOrderStatusRealtime(orderId, status, {
+        extraFields: {
+          ...(isStoreAccepting ? { storeAccepted: true, storeAcceptedAt: nowIso } : {}),
+          ...extraFields
+        },
+        updatedBy: (userRole || "admin") as any,
+        updaterName: userProfile?.name
+      }),
       updateOrderOnServer(orderId, {
         status,
-        ...(isStoreAccepting ? { storeAccepted: true, storeAcceptedAt: nowIso } : {})
+        ...(isStoreAccepting ? { storeAccepted: true, storeAcceptedAt: nowIso } : {}),
+        ...extraFields
       } as any)
     ]);
 

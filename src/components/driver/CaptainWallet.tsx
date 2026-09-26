@@ -27,6 +27,17 @@ interface CaptainWalletProps {
   currency?: string;
 }
 
+const cleanPhone = (p?: string) => {
+  if (!p) return "";
+  let s = String(p).trim();
+  s = s.replace(/[٠-٩]/g, (d) => "٠١٢٣٤٥٦٧٨٩".indexOf(d).toString());
+  s = s.replace(/[^0-9]/g, "");
+  if (s.startsWith("00963")) s = "0" + s.slice(5);
+  else if (s.startsWith("963")) s = "0" + s.slice(3);
+  if (s.length === 9 && s.startsWith("9")) s = "0" + s;
+  return s;
+};
+
 export const CaptainWallet: React.FC<CaptainWalletProps> = ({
   currentDriver,
   orders,
@@ -35,14 +46,40 @@ export const CaptainWallet: React.FC<CaptainWalletProps> = ({
   const [timeFilter, setTimeFilter] = useState<"today" | "week" | "month" | "all">("all");
   const [copiedShare, setCopiedShare] = useState(false);
 
-  // Filter completed orders for this driver
+  // Robust matching helper to ensure phone formats, names or IDs never mismatch
+  const isOrderAssignedToMe = (o: Order) => {
+    const driverP = cleanPhone(currentDriver.phone);
+    const orderP = cleanPhone(o.driverPhone);
+    return Boolean(
+      (driverP && orderP && driverP === orderP) ||
+      (o.driverId && o.driverId === currentDriver.id) ||
+      (o.driverName && currentDriver.name && (o.driverName.includes(currentDriver.name) || currentDriver.name.includes(o.driverName)))
+    );
+  };
+
+  // 1. Current Active Orders in progress (assigned to captain, awaiting completion)
+  const myActiveOrders = useMemo(() => {
+    return orders.filter(
+      (o) =>
+        isOrderAssignedToMe(o) &&
+        (o.status === "accepted" ||
+          o.status === "preparing" ||
+          o.status === "ready_for_pickup" ||
+          o.status === "picked_up")
+    );
+  }, [orders, currentDriver]);
+
+  // 2. Cancelled orders (explicitly excluded from completed deliveries and revenue)
+  const myCancelledOrders = useMemo(() => {
+    return orders.filter(
+      (o) => isOrderAssignedToMe(o) && o.status === "cancelled"
+    );
+  }, [orders, currentDriver]);
+
+  // 3. Completed orders strictly delivered (with date filters)
   const myCompletedOrders = useMemo(() => {
     const driverOrders = orders.filter(
-      (o) =>
-        (o.driverPhone === currentDriver.phone ||
-          o.driverName === currentDriver.name ||
-          o.driverId === currentDriver.id) &&
-        o.status === "delivered"
+      (o) => isOrderAssignedToMe(o) && o.status === "delivered"
     );
 
     const now = new Date();
@@ -75,6 +112,12 @@ export const CaptainWallet: React.FC<CaptainWalletProps> = ({
   
   // Total delivery fee earned by driver (handles 0)
   const totalDeliveryEarnings = myCompletedOrders.reduce((sum, o) => {
+    const fee = o.deliveryFee !== undefined && o.deliveryFee !== null ? Number(o.deliveryFee) : 0;
+    return sum + fee;
+  }, 0);
+
+  // Expected pending delivery fees from active orders currently in progress
+  const pendingActiveEarnings = myActiveOrders.reduce((sum, o) => {
     const fee = o.deliveryFee !== undefined && o.deliveryFee !== null ? Number(o.deliveryFee) : 0;
     return sum + fee;
   }, 0);
@@ -243,6 +286,34 @@ export const CaptainWallet: React.FC<CaptainWalletProps> = ({
             <span className="text-[10px] text-slate-400 block font-medium">
               تستلمها من الإدارة لاحقاً
             </span>
+          </div>
+        </div>
+
+        {/* Live Real-time Orders Status Breakdown Bar */}
+        <div className="bg-slate-950/70 p-3 rounded-2xl border border-slate-800 flex flex-wrap items-center justify-between gap-3 text-xs">
+          <div className="flex items-center gap-2">
+            <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse"></span>
+            <span className="font-black text-emerald-300">مزامنة حالة الطلبات الحية (Real-time Sync)</span>
+          </div>
+
+          <div className="flex items-center gap-3 sm:gap-4 flex-wrap">
+            <div className="flex items-center gap-1.5 bg-emerald-500/10 px-2.5 py-1 rounded-xl border border-emerald-500/20 text-emerald-300 font-semibold">
+              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+              <span>مكتملة ومسلّمة: <strong className="font-mono text-white">{totalDeliveries}</strong></span>
+            </div>
+
+            <div className="flex items-center gap-1.5 bg-amber-500/10 px-2.5 py-1 rounded-xl border border-amber-500/20 text-amber-300 font-semibold">
+              <Bike className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+              <span>نشطة جارية: <strong className="font-mono text-white">{myActiveOrders.length}</strong></span>
+              {pendingActiveEarnings > 0 && (
+                <span className="text-[10px] text-amber-200">({pendingActiveEarnings.toLocaleString()} {currency} مرتقبة)</span>
+              )}
+            </div>
+
+            <div className="flex items-center gap-1.5 bg-rose-500/10 px-2.5 py-1 rounded-xl border border-rose-500/20 text-rose-300 font-semibold">
+              <span className="w-2 h-2 rounded-full bg-rose-400 shrink-0"></span>
+              <span>ملغاة مستبعدة: <strong className="font-mono text-white">{myCancelledOrders.length}</strong></span>
+            </div>
           </div>
         </div>
 

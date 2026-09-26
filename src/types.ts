@@ -139,7 +139,7 @@ export interface Order {
   discount?: number;
   couponCode?: string;
   total: number;
-  status: "pending" | "accepted" | "preparing" | "picked_up" | "delivered" | "cancelled";
+  status: "pending" | "accepted" | "preparing" | "ready_for_pickup" | "picked_up" | "delivered" | "cancelled";
   createdAt: string;
   customerName: string;
   customerPhone: string;
@@ -163,6 +163,11 @@ export interface Order {
   stockDeducted?: boolean;
   deliveryOtp?: string;
   deliveredAt?: string;
+  cancelledAt?: string;
+  readyForPickupAt?: string;
+  pickedUpAt?: string;
+  statusUpdatedAt?: string;
+  updatedAt?: string;
   // Admin to Store to Driver workflow flags
   forwardedToStore?: boolean;
   forwardedToStoreAt?: string;

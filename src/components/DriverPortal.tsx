@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { 
   Bike, 
   MapPin, 
@@ -250,31 +250,54 @@ export const DriverPortal: React.FC<DriverPortalProps> = ({
     }
   };
 
+  const cleanDriverPhone = (p?: string) => {
+    if (!p) return "";
+    let s = String(p).trim();
+    s = s.replace(/[٠-٩]/g, (d) => "٠١٢٣٤٥٦٧٨٩".indexOf(d).toString());
+    s = s.replace(/[^0-9]/g, "");
+    if (s.startsWith("00963")) s = "0" + s.slice(5);
+    else if (s.startsWith("963")) s = "0" + s.slice(3);
+    if (s.length === 9 && s.startsWith("9")) s = "0" + s;
+    return s;
+  };
+
+  const isOrderAssignedToMe = (o: Order) => {
+    const driverP = cleanDriverPhone(currentDriver.phone);
+    const orderP = cleanDriverPhone(o.driverPhone);
+    return Boolean(
+      (driverP && orderP && driverP === orderP) ||
+      (o.driverId && o.driverId === currentDriver.id) ||
+      (o.driverName && currentDriver.name && (o.driverName.includes(currentDriver.name) || currentDriver.name.includes(o.driverName)))
+    );
+  };
+
   // 1. My Assigned Orders (assigned by admin or accepted by driver)
-  const myOrders = orders.filter(
-    (o) =>
-      (o.driverPhone === currentDriver.phone ||
-        o.driverName === currentDriver.name ||
-        o.driverId === currentDriver.id) &&
-      o.status !== "delivered" &&
-      o.status !== "cancelled"
-  );
+  const myOrders = useMemo(() => {
+    return orders.filter(
+      (o) =>
+        isOrderAssignedToMe(o) &&
+        o.status !== "delivered" &&
+        o.status !== "cancelled"
+    );
+  }, [orders, currentDriver]);
 
   // 2. Available Orders (unassigned orders pending captain dispatch)
-  const availableOrders = orders.filter(
-    (o) =>
-      (!o.driverId && !o.driverName && !o.driverPhone) &&
-      (o.status === "pending" || o.status === "accepted" || o.status === "preparing")
-  );
+  const availableOrders = useMemo(() => {
+    return orders.filter(
+      (o) =>
+        (!o.driverId && !o.driverName && !o.driverPhone) &&
+        (o.status === "pending" || o.status === "accepted" || o.status === "preparing" || o.status === "ready_for_pickup")
+    );
+  }, [orders]);
 
   // 3. Completed Orders History
-  const completedOrders = orders.filter(
-    (o) =>
-      (o.driverPhone === currentDriver.phone ||
-        o.driverName === currentDriver.name ||
-        o.driverId === currentDriver.id) &&
-      o.status === "delivered"
-  );
+  const completedOrders = useMemo(() => {
+    return orders.filter(
+      (o) =>
+        isOrderAssignedToMe(o) &&
+        o.status === "delivered"
+    );
+  }, [orders, currentDriver]);
 
   return (
     <div className="max-w-5xl mx-auto space-y-3 sm:space-y-4 text-right font-sans pb-28" dir="rtl">

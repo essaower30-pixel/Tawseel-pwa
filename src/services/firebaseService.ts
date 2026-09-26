@@ -418,19 +418,99 @@ export async function updateOrderStatusInFirestore(
       payload = {
         status: statusOrUpdates,
         ...extraFields,
+        statusUpdatedAt: new Date().toISOString(),
         updatedAt: new Date().toISOString()
       };
     } else {
       payload = {
         ...statusOrUpdates,
         ...extraFields,
+        statusUpdatedAt: new Date().toISOString(),
         updatedAt: new Date().toISOString()
       };
     }
-    await updateDoc(docRef, sanitizeForFirestore(payload));
+    await setDoc(docRef, sanitizeForFirestore(payload), { merge: true });
     return true;
   } catch (err) {
     console.error("Error updating order status in Firestore:", err);
+    return false;
+  }
+}
+
+/**
+ * Real-time Order Synchronization across all devices (Real-time Order Sync)
+ * Instantly broadcasts order status transitions from Admin / Store Owner to Captain and Customer
+ * without requiring any page refresh or manual reload.
+ */
+export interface OrderStatusSyncMetadata {
+  extraFields?: Partial<Order>;
+  updatedBy?: "admin" | "store_owner" | "driver" | "customer";
+  updaterName?: string;
+  note?: string;
+}
+
+export async function syncOrderStatusRealtime(
+  orderId: string,
+  newStatus: Order["status"],
+  metadata: OrderStatusSyncMetadata = {}
+): Promise<boolean> {
+  try {
+    const nowIso = new Date().toISOString();
+    const updates: Partial<Order> = {
+      status: newStatus,
+      statusUpdatedAt: nowIso,
+      updatedAt: nowIso,
+      ...(metadata.extraFields || {})
+    };
+
+    if (newStatus === "delivered") {
+      updates.deliveredAt = nowIso;
+      updates.stockDeducted = true;
+    } else if (newStatus === "cancelled") {
+      updates.cancelledAt = nowIso;
+      updates.stockDeducted = false;
+    } else if (newStatus === "accepted" || newStatus === "preparing") {
+      updates.storeAccepted = true;
+      updates.storeAcceptedAt = nowIso;
+    } else if (newStatus === "ready_for_pickup") {
+      updates.readyForPickupAt = nowIso;
+    } else if (newStatus === "picked_up") {
+      updates.pickedUpAt = nowIso;
+    }
+
+    // 1. Persist directly to Firestore order document (triggers onSnapshot immediately across all subscribed devices)
+    const orderDocRef = doc(db, "orders", orderId);
+    await setDoc(orderDocRef, sanitizeForFirestore(updates), { merge: true });
+
+    // 2. Broadcast sync pulse to systemStatus for instantaneous cross-tab and cross-device wakeup
+    try {
+      const statusDocRef = doc(db, "settings", "systemStatus");
+      await setDoc(statusDocRef, {
+        orderSyncSignal: {
+          orderId,
+          status: newStatus,
+          timestamp: Date.now(),
+          updatedBy: metadata.updatedBy || "system",
+          updaterName: metadata.updaterName || ""
+        },
+        updatedAt: nowIso
+      }, { merge: true });
+    } catch {}
+
+    // 3. Dispatch local event for instant UI reactivity
+    if (typeof window !== "undefined") {
+      try {
+        window.dispatchEvent(
+          new CustomEvent("tw_order_sync", {
+            detail: { orderId, status: newStatus, metadata }
+          })
+        );
+      } catch {}
+    }
+
+    return true;
+  } catch (err) {
+    console.error("Error in syncOrderStatusRealtime:", err);
     return false;
   }
 }
