@@ -132,7 +132,7 @@ export const initialStaff: StaffMember[] = [
 ];
 
 export const initialDrivers: DriverMember[] = [
-  { id: "driver_hamza", name: "الكابتن حمزة عوير", username: "capt_hamza", password: "driver_pass_1111", phone: "0951854257", pin: "1111", status: "available", totalDeliveries: 15, earnings: 60000, rating: 5.0, vehicle: "دراجة نارية سوزوكي", createdAt: "2025-02-15" },
+  { id: "driver_hamza", name: "الكابتن حمزة عوير", username: "capt_hamza", password: "driver_pass_1111", phone: "0951854257", pin: "1111", status: "available", totalDeliveries: 0, earnings: 0, rating: 5.0, vehicle: "دراجة نارية سوزوكي", createdAt: "2025-02-15" },
   { id: "driver_1", name: "الكابتن أبو محمود", username: "capt_mahmoud", password: "driver_pass_1111", phone: "0991112233", pin: "1111", status: "available", totalDeliveries: 0, earnings: 0, rating: 5.0, vehicle: "دراجة نارية سوزوكي", createdAt: "2025-01-10" },
   { id: "driver_2", name: "الكابتن طارق السريع", username: "capt_tarek", password: "driver_pass_2222", phone: "0992223344", pin: "2222", status: "available", totalDeliveries: 0, earnings: 0, rating: 5.0, vehicle: "سكوتر كهربائي", createdAt: "2025-01-20" },
   { id: "driver_3", name: "الكابتن وسيم الورد", username: "capt_waseem", password: "driver_pass_3333", phone: "0993334455", pin: "3333", status: "available", totalDeliveries: 0, earnings: 0, rating: 5.0, vehicle: "دراجة نارية هوائية", createdAt: "2025-02-05" }

@@ -21,7 +21,7 @@ import {
   EyeOff,
   Camera
 } from "lucide-react";
-import { DriverMember } from "../../types";
+import { DriverMember, Order } from "../../types";
 import { ContactActions } from "../ContactActions";
 import { openWhatsApp } from "../../utils/whatsapp";
 import { getAppUrl } from "../../utils/appUrl";
@@ -30,6 +30,7 @@ import { ImageUploader } from "../ImageUploader";
 
 interface DriversTabProps {
   driversList: DriverMember[];
+  orders?: Order[];
   onAddDriver: (driver: DriverMember) => void;
   onUpdateDriver: (driver: DriverMember) => void;
   onDeleteDriver: (driverId: string) => void;
@@ -38,6 +39,7 @@ interface DriversTabProps {
 
 export const DriversTab: React.FC<DriversTabProps> = ({
   driversList,
+  orders,
   onAddDriver,
   onUpdateDriver,
   onDeleteDriver,
@@ -276,23 +278,33 @@ export const DriversTab: React.FC<DriversTabProps> = ({
                 </div>
 
                 {/* Performance Stats */}
-                <div className="grid grid-cols-3 gap-2 mt-3 pt-2 border-t border-slate-100 text-center">
-                  <div className="bg-slate-50 p-2 rounded-xl border">
-                    <span className="text-[10px] text-slate-400 font-bold block">التوصيلات</span>
-                    <span className="font-black text-xs text-slate-800">{driver.totalDeliveries || 0} طلب</span>
-                  </div>
-                  <div className="bg-slate-50 p-2 rounded-xl border">
-                    <span className="text-[10px] text-slate-400 font-bold block">الأرباح</span>
-                    <span className="font-black text-xs text-orange-600">{(driver.earnings || 0).toLocaleString()} {currency}</span>
-                  </div>
-                  <div className="bg-slate-50 p-2 rounded-xl border">
-                    <span className="text-[10px] text-slate-400 font-bold block">التقييم</span>
-                    <span className="font-black text-xs text-amber-600 flex items-center justify-center gap-0.5">
-                      <Star className="w-3 h-3 fill-amber-400" />
-                      {driver.rating !== undefined && driver.rating !== null ? (driver.rating === 0 ? "0 (جديد)" : driver.rating) : "0 (جديد)"}
-                    </span>
-                  </div>
-                </div>
+                {(() => {
+                  const driverOrders = orders ? orders.filter(
+                    (o) => (o.driverPhone === driver.phone || o.driverId === driver.id || o.driverName === driver.name) && o.status === "delivered"
+                  ) : [];
+                  const deliveriesCount = orders ? driverOrders.length : (driver.totalDeliveries || 0);
+                  const driverEarnings = orders ? driverOrders.reduce((sum, o) => sum + (Number(o.deliveryFee) || 0), 0) : (driver.earnings || 0);
+
+                  return (
+                    <div className="grid grid-cols-3 gap-2 mt-3 pt-2 border-t border-slate-100 text-center">
+                      <div className="bg-slate-50 p-2 rounded-xl border">
+                        <span className="text-[10px] text-slate-400 font-bold block">التوصيلات</span>
+                        <span className="font-black text-xs text-slate-800">{deliveriesCount} طلب</span>
+                      </div>
+                      <div className="bg-slate-50 p-2 rounded-xl border">
+                        <span className="text-[10px] text-slate-400 font-bold block">الأرباح</span>
+                        <span className="font-black text-xs text-orange-600">{driverEarnings.toLocaleString()} {currency}</span>
+                      </div>
+                      <div className="bg-slate-50 p-2 rounded-xl border">
+                        <span className="text-[10px] text-slate-400 font-bold block">التقييم</span>
+                        <span className="font-black text-xs text-amber-600 flex items-center justify-center gap-0.5">
+                          <Star className="w-3 h-3 fill-amber-400" />
+                          {driver.rating !== undefined && driver.rating !== null ? (driver.rating === 0 ? "0 (جديد)" : driver.rating) : "0 (جديد)"}
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })()}
 
                 {/* Phone & Dual WhatsApp Contacts */}
                 <div className="mt-3 flex items-center justify-between text-xs pt-2 border-t border-slate-100 flex-wrap gap-2">

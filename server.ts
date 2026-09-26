@@ -230,7 +230,7 @@ const defaultInitialStores = [
 ];
 
 const defaultFleetDrivers = [
-  { id: "driver_hamza", name: "الكابتن حمزة عوير", username: "capt_hamza", phone: "0951854257", pin: "1111", status: "available", totalDeliveries: 15, earnings: 60000, rating: 5.0, vehicle: "دراجة نارية سوزوكي" },
+  { id: "driver_hamza", name: "الكابتن حمزة عوير", username: "capt_hamza", phone: "0951854257", pin: "1111", status: "available", totalDeliveries: 0, earnings: 0, rating: 5.0, vehicle: "دراجة نارية سوزوكي" },
   { id: "driver_1", name: "الكابتن أبو محمود", username: "capt_mahmoud", phone: "0991112233", pin: "1111", status: "available", totalDeliveries: 0, earnings: 0, rating: 5.0, vehicle: "دراجة نارية سوزوكي" },
   { id: "driver_2", name: "الكابتن طارق السريع", username: "capt_tarek", phone: "0992223344", pin: "2222", status: "available", totalDeliveries: 0, earnings: 0, rating: 5.0, vehicle: "سكوتر كهربائي" },
   { id: "driver_3", name: "الكابتن وسيم الورد", username: "capt_waseem", phone: "0993334455", pin: "3333", status: "available", totalDeliveries: 0, earnings: 0, rating: 5.0, vehicle: "دراجة نارية هوائية" }

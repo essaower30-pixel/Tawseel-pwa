@@ -2195,7 +2195,17 @@ export default function App() {
 
     // 2. Real-time orders listener
     const unsubOrders = subscribeToOrders((cloudOrders) => {
-      if (!cloudOrders || cloudOrders.length === 0) return;
+      if (!cloudOrders) return;
+      if (cloudOrders.length === 0) {
+        setAllOrders((prev) => {
+          if (prev.length === 0) return prev;
+          localStorage.setItem("tw_orders", JSON.stringify([]));
+          localStorage.setItem("tw_orders_list", JSON.stringify([]));
+          localStorage.setItem("tw_all_orders", JSON.stringify([]));
+          return [];
+        });
+        return;
+      }
 
       // On first load, mark all existing orders as notified so no alert storm occurs
       if (!isInitialLoadDoneRef.current) {
@@ -3866,7 +3876,7 @@ export default function App() {
     });
   };
 
-  const handleCleanSlateData = async (options: { target: "all" | "orders_only" | "restore_defaults" }) => {
+  const handleCleanSlateData = async (options: { target: "all" | "orders_only" | "restore_defaults" | "zero_transactions" }) => {
     if (options.target === "restore_defaults") {
       localStorage.removeItem("tw_clean_slate_active");
       localStorage.removeItem("tw_stores");
@@ -3898,12 +3908,21 @@ export default function App() {
         message: "تمت استعادة قائمة المتاجر والمنتجات والطلبات التوضيحية للتجربة.",
         type: "info"
       });
-    } else if (options.target === "orders_only") {
+    } else if (options.target === "zero_transactions" || options.target === "orders_only") {
       setAllOrders([]);
       localStorage.setItem("tw_orders", JSON.stringify([]));
+      localStorage.setItem("tw_orders_list", JSON.stringify([]));
+      localStorage.setItem("tw_all_orders", JSON.stringify([]));
+      setDriversList((prev) =>
+        prev.map((d) => ({
+          ...d,
+          totalDeliveries: 0,
+          earnings: 0
+        }))
+      );
       await Promise.allSettled([
-        cleanSlateOnServer("orders_only"),
-        cleanSlateFirestore("orders_only")
+        cleanSlateOnServer(options.target),
+        cleanSlateFirestore(options.target)
       ]);
       addToastNotification({
         order: {
@@ -3920,8 +3939,10 @@ export default function App() {
           customerPhone: "",
           addressLandmark: ""
         },
-        title: "تم تفريغ وتصفير سجل الطلبات التجريبية 📦✨",
-        message: "تم مسح جميع الطلبات التجريبية مع بقاء المتاجر والمنتجات والإعدادات كاملة.",
+        title: options.target === "zero_transactions" ? "تم تصفير الأنشطة والعمليات والإحصائيات 0️⃣✨" : "تم تفريغ وتصفير سجل الطلبات التجريبية 📦✨",
+        message: options.target === "zero_transactions"
+          ? "تم تصفير جميع الطلبات والمعاملات وإحصائيات الكباتن بنجاح مع بقاء المحلات والمنتجات والحسابات كاملة."
+          : "تم مسح جميع الطلبات التجريبية مع بقاء المتاجر والمنتجات والإعدادات كاملة.",
         type: "info"
       });
     } else {
@@ -3933,6 +3954,8 @@ export default function App() {
       localStorage.setItem("tw_stores", JSON.stringify([]));
       localStorage.setItem("tw_products", JSON.stringify([]));
       localStorage.setItem("tw_orders", JSON.stringify([]));
+      localStorage.setItem("tw_orders_list", JSON.stringify([]));
+      localStorage.setItem("tw_all_orders", JSON.stringify([]));
       await Promise.allSettled([
         cleanSlateOnServer("all"),
         cleanSlateFirestore("all")

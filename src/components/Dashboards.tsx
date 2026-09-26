@@ -71,7 +71,7 @@ interface DashboardProps {
   onSendBroadcast?: (broadcast: StoreBroadcast) => void;
   onDeleteBroadcast?: (id: string) => void;
   onResendBroadcast?: (broadcast: StoreBroadcast) => void;
-  onCleanSlateData?: (options: { target: "all" | "orders_only" | "restore_defaults" }) => Promise<void> | void;
+  onCleanSlateData?: (options: { target: "all" | "orders_only" | "restore_defaults" | "zero_transactions" }) => Promise<void> | void;
   driversList?: DriverMember[];
   onAddDriver?: (driver: DriverMember) => void;
   onUpdateDriver?: (driver: DriverMember) => void;
@@ -636,6 +636,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
             {activeTab === "drivers" && (
               <DriversTab
                 driversList={driversList}
+                orders={orders}
                 onAddDriver={handleAddDriver}
                 onUpdateDriver={handleUpdateDriver}
                 onDeleteDriver={handleDeleteDriver}

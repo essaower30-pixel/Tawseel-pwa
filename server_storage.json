@@ -454,8 +454,8 @@
       "phone": "0951854257",
       "pin": "1111",
       "status": "available",
-      "totalDeliveries": 15,
-      "earnings": 60000,
+      "totalDeliveries": 0,
+      "earnings": 0,
       "rating": 5,
       "vehicle": "دراجة نارية سوزوكي"
     },
@@ -497,7 +497,7 @@
     }
   ],
   "notifications": [],
-  "lastUpdated": 1789727539654,
+  "lastUpdated": 1790346407932,
   "deletedDriverIds": [],
   "deletedStoreIds": [],
   "categories": [
@@ -560,5 +560,9 @@
   "deletedCategoryIds": [
     "cat_mtuj2s13ho2"
   ],
-  "emergencyRush": false
+  "emergencyRush": false,
+  "vapidKeys": {
+    "publicKey": "BO5J2NxZv4fvTVjcAbWc_28PVOKv8WjYfsss_AVXimopXHRPWQ-nFF66dDb1Z32W9bg6VBtn-QXRT1v3Z27tbis",
+    "privateKey": "_TX3qbrSOZBnJ_Vgfx9m_CY270tfQiXBQX09YOXhoKc"
+  }
 }

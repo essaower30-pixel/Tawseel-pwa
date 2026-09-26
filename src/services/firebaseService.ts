@@ -616,6 +616,15 @@ export async function cleanSlateFirestore(target: "all" | "orders_only" | "zero_
             updatedAt: new Date().toISOString()
           }));
         });
+        for (const drv of initialDrivers) {
+          updatePromises.push(
+            setDoc(doc(db, "drivers", drv.id), {
+              totalDeliveries: 0,
+              earnings: 0,
+              updatedAt: new Date().toISOString()
+            }, { merge: true })
+          );
+        }
         await Promise.all(updatePromises);
       } catch (err) {
         console.warn("Error resetting driver stats in Firestore:", err);

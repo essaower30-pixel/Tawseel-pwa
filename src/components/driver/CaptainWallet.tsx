@@ -77,7 +77,7 @@ export const CaptainWallet: React.FC<CaptainWalletProps> = ({
   const totalDeliveryEarnings = myCompletedOrders.reduce((sum, o) => {
     const fee = o.deliveryFee !== undefined && o.deliveryFee !== null ? Number(o.deliveryFee) : 0;
     return sum + fee;
-  }, 0) + (timeFilter === "all" ? (currentDriver.earnings || 0) : 0);
+  }, 0);
 
   // Total cash collected from customers (orders where paymentMethod is cash)
   const totalCashCollected = myCompletedOrders.reduce((sum, o) => {
