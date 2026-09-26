@@ -277,220 +277,243 @@ export const DriverPortal: React.FC<DriverPortalProps> = ({
   );
 
   return (
-    <div className="max-w-5xl mx-auto space-y-6 text-right font-sans pb-28" dir="rtl">
-      {/* Top Banner: Captain Identity & Stats */}
-      <div className="bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 border border-slate-700/80 rounded-3xl p-4 sm:p-7 text-white shadow-xl space-y-4 sm:space-y-5">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3.5 sm:gap-4">
-          <div className="flex items-center gap-3 sm:gap-3.5">
-            <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-gradient-to-br from-orange-500 to-amber-600 flex items-center justify-center text-white text-2xl sm:text-3xl font-black shadow-lg shadow-orange-500/25 shrink-0">
-              🛵
+    <div className="max-w-5xl mx-auto space-y-3 sm:space-y-4 text-right font-sans pb-28" dir="rtl">
+      {/* Sleek Compact Driver Header Panel */}
+      <div className="bg-gradient-to-br from-slate-900 via-slate-850 to-slate-900 border border-slate-800 rounded-2xl p-3 sm:p-4 text-white shadow-lg space-y-2.5">
+        {/* Top Row: Driver Profile & Quick Controls */}
+        <div className="flex items-center justify-between gap-2.5">
+          {/* Driver identity */}
+          <div className="flex items-center gap-2.5 min-w-0">
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-orange-500 to-amber-500 p-0.5 shadow-md shadow-orange-500/20 shrink-0">
+              {currentDriver.avatar ? (
+                <img
+                  src={currentDriver.avatar}
+                  alt={currentDriver.name}
+                  className="w-full h-full object-cover rounded-[10px]"
+                />
+              ) : (
+                <div className="w-full h-full bg-slate-900 rounded-[10px] flex items-center justify-center text-orange-400 font-black text-lg">
+                  🛵
+                </div>
+              )}
             </div>
+
             <div className="min-w-0">
-              <div className="flex flex-col xs:flex-row xs:items-center gap-1 sm:gap-2">
-                <h2 className="text-base sm:text-xl font-black text-white truncate">{currentDriver.name}</h2>
-                <span className="px-2.5 py-0.5 rounded-full text-[11px] font-black bg-orange-500/20 text-orange-400 border border-orange-500/30 whitespace-nowrap shrink-0 w-fit">
-                  كابتن أسطول التوصيل
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <h2 className="text-sm sm:text-base font-black text-white truncate leading-tight">
+                  {currentDriver.name}
+                </h2>
+                <span className="text-amber-400 text-xs font-black shrink-0">
+                  ⭐ {currentDriver.rating !== undefined && currentDriver.rating !== null ? (currentDriver.rating === 0 ? "جديد" : currentDriver.rating) : "جديد"}
                 </span>
               </div>
-              <p className="text-slate-400 text-xs font-semibold mt-0.5 flex items-center gap-2 flex-wrap">
+              <p className="text-slate-400 text-[11px] font-semibold flex items-center gap-1.5 flex-wrap truncate mt-0.5">
                 <span>{currentDriver.vehicle || "دراجة نارية"}</span>
                 <span>•</span>
                 <span className="font-mono text-slate-300">{currentDriver.phone}</span>
-                <span>•</span>
-                <span className="text-amber-400 font-black">
-                  ⭐ {currentDriver.rating !== undefined && currentDriver.rating !== null ? (currentDriver.rating === 0 ? "0 (جديد)" : currentDriver.rating) : "0 (جديد)"}
-                </span>
               </p>
             </div>
           </div>
 
-          <div className="grid grid-cols-2 sm:flex sm:items-center gap-2 w-full sm:w-auto pt-2 sm:pt-0 border-t sm:border-t-0 border-slate-800">
-            {/* Sound alert toggle button for driver */}
+          {/* Quick utility icons: Sound & WakeLock & Android Sound */}
+          <div className="flex items-center gap-1.5 shrink-0">
+            {/* Sound alert toggle */}
             <button
               type="button"
               onClick={handleToggleSound}
-              className={`py-2 px-3 rounded-xl border text-xs font-black transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
+              className={`p-2 rounded-xl border text-xs font-bold transition-all cursor-pointer flex items-center gap-1 ${
                 soundAlerts
                   ? "bg-emerald-500/20 text-emerald-300 border-emerald-500/40 hover:bg-emerald-500/30"
                   : "bg-slate-800 text-slate-400 border-slate-700 hover:bg-slate-700"
               }`}
-              title="تفعيل/كتم صوت رنين الطلبات الجديدة المتاحة للتوصيل"
+              title={soundAlerts ? "تنبيه الرنين مفعل (انقر للكتم)" : "الصوت مكتوم (انقر للتفعيل)"}
             >
-              {soundAlerts ? <Volume2 className="w-4 h-4 text-emerald-400 animate-pulse shrink-0" /> : <VolumeX className="w-4 h-4 text-slate-400 shrink-0" />}
-              <span className="truncate">{soundAlerts ? "تنبيه الرنين 🔔" : "الصوت مكتوم"}</span>
+              {soundAlerts ? (
+                <Volume2 className="w-4 h-4 text-emerald-400 animate-pulse shrink-0" />
+              ) : (
+                <VolumeX className="w-4 h-4 text-slate-400 shrink-0" />
+              )}
+              <span className="hidden sm:inline text-[11px] font-bold">
+                {soundAlerts ? "رنين 🔔" : "كتم"}
+              </span>
             </button>
 
-            {/* Screen WakeLock button for drivers on motorcycle/car */}
+            {/* Screen WakeLock button */}
             {isWakeLockSupported() && (
               <button
                 type="button"
                 onClick={handleToggleWakeLock}
-                className={`py-2 px-3 rounded-xl border text-xs font-black transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
+                className={`p-2 rounded-xl border text-xs font-bold transition-all cursor-pointer flex items-center gap-1 ${
                   wakeLockActive
-                    ? "bg-amber-500/20 text-amber-300 border-amber-500/50 shadow-sm shadow-amber-500/20"
+                    ? "bg-amber-500/20 text-amber-300 border-amber-500/50 shadow-sm"
                     : "bg-slate-800 text-slate-400 border-slate-700 hover:bg-slate-700"
                 }`}
-                title={wakeLockActive ? "الشاشة متيقظة ولن تنطفئ (انقر للتعطيل)" : "إبقاء الشاشة مضاءة أثناء التوصيل دون قفل الهاتف تلقائياً"}
+                title={wakeLockActive ? "الشاشة متيقظة (انقر للتعطيل)" : "إبقاء الشاشة مضاءة أثناء القيادة"}
               >
-                <Sun className={`w-4 h-4 shrink-0 ${wakeLockActive ? "text-amber-400 animate-spin-slow" : "text-slate-400"}`} />
-                <span className="truncate">{wakeLockActive ? "شاشة يقظة ☀️" : "إبقاء الشاشة"}</span>
+                <Sun className={`w-4 h-4 shrink-0 ${wakeLockActive ? "text-amber-400" : "text-slate-400"}`} />
+                <span className="hidden sm:inline text-[11px] font-bold">
+                  {wakeLockActive ? "يقظة ☀️" : "شاشة"}
+                </span>
               </button>
             )}
 
-            {/* Android Sound Troubleshooting button */}
+            {/* Android Sound Troubleshooting */}
             <button
               type="button"
               onClick={() => setShowAndroidHelp(true)}
-              className="py-2 px-2.5 rounded-xl border border-slate-700 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1"
-              title="طريقة تفعيل الرنين عند قفل الهاتف (أندرويد)"
+              className="p-2 rounded-xl border border-slate-700 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold transition-all cursor-pointer flex items-center"
+              title="طريقة ضبط رنين أندرويد عند قفل الهاتف"
             >
-              <Smartphone className="w-3.5 h-3.5 text-orange-400 shrink-0" />
-              <span className="hidden xl:inline text-[11px]">رنين القفل</span>
-            </button>
-
-            {onBackToCustomerView && (
-              <button
-                type="button"
-                onClick={onBackToCustomerView}
-                className="py-2 px-3.5 rounded-xl border border-orange-400/80 bg-gradient-to-r from-orange-600 via-amber-600 to-orange-500 hover:from-orange-500 hover:to-amber-500 text-xs font-black text-white transition-all cursor-pointer flex items-center justify-center gap-1.5 shadow-lg shadow-orange-950/40 active:scale-95"
-                title="الانتقال الفوري لتصفح المنصة والتسوق كزبون"
-              >
-                <ShoppingBag className="w-4 h-4 text-amber-200 shrink-0" />
-                <span>تصفح كزبون 🛍️</span>
-              </button>
-            )}
-
-            <button
-              type="button"
-              onClick={onLogout}
-              className={`py-2 px-3.5 rounded-xl border border-red-500/30 bg-red-500/10 hover:bg-red-500/20 text-xs font-bold text-red-400 transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
-                onBackToCustomerView ? "col-span-2 sm:col-span-1" : ""
-              }`}
-            >
-              <LogOut className="w-4 h-4 shrink-0" />
-              <span>خروج</span>
+              <Smartphone className="w-4 h-4 text-orange-400 shrink-0" />
             </button>
           </div>
         </div>
 
-        {/* Status Switcher & KPI Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-3 border-t border-slate-800">
-          {/* Status Mode Box */}
-          <div className="bg-slate-800/80 p-3.5 rounded-2xl border border-slate-700 space-y-2">
-            <span className="text-xs text-slate-400 font-bold block">حالة العمل الحالية:</span>
-            <div className="grid grid-cols-3 gap-1.5">
-              <button
-                type="button"
-                onClick={() => handleStatusChange("available")}
-                className={`py-1.5 text-center text-xs font-black rounded-xl transition-all cursor-pointer ${
-                  driverStatus === "available"
-                    ? "bg-emerald-600 text-white shadow-sm"
-                    : "bg-slate-900 text-slate-400 hover:text-slate-200"
-                }`}
-              >
-                متاح 🟢
-              </button>
-              <button
-                type="button"
-                onClick={() => handleStatusChange("busy")}
-                className={`py-1.5 text-center text-xs font-black rounded-xl transition-all cursor-pointer ${
-                  driverStatus === "busy"
-                    ? "bg-amber-500 text-white shadow-sm"
-                    : "bg-slate-900 text-slate-400 hover:text-slate-200"
-                }`}
-              >
-                مشغول 🟡
-              </button>
-              <button
-                type="button"
-                onClick={() => handleStatusChange("offline")}
-                className={`py-1.5 text-center text-xs font-black rounded-xl transition-all cursor-pointer ${
-                  driverStatus === "offline"
-                    ? "bg-slate-700 text-white shadow-sm"
-                    : "bg-slate-900 text-slate-400 hover:text-slate-200"
-                }`}
-              >
-                غير متصل ⚫
-              </button>
-            </div>
+        {/* Bottom Row: Work Status & Quick Counters in 1 compact line */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pt-2 border-t border-slate-800/80">
+          {/* Work Status Toggle (Segmented Control) */}
+          <div className="flex items-center gap-1 bg-slate-950/80 p-1 rounded-xl border border-slate-800 shrink-0">
+            <span className="text-[11px] font-bold text-slate-400 px-1 hidden xs:inline">الحالة:</span>
+            <button
+              type="button"
+              onClick={() => handleStatusChange("available")}
+              className={`py-1 px-2.5 text-center text-xs font-black rounded-lg transition-all cursor-pointer flex items-center gap-1 ${
+                driverStatus === "available"
+                  ? "bg-emerald-600 text-white shadow-sm"
+                  : "text-slate-400 hover:text-slate-200"
+              }`}
+            >
+              <span className="w-2 h-2 rounded-full bg-emerald-300 animate-pulse"></span>
+              <span>متاح</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => handleStatusChange("busy")}
+              className={`py-1 px-2.5 text-center text-xs font-black rounded-lg transition-all cursor-pointer flex items-center gap-1 ${
+                driverStatus === "busy"
+                  ? "bg-amber-500 text-white shadow-sm"
+                  : "text-slate-400 hover:text-slate-200"
+              }`}
+            >
+              <span className="w-2 h-2 rounded-full bg-amber-200"></span>
+              <span>مشغول</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => handleStatusChange("offline")}
+              className={`py-1 px-2.5 text-center text-xs font-black rounded-lg transition-all cursor-pointer flex items-center gap-1 ${
+                driverStatus === "offline"
+                  ? "bg-slate-700 text-white shadow-sm"
+                  : "text-slate-400 hover:text-slate-200"
+              }`}
+            >
+              <span className="w-2 h-2 rounded-full bg-slate-400"></span>
+              <span>غير متصل</span>
+            </button>
           </div>
 
-          {/* Active / Earnings */}
-          <div className="bg-slate-800/80 p-3.5 rounded-2xl border border-slate-700 flex items-center justify-between">
-            <div>
-              <span className="text-xs text-slate-400 font-bold block">الطلبات النشطة المكلف بها</span>
-              <span className="text-2xl font-black text-orange-400">{myOrders.length} طلب</span>
-            </div>
-            <div className="w-10 h-10 rounded-xl bg-orange-500/20 text-orange-400 flex items-center justify-center">
-              <Bike className="w-5 h-5" />
-            </div>
-          </div>
+          {/* Quick Stats Badges */}
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setActiveTab("my_orders")}
+              className={`flex-1 sm:flex-none flex items-center justify-between sm:justify-start gap-2 px-3 py-1 rounded-xl border cursor-pointer transition-colors ${
+                activeTab === "my_orders"
+                  ? "bg-orange-500/20 border-orange-500/50 text-orange-300"
+                  : "bg-slate-800/80 hover:bg-slate-800 border-slate-700 text-slate-300"
+              }`}
+            >
+              <span className="text-[11px] text-slate-400 font-bold">النشطة:</span>
+              <span className="text-sm font-black text-orange-400">{myOrders.length} طلب</span>
+            </button>
 
-          {/* Completed Trips */}
-          <div className="bg-slate-800/80 p-3.5 rounded-2xl border border-slate-700 flex items-center justify-between">
-            <div>
-              <span className="text-xs text-slate-400 font-bold block">مجموع التوصيلات المكتملة</span>
-              <span className="text-2xl font-black text-emerald-400">{completedOrders.length} رحلة</span>
-            </div>
-            <div className="w-10 h-10 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center">
-              <CheckCircle2 className="w-5 h-5" />
-            </div>
+            <button
+              type="button"
+              onClick={() => setActiveTab("history")}
+              className={`flex-1 sm:flex-none flex items-center justify-between sm:justify-start gap-2 px-3 py-1 rounded-xl border cursor-pointer transition-colors ${
+                activeTab === "history"
+                  ? "bg-emerald-500/20 border-emerald-500/50 text-emerald-300"
+                  : "bg-slate-800/80 hover:bg-slate-800 border-slate-700 text-slate-300"
+              }`}
+            >
+              <span className="text-[11px] text-slate-400 font-bold">المكتملة:</span>
+              <span className="text-sm font-black text-emerald-400">{completedOrders.length} رحلة</span>
+            </button>
           </div>
         </div>
       </div>
 
-      {/* Tabs Navigation */}
-      <div className="flex items-center gap-2 border-b border-slate-200 pb-2 overflow-x-auto scrollbar-none">
+      {/* Tabs Navigation - Prominent & Highly Visible */}
+      <div className="flex items-center gap-1.5 sm:gap-2 border-b border-slate-200/80 pb-2 overflow-x-auto scrollbar-none sticky top-0 z-10 bg-slate-50/90 backdrop-blur-sm pt-1">
         <button
           type="button"
           onClick={() => setActiveTab("my_orders")}
-          className={`py-2.5 px-4 rounded-2xl font-black text-xs transition-all cursor-pointer flex items-center gap-2 whitespace-nowrap ${
+          className={`py-2 px-3 sm:px-4 rounded-xl font-black text-xs transition-all cursor-pointer flex items-center gap-1.5 whitespace-nowrap shrink-0 ${
             activeTab === "my_orders"
-              ? "bg-orange-500 text-white shadow-md shadow-orange-500/20"
-              : "bg-white text-slate-600 border border-slate-200 hover:bg-slate-50"
+              ? "bg-gradient-to-r from-orange-500 to-amber-500 text-white shadow-md shadow-orange-500/25"
+              : "bg-white text-slate-700 border border-slate-200 hover:bg-slate-100"
           }`}
         >
           <Bike className="w-4 h-4" />
-          <span>طلباتي الموجهة لي والمكلف بها ({myOrders.length})</span>
+          <span>طلباتي المكلف بها</span>
+          <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-black ${
+            activeTab === "my_orders" ? "bg-white/25 text-white" : "bg-orange-100 text-orange-700"
+          }`}>
+            {myOrders.length}
+          </span>
         </button>
 
         <button
           type="button"
           onClick={() => setActiveTab("available_orders")}
-          className={`py-2.5 px-4 rounded-2xl font-black text-xs transition-all cursor-pointer flex items-center gap-2 whitespace-nowrap ${
+          className={`py-2 px-3 sm:px-4 rounded-xl font-black text-xs transition-all cursor-pointer flex items-center gap-1.5 whitespace-nowrap shrink-0 ${
             activeTab === "available_orders"
-              ? "bg-orange-500 text-white shadow-md shadow-orange-500/20"
-              : "bg-white text-slate-600 border border-slate-200 hover:bg-slate-50"
+              ? "bg-gradient-to-r from-orange-500 to-amber-500 text-white shadow-md shadow-orange-500/25"
+              : "bg-white text-slate-700 border border-slate-200 hover:bg-slate-100"
           }`}
         >
           <Clock className="w-4 h-4" />
-          <span>طلبات متاحة للاستلام من الإدارة ({availableOrders.length})</span>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setActiveTab("history")}
-          className={`py-2.5 px-4 rounded-2xl font-black text-xs transition-all cursor-pointer flex items-center gap-2 whitespace-nowrap ${
-            activeTab === "history"
-              ? "bg-orange-500 text-white shadow-md shadow-orange-500/20"
-              : "bg-white text-slate-600 border border-slate-200 hover:bg-slate-50"
-          }`}
-        >
-          <CheckCircle2 className="w-4 h-4" />
-          <span>سجل التوصيلات ({completedOrders.length})</span>
+          <span>طلبات متاحة للاستلام</span>
+          <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-black ${
+            activeTab === "available_orders"
+              ? "bg-white/25 text-white"
+              : availableOrders.length > 0
+                ? "bg-amber-500 text-white animate-pulse"
+                : "bg-slate-100 text-slate-600"
+          }`}>
+            {availableOrders.length}
+          </span>
         </button>
 
         <button
           type="button"
           onClick={() => setActiveTab("wallet")}
-          className={`py-2.5 px-4 rounded-2xl font-black text-xs transition-all cursor-pointer flex items-center gap-2 whitespace-nowrap ${
+          className={`py-2 px-3 sm:px-4 rounded-xl font-black text-xs transition-all cursor-pointer flex items-center gap-1.5 whitespace-nowrap shrink-0 ${
             activeTab === "wallet"
-              ? "bg-emerald-600 text-white shadow-md shadow-emerald-600/20"
+              ? "bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-md shadow-emerald-600/25"
               : "bg-emerald-50 text-emerald-800 border border-emerald-200 hover:bg-emerald-100"
           }`}
         >
           <Wallet className="w-4 h-4 text-emerald-500" />
           <span>محفظتي وأرباحي 💰</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveTab("history")}
+          className={`py-2 px-3 sm:px-4 rounded-xl font-black text-xs transition-all cursor-pointer flex items-center gap-1.5 whitespace-nowrap shrink-0 ${
+            activeTab === "history"
+              ? "bg-gradient-to-r from-orange-500 to-amber-500 text-white shadow-md shadow-orange-500/25"
+              : "bg-white text-slate-700 border border-slate-200 hover:bg-slate-100"
+          }`}
+        >
+          <CheckCircle2 className="w-4 h-4" />
+          <span>سجل التوصيلات</span>
+          <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-black ${
+            activeTab === "history" ? "bg-white/25 text-white" : "bg-slate-100 text-slate-600"
+          }`}>
+            {completedOrders.length}
+          </span>
         </button>
       </div>
 
