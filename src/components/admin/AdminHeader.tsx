@@ -27,7 +27,8 @@ import {
   Volume2,
   VolumeX,
   Sparkles,
-  ShoppingBag
+  ShoppingBag,
+  Bell
 } from "lucide-react";
 import { StaffMember, StaffPermission } from "../../types";
 import { playOrderAlertSound, isSoundEnabled, setSoundEnabled, requestNotificationPermission, showSystemNotification } from "../../utils/soundNotifications";
@@ -85,6 +86,69 @@ export const AdminHeader: React.FC<AdminHeaderProps> = ({
   const [authError, setAuthError] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [soundOn, setSoundOn] = useState<boolean>(() => isSoundEnabled());
+  const [notifPermission, setNotifPermission] = useState<string>(
+    typeof window !== "undefined" && "Notification" in window ? Notification.permission : "denied"
+  );
+  const [isPushRegistering, setIsPushRegistering] = useState<boolean>(false);
+  const [testSoundPlaying, setTestSoundPlaying] = useState<boolean>(false);
+
+  useEffect(() => {
+    if (typeof window !== "undefined" && "Notification" in window) {
+      setNotifPermission(Notification.permission);
+      if (Notification.permission === "granted") {
+        subscribeToPushNotifications({
+          role: "admin",
+          roles: ["admin", "manager", "store", "driver"],
+          receiveAllAlerts: true,
+          name: currentStaff?.name || "المدير العام",
+        }).catch(console.warn);
+      }
+    }
+  }, [currentStaff]);
+
+  const handleActivatePush = async () => {
+    setIsPushRegistering(true);
+    try {
+      playOrderAlertSound("ringtone");
+      const granted = await requestNotificationPermission();
+      if (typeof window !== "undefined" && "Notification" in window) {
+        setNotifPermission(Notification.permission);
+      }
+      if (granted) {
+        setSoundOn(true);
+        setSoundEnabled(true);
+        await subscribeToPushNotifications({
+          role: "admin",
+          roles: ["admin", "manager", "store", "driver"],
+          receiveAllAlerts: true,
+          name: currentStaff?.name || "المدير العام",
+        });
+        await showSystemNotification("تطبيق توصيل - رنين الإدارة 🔔", {
+          body: "تم تفعيل رنين الطلبات بنجاح! ستسمع الرنين وتصلك التنبيهات حتى عند قفل الهاتف.",
+          soundType: "ringtone",
+          requireInteraction: true
+        });
+      }
+    } catch (err) {
+      console.warn("Failed to activate admin push:", err);
+    } finally {
+      setIsPushRegistering(false);
+    }
+  };
+
+  const handleTestAlert = async () => {
+    setTestSoundPlaying(true);
+    try {
+      playOrderAlertSound("ringtone");
+      await showSystemNotification("تجربة رنين الإدارة 🔔", {
+        body: "الرنين والتنبيهات تعمل بنجاح! إذا قفلت الهاتف الآن ستستلم تنبيهاً بكل طلب جديد.",
+        soundType: "ringtone",
+        requireInteraction: true
+      });
+    } finally {
+      setTimeout(() => setTestSoundPlaying(false), 2000);
+    }
+  };
 
   const allNavTabs = [
     { id: "platform_features", label: "ميزات واستطاعة المنصة والترويج", icon: Sparkles, emoji: "💎" },
@@ -185,6 +249,39 @@ export const AdminHeader: React.FC<AdminHeaderProps> = ({
 
   return (
     <div className="space-y-4 font-sans text-right" dir="rtl">
+      {/* Background Push & Ringtone Activation Warning for Admin */}
+      {notifPermission !== "granted" && (
+        <div className="w-full bg-gradient-to-r from-amber-950/80 via-orange-950/70 to-slate-900 border-2 border-amber-500/80 rounded-3xl p-4 text-white shadow-xl flex flex-col md:flex-row items-center justify-between gap-3 animate-pulse">
+          <div className="flex items-center gap-3 text-right w-full md:w-auto">
+            <div className="w-10 h-10 rounded-2xl bg-amber-500 text-white flex items-center justify-center shrink-0 shadow-lg shadow-amber-500/30">
+              <Volume2 className="w-5 h-5 animate-bounce" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <p className="text-white text-xs sm:text-sm font-black">
+                  ⚠️ تنبيه هام للمدير: رنين الطلبات عند قفل الهاتف غير مفعّل!
+                </p>
+                <span className="px-2 py-0.5 bg-amber-500/30 text-amber-300 text-[10px] font-black rounded-lg border border-amber-500/50">
+                  ضروري للمدير
+                </span>
+              </div>
+              <p className="text-amber-200/90 text-[11px] sm:text-xs font-bold mt-0.5">
+                اضغط الزر لتفعيل الإشعارات والرنين فوراً ليرن هاتفك حتى لو كان الجهاز مقفلاً أو المتصفح مغلقاً.
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={handleActivatePush}
+            disabled={isPushRegistering}
+            className="w-full md:w-auto px-4 py-2.5 bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white font-black text-xs sm:text-sm rounded-2xl shadow-lg cursor-pointer transition-all active:scale-95 flex items-center justify-center gap-2 shrink-0 border border-amber-400"
+          >
+            <Bell className="w-4 h-4 shrink-0" />
+            <span>{isPushRegistering ? "جاري التفعيل..." : "اضغط هنا لتفعيل الرنين الآن 🔔"}</span>
+          </button>
+        </div>
+      )}
+
       {/* Top Banner Header */}
       <div className="bg-slate-900 border border-slate-800 rounded-3xl p-3.5 sm:p-5 text-white shadow-xl flex flex-col md:flex-row md:items-center justify-between gap-3.5 sm:gap-4">
         <div className="flex items-center gap-2.5 sm:gap-3">
@@ -220,10 +317,13 @@ export const AdminHeader: React.FC<AdminHeaderProps> = ({
               if (next) {
                 playOrderAlertSound("ringtone");
                 const granted = await requestNotificationPermission();
+                if (typeof window !== "undefined" && "Notification" in window) {
+                  setNotifPermission(Notification.permission);
+                }
                 if (granted) {
                   subscribeToPushNotifications({
                     role: "admin",
-                    roles: ["admin", "store", "driver"],
+                    roles: ["admin", "manager", "store", "driver"],
                     receiveAllAlerts: true,
                     name: currentStaff?.name || "المدير العام",
                   }).catch(console.warn);
@@ -244,6 +344,18 @@ export const AdminHeader: React.FC<AdminHeaderProps> = ({
           >
             {soundOn ? <Volume2 className="w-3.5 h-3.5 text-emerald-400 animate-pulse shrink-0" /> : <VolumeX className="w-3.5 h-3.5 text-slate-400 shrink-0" />}
             <span className="truncate">{soundOn ? "رنين الطلبات 🔔" : "الصوت مكتوم"}</span>
+          </button>
+
+          {/* Test Sound Button for Admin */}
+          <button
+            type="button"
+            onClick={handleTestAlert}
+            disabled={testSoundPlaying}
+            className="px-2.5 sm:px-3 py-1.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-amber-300 font-black text-xs rounded-2xl transition-all flex items-center justify-center gap-1.5 cursor-pointer active:scale-95"
+            title="تجربة صوت الرنين والإشعار على الهاتف"
+          >
+            <Volume2 className={`w-3.5 h-3.5 ${testSoundPlaying ? "animate-spin text-amber-400" : "text-amber-400"}`} />
+            <span>{testSoundPlaying ? "يرن الآن..." : "تجربة الرنين 🔊"}</span>
           </button>
 
           <div className="bg-slate-800/90 border border-slate-700/80 rounded-2xl px-2.5 sm:px-3 py-1.5 flex items-center justify-center gap-1.5 text-xs truncate">

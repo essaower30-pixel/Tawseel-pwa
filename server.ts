@@ -479,6 +479,15 @@ function canSendPush(key: string, cooldownMs: number = 3000): boolean {
   return true;
 }
 
+function isAdminSubscriber(s: any): boolean {
+  if (!s) return false;
+  if (s.isAdmin === true) return true;
+  if (s.receiveAllAlerts === true) return true;
+  if (s.role === "admin" || s.role === "manager" || s.role === "staff") return true;
+  if (Array.isArray(s.roles) && (s.roles.includes("admin") || s.roles.includes("manager") || s.roles.includes("staff"))) return true;
+  return false;
+}
+
 async function dispatchPushNotification(
   filterFn: (sub: any) => boolean,
   payload: PushPayload
@@ -855,7 +864,7 @@ app.post("/api/stores/:id/approve", (req, res) => {
 
     dispatchPushNotification(
       (s: any) => {
-        if (s.receiveAllAlerts && s.role === "admin") return true;
+        if (isAdminSubscriber(s)) return true;
         const normSubPhone = normalizePhone(s.identifier || s.customerPhone);
         const phoneMatch = Boolean(
           (normOwnerPhone && normSubPhone === normOwnerPhone) ||
@@ -1000,9 +1009,9 @@ app.post("/api/orders", (req, res) => {
     try {
       const dedupKey = `new_order_push_${newOrder.id}`;
       if (canSendPush(dedupKey, 3000)) {
-        // 1. Notify Admin
+        // 1. Notify Admin / Managers / Staff (wakes device up even when screen is locked)
         dispatchPushNotification(
-          (s: any) => s.role === "admin",
+          (s: any) => isAdminSubscriber(s),
           {
             title: `🔔 طلب جديد وارد للإدارة #${newOrder.id}`,
             body: `طلب جديد لمتجر (${newOrder.storeName}) بقيمة ${newOrder.total.toLocaleString()} ل.س`,
@@ -1121,7 +1130,7 @@ app.put("/api/orders/:id", (req, res) => {
 
           dispatchPushNotification(
             (s: any) => {
-              if (s.receiveAllAlerts && s.role === "admin") return true;
+              if (isAdminSubscriber(s)) return true;
 
               const isStoreRole = s.role === "store" || (s.roles && s.roles.includes("store"));
               const normSubPhone = normalizePhone(s.identifier || s.customerPhone);
@@ -1162,7 +1171,7 @@ app.put("/api/orders/:id", (req, res) => {
         const adminStoreAcceptedKey = `admin_store_accepted_${orderId}`;
         if (canSendPush(adminStoreAcceptedKey, 3000)) {
           dispatchPushNotification(
-            (s: any) => s.role === "admin" || (s.roles && s.roles.includes("admin")),
+            (s: any) => isAdminSubscriber(s),
             {
               title: `✅ اعتمد المتجر الطلب #${orderId}`,
               body: `وافق متجر (${data.orders[idx].storeName}) على الطلب. يرجى توجيه واختيار الكابتن الآن 🛵`,
@@ -1190,7 +1199,7 @@ app.put("/api/orders/:id", (req, res) => {
 
           dispatchPushNotification(
             (s: any) => {
-              if (s.receiveAllAlerts && s.role === "admin") return true;
+              if (isAdminSubscriber(s)) return true;
 
               const isDriverRole = s.role === "driver" || (s.roles && s.roles.includes("driver"));
               const normSubPhone = normalizePhone(s.identifier || s.customerPhone);

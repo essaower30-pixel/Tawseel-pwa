@@ -19,10 +19,14 @@ import {
   X,
   KeyRound,
   Send,
-  Check
+  Check,
+  Volume2,
+  Bell
 } from "lucide-react";
 import { DriverMember, Order } from "../../types";
 import { ContactActions } from "../ContactActions";
+import { playOrderAlertSound, requestNotificationPermission, showSystemNotification } from "../../utils/soundNotifications";
+import { subscribeToPushNotifications } from "../../utils/pushManager";
 
 interface OrdersTabProps {
   orders: Order[];
@@ -47,6 +51,51 @@ export const OrdersTab: React.FC<OrdersTabProps> = ({
   const [searchQuery, setSearchQuery] = useState("");
   const [zoomedImage, setZoomedImage] = useState<string | null>(null);
   const [manualDriverOverrideId, setManualDriverOverrideId] = useState<string | null>(null);
+  const [notifState, setNotifState] = useState<string>(
+    typeof window !== "undefined" && "Notification" in window ? Notification.permission : "denied"
+  );
+  const [isActivatingPush, setIsActivatingPush] = useState<boolean>(false);
+  const [isTestingSound, setIsTestingSound] = useState<boolean>(false);
+
+  const handleActivatePush = async () => {
+    setIsActivatingPush(true);
+    try {
+      playOrderAlertSound("ringtone");
+      const granted = await requestNotificationPermission();
+      if (typeof window !== "undefined" && "Notification" in window) {
+        setNotifState(Notification.permission);
+      }
+      if (granted) {
+        await subscribeToPushNotifications({
+          role: "admin",
+          roles: ["admin", "manager", "store", "driver"],
+          receiveAllAlerts: true,
+          name: "إدارة الطلبات",
+        });
+        await showSystemNotification("رنين وتنبيهات الإدارة 🔔", {
+          body: "تم تفعيل رنين الطلبات بنجاح! ستسمع الرنين وتصلك الإشعارات حتى لو كان هاتفك مقفلاً تماماً.",
+          soundType: "ringtone",
+          requireInteraction: true
+        });
+      }
+    } finally {
+      setIsActivatingPush(false);
+    }
+  };
+
+  const handleTestSound = async () => {
+    setIsTestingSound(true);
+    try {
+      playOrderAlertSound("ringtone");
+      await showSystemNotification("تجربة رنين الطلبات 🔔", {
+        body: "صوت الرنين والتنبيهات يعمل بنجاح! يمكنك الآن قفل شاشتك وانتظار الطلبات الجديدة.",
+        soundType: "ringtone",
+        requireInteraction: true
+      });
+    } finally {
+      setTimeout(() => setIsTestingSound(false), 2000);
+    }
+  };
 
   const handleSelectDriver = (orderId: string, driverId: string) => {
     const matchedDriver = driversList.find((d) => d.id === driverId) || null;
@@ -129,6 +178,64 @@ export const OrdersTab: React.FC<OrdersTabProps> = ({
           <span className="px-3 py-1 bg-orange-50 text-orange-600 font-black text-xs rounded-xl border border-orange-200">
             {orders.length} طلب كلي
           </span>
+        </div>
+      </div>
+
+      {/* Background Notification Status / Action Strip */}
+      <div className={`p-3.5 rounded-3xl border transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs ${
+        notifState === "granted"
+          ? "bg-emerald-50/80 border-emerald-200 text-emerald-900"
+          : "bg-amber-50 border-amber-300 text-amber-950 animate-pulse"
+      }`}>
+        <div className="flex items-center gap-2.5">
+          <div className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 ${
+            notifState === "granted" ? "bg-emerald-600 text-white" : "bg-amber-500 text-white"
+          }`}>
+            <Volume2 className="w-4 h-4" />
+          </div>
+          <div>
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <span className="font-black text-xs sm:text-sm">
+                {notifState === "granted" 
+                  ? "رنين وإشعارات الطلبات مفعلة في الخلفية وعند قفل الهاتف 🔔" 
+                  : "تنبيه المدير: رنين الهاتف أثناء قفل الشاشة غير مفعّل ⚠️"}
+              </span>
+              <span className={`text-[10px] px-2 py-0.5 rounded-md font-black ${
+                notifState === "granted" ? "bg-emerald-200/70 text-emerald-900" : "bg-amber-200 text-amber-900"
+              }`}>
+                {notifState === "granted" ? "نشط وجاهز" : "مطلوب الإذن"}
+              </span>
+            </div>
+            <p className="text-[11px] opacity-80 mt-0.5">
+              {notifState === "granted"
+                ? "سيرن هاتفك ويظهر إشعار فوري عند وصول أي طلب جديد حتى لو كان الهاتف مقفلاً."
+                : "يرجى الضغط على الزر للسماح بالإشعارات حتى يرن هاتفك فوراً عند كل طلب."}
+            </p>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2 shrink-0">
+          {notifState !== "granted" ? (
+            <button
+              type="button"
+              onClick={handleActivatePush}
+              disabled={isActivatingPush}
+              className="w-full sm:w-auto px-4 py-2 bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-700 hover:to-orange-700 text-white font-black text-xs rounded-xl shadow-sm cursor-pointer transition-all active:scale-95 flex items-center justify-center gap-1.5"
+            >
+              <Bell className="w-3.5 h-3.5" />
+              <span>{isActivatingPush ? "جاري التفعيل..." : "تفعيل الرنين والإشعارات الآن 🔔"}</span>
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={handleTestSound}
+              disabled={isTestingSound}
+              className="w-full sm:w-auto px-3.5 py-1.5 bg-white hover:bg-emerald-100 text-emerald-800 border border-emerald-300 font-black text-xs rounded-xl shadow-xs cursor-pointer transition-all active:scale-95 flex items-center justify-center gap-1.5"
+            >
+              <Volume2 className={`w-3.5 h-3.5 ${isTestingSound ? "animate-spin text-emerald-600" : "text-emerald-600"}`} />
+              <span>{isTestingSound ? "يرن الآن..." : "تجربة الرنين 🔊"}</span>
+            </button>
+          )}
         </div>
       </div>
 
