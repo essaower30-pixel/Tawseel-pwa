@@ -20,7 +20,8 @@ import {
   RefreshCw,
   Edit3,
   Scale,
-  FileText
+  FileText,
+  Briefcase
 } from "lucide-react";
 import { Store, UserProfile, DriverMember, Category } from "../types";
 import { initialDrivers, initialStaff } from "../data/adminInitialData";
@@ -53,6 +54,7 @@ interface AuthModalProps {
   initialRole?: "customer" | "driver" | "store" | "staff";
   driversList?: DriverMember[];
   categories?: Category[];
+  onOpenManagerSecretModal?: () => void;
 }
 
 export const AuthModal: React.FC<AuthModalProps> = ({
@@ -64,7 +66,8 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   onClose,
   initialRole = "customer",
   driversList: propDriversList,
-  categories: propCategories = []
+  categories: propCategories = [],
+  onOpenManagerSecretModal
 }) => {
   // Determine initial role from parameter or localStorage
   const [role, setRole] = useState<"customer" | "driver" | "store" | "staff">(() => {
@@ -268,10 +271,11 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     const next = secretClicks + 1;
     setSecretClicks(next);
     if (next >= 4) {
-      setShowSecretStaffTab(true);
-      setRole("staff");
       setSecretClicks(0);
-      alert("🔓 تم تفعيل بوابة دخول الكوادر والإدارة المشفرة!");
+      if (onOpenManagerSecretModal) {
+        if (onClose) onClose();
+        onOpenManagerSecretModal();
+      }
     }
   };
 
@@ -756,35 +760,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       }
 
       if (isMasterPasswordMatch || (matchedStaffByPassword && matchedStaffByPassword.role === "manager")) {
-        let adminName = "المدير العام (أبو أحمد)";
-        let staffId = "staff_1";
-        if (matchedStaffByPassword) {
-          adminName = matchedStaffByPassword.name;
-          staffId = matchedStaffByPassword.id;
-        }
-
-        localStorage.setItem("tw_active_staff_id", staffId);
-        localStorage.setItem("tw_staff_role", "manager");
-
-        try {
-          sessionStorage.removeItem("tw_staff_pin_failed");
-          sessionStorage.removeItem("tw_staff_pass_failed");
-        } catch {}
-        setStaffPinFailedAttempts(0);
-        setStaffPassFailedAttempts(0);
-        setFailedAttempts(0);
-
-        setSuccessMsg(`🔐 أهلاً بك يا ${adminName}. تم التحقق بنجاح بكلمة المرور المشفرة!`);
-        setIsSuccess(true);
-        setTimeout(() => {
-          onRegister({ 
-            name: adminName, 
-            phone: matchedStaffByPassword?.phone || "0991234567", 
-            pin: matchedStaffByPassword?.pin || "1234",
-            staffId: staffId,
-            role: "manager"
-          }, "admin");
-        }, 500);
+        setErrorMsg("⚠️ حساب المدير العام محمي ومخصص فقط للدخول عبر بوابة المدير المشفرة (انقر على أيقونة الدراجة 4 مرات).");
         return;
       } else if (matchedStaffByPassword) {
         localStorage.setItem("tw_active_staff_id", matchedStaffByPassword.id);
@@ -898,36 +874,8 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     const matchedStaffByPin = staffMembers.find((s: any) => s.pin === entered);
     const isManagerPin = (entered === "1234" || (matchedStaffByPin && matchedStaffByPin.role === "manager"));
 
-    if (isManagerPin) {
-      let adminName = "المدير العام (أبو أحمد)";
-      let staffId = "staff_1";
-      if (matchedStaffByPin) {
-        adminName = matchedStaffByPin.name;
-        staffId = matchedStaffByPin.id;
-      }
-
-      localStorage.setItem("tw_active_staff_id", staffId);
-      localStorage.setItem("tw_staff_role", "manager");
-
-      try {
-        sessionStorage.removeItem("tw_staff_pin_failed");
-        sessionStorage.removeItem("tw_staff_pass_failed");
-      } catch {}
-      setStaffPinFailedAttempts(0);
-      setStaffPassFailedAttempts(0);
-      setFailedAttempts(0);
-
-      setSuccessMsg(`🔐 أهلاً بك يا ${adminName}. تم تأكيد الدخول بالرمز السري!`);
-      setIsSuccess(true);
-      setTimeout(() => {
-        onRegister({ 
-          name: adminName, 
-          phone: matchedStaffByPin?.phone || "0991234567", 
-          pin: entered,
-          staffId: staffId,
-          role: "manager"
-        }, "admin");
-      }, 500);
+    if (isManagerPin && (!matchedStaffByPin || matchedStaffByPin.role === "manager")) {
+      setErrorMsg("⚠️ هذا الرمز خاص بالمدير العام. دخول المدير العام متاح حصراً عبر بوابة المدير المشفرة (انقر على أيقونة الدراجة 4 مرات).");
       return;
     }
 
@@ -997,7 +945,11 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       {/* Header Bar */}
       <header className="bg-white/95 backdrop-blur-md border-b border-slate-200/80 py-3.5 px-4 sm:px-6 sticky top-0 z-10 shadow-xs">
         <div className="max-w-7xl mx-auto flex items-center justify-between">
-          <div className="flex items-center gap-2.5">
+          <div 
+            onClick={handleSecretTitleClick}
+            className="flex items-center gap-2.5 cursor-pointer select-none"
+            title="توصيل"
+          >
             <div className="w-10 h-10 rounded-2xl bg-slate-900 text-orange-500 flex items-center justify-center shadow-md border border-slate-800">
               <Bike className="w-5.5 h-5.5" />
             </div>
@@ -1084,7 +1036,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           </div>
 
           {/* Role Tabs */}
-          <div className="grid grid-cols-3 gap-1.5 bg-slate-100 p-1.5 rounded-2xl border border-slate-200/70 text-center">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 bg-slate-100 p-1.5 rounded-2xl border border-slate-200/70 text-center">
             {/* Tab 1: Customer */}
             <button
               type="button"
@@ -1127,21 +1079,19 @@ export const AuthModal: React.FC<AuthModalProps> = ({
               <span>كابتن توصيل 🛵</span>
             </button>
 
-            {/* Tab 4: Staff / Admin */}
-            {(!hideStaffTab || showSecretStaffTab) && (
-              <button
-                type="button"
-                onClick={() => { setRole("staff"); setErrorMsg(""); }}
-                className={`col-span-3 py-2 px-3 rounded-xl font-black text-xs transition-all flex items-center justify-center gap-1.5 cursor-pointer mt-1 ${
-                  role === "staff"
-                    ? "bg-slate-900 text-amber-400 shadow-md"
-                    : "text-slate-600 hover:text-slate-900 bg-slate-200/60"
-                }`}
-              >
-                <Key className="w-3.5 h-3.5" />
-                <span>🔐 بوابة الإدارة والكوادر المشفرة</span>
-              </button>
-            )}
+            {/* Tab 4: Staff / Employee */}
+            <button
+              type="button"
+              onClick={() => { setRole("staff"); setErrorMsg(""); }}
+              className={`py-2 px-1 rounded-xl font-extrabold text-xs transition-all flex items-center justify-center gap-1 cursor-pointer ${
+                role === "staff"
+                  ? "bg-white text-orange-600 shadow-md shadow-slate-200/50 font-black"
+                  : "text-slate-500 hover:text-slate-900"
+              }`}
+            >
+              <Briefcase className="w-3.5 h-3.5" />
+              <span>موظف / كادر 👔</span>
+            </button>
           </div>
 
           {/* Feedback Messages */}
@@ -1969,11 +1919,11 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <div className="w-8 h-8 bg-amber-400 text-slate-950 rounded-xl flex items-center justify-center font-black">
-                        🔐
+                        👔
                       </div>
                       <div>
-                        <h4 className="font-black text-xs sm:text-sm text-amber-400">بوابة الإدارة والكوادر المشفرة</h4>
-                        <p className="text-[10px] text-slate-400">نظام تسجيل الدخول المحمي متعدد المستويات</p>
+                        <h4 className="font-black text-xs sm:text-sm text-amber-400">دخول الكوادر والموظفين</h4>
+                        <p className="text-[10px] text-slate-400">مخصص لموظفي ومسؤولي العمليات والمحاسبة والخدمات</p>
                       </div>
                     </div>
                     {isLocked && (
@@ -2080,11 +2030,13 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                     className="w-full bg-slate-50 border border-slate-200 focus:border-slate-900 focus:bg-white rounded-xl py-2.5 px-3 text-xs font-bold outline-none text-slate-800 cursor-pointer"
                   >
                     <option value="">-- اختر حسابك أو اتركها للتعرف التلقائي بالرمز --</option>
-                    {getAllStaffMembers().map((st: any) => (
-                      <option key={st.id} value={st.id}>
-                        {st.name} {st.role === "manager" ? "(المدير العام)" : st.role === "orders_clerk" ? "(مسؤول الطلبات والكباتن)" : st.role === "accountant" ? "(المحاسب)" : st.role === "support" ? "(خدمة العملاء والدعم الفني)" : "(إداري)"}
-                      </option>
-                    ))}
+                    {getAllStaffMembers()
+                      .filter((st: any) => st.role !== "manager")
+                      .map((st: any) => (
+                        <option key={st.id} value={st.id}>
+                          {st.name} {st.role === "orders_clerk" ? "(مسؤول الطلبات والكباتن)" : st.role === "accountant" ? "(المحاسب)" : st.role === "support" ? "(خدمة العملاء والدعم الفني)" : "(كادر إداري)"}
+                        </option>
+                      ))}
                   </select>
                 </div>
 

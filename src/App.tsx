@@ -78,6 +78,7 @@ import { FloatingPortalReturnButton } from "./components/FloatingPortalReturnBut
 import { ToastNotification, ToastItem } from "./components/ToastNotification";
 import { OfflineBanner, useOnlineStatus } from "./components/OfflineBanner";
 import { NotificationPermissionBanner } from "./components/NotificationPermissionBanner";
+import { ManagerSecretAuthModal } from "./components/ManagerSecretAuthModal";
 import {
   subscribeToPushNotifications,
   isPushSupported,
@@ -415,6 +416,34 @@ export default function App() {
 
   const [showAuthModal, setShowAuthModal] = useState<boolean>(false);
   const [showCustomerArchiveModal, setShowCustomerArchiveModal] = useState<boolean>(false);
+  const [showManagerSecretModal, setShowManagerSecretModal] = useState<boolean>(false);
+  const [bikeHeaderClicks, setBikeHeaderClicks] = useState<number>(0);
+  const lastBikeClickTimeRef = useRef<number>(0);
+
+  const handleHeaderBikeClick = () => {
+    const now = Date.now();
+    if (now - lastBikeClickTimeRef.current > 2500) {
+      lastBikeClickTimeRef.current = now;
+      setBikeHeaderClicks(1);
+      if (!activeOrder) {
+        setSelectedStore(null);
+        setIsViewingCart(false);
+        setIsAdminMode(false);
+        setIsDriverMode(false);
+      }
+      return;
+    }
+
+    lastBikeClickTimeRef.current = now;
+    const next = bikeHeaderClicks + 1;
+    setBikeHeaderClicks(next);
+
+    if (next >= 4) {
+      setBikeHeaderClicks(0);
+      setShowAuthModal(false);
+      setShowManagerSecretModal(true);
+    }
+  };
 
   const [currentStoreId, setCurrentStoreId] = useState<string | null>(() => {
     try {
@@ -1252,6 +1281,7 @@ export default function App() {
         showAuthModal || 
         showCustomerArchiveModal || 
         showAdminPinModal || 
+        showManagerSecretModal ||
         showSoundModal || 
         showUpdateModal ||
         showHomeCustomOrderModal;
@@ -1260,6 +1290,7 @@ export default function App() {
         setShowAuthModal(false);
         setShowCustomerArchiveModal(false);
         setShowAdminPinModal(false);
+        setShowManagerSecretModal(false);
         setShowSoundModal(false);
         setShowUpdateModal(false);
         setShowHomeCustomOrderModal(false);
@@ -4298,17 +4329,11 @@ export default function App() {
         {/* Top Application Header */}
         <header className="w-full bg-white/95 backdrop-blur-md border-b border-slate-200/80 py-2 sm:py-3 px-2.5 sm:px-6 select-none">
         <div className="max-w-7xl mx-auto w-full flex items-center justify-between gap-1.5 sm:gap-4">
-          {/* Logo & Branding */}
+          {/* Logo & Branding - 4 Rapid clicks opens Secret Manager Gate */}
           <div
-            onClick={() => {
-              if (!activeOrder) {
-                setSelectedStore(null);
-                setIsViewingCart(false);
-                setIsAdminMode(false);
-                setIsDriverMode(false);
-              }
-            }}
-            className="flex items-center gap-1.5 sm:gap-2.5 cursor-pointer shrink-0"
+            onClick={handleHeaderBikeClick}
+            className="flex items-center gap-1.5 sm:gap-2.5 cursor-pointer shrink-0 select-none"
+            title="توصيل القرية"
           >
             <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl sm:rounded-2xl bg-slate-900 text-orange-500 flex items-center justify-center shadow-md border border-slate-800 shrink-0">
               <Bike className="w-4.5 h-4.5 sm:w-5.5 sm:h-5.5 animate-bounce-slow" />
@@ -5441,8 +5466,46 @@ export default function App() {
           }}
           onClose={() => setShowAuthModal(false)}
           driversList={driversList}
+          onOpenManagerSecretModal={() => {
+            setShowAuthModal(false);
+            setShowManagerSecretModal(true);
+          }}
         />
       )}
+
+      {/* Secret Master Manager Dedicated Security Modal (Activated by 4 clicks on Bike Icon) */}
+      <ManagerSecretAuthModal
+        isOpen={showManagerSecretModal}
+        onClose={() => setShowManagerSecretModal(false)}
+        onSuccess={(managerData) => {
+          setShowManagerSecretModal(false);
+          setUserProfile({
+            name: managerData.name,
+            phone: managerData.phone,
+            pin: managerData.pin,
+            role: "manager",
+            staffId: managerData.staffId,
+            permissions: managerData.permissions,
+          });
+          setUserRole("admin");
+          setIsAdminMode(true);
+          setIsDriverMode(false);
+          setCurrentStoreId(null);
+          localStorage.setItem("tw_user_role", "admin");
+          localStorage.setItem("tw_user_name", managerData.name);
+          localStorage.setItem("tw_user_phone", managerData.phone);
+          localStorage.setItem("tw_active_staff_id", managerData.staffId);
+          localStorage.setItem("tw_staff_role", "manager");
+          localStorage.setItem("tw_viewing_admin", "true");
+          localStorage.setItem("tw_viewing_driver", "false");
+
+          addToastNotification({
+            title: "مرحباً بالمدير العام 🛡️",
+            message: `تم تسجيل الدخول بنجاح بحساب (${managerData.name}) - كامل صلاحيات الإدارة متاحة.`,
+            type: "success",
+          });
+        }}
+      />
 
       {/* Sound Settings & Notification Modal */}
       {showSoundModal && (
