@@ -1000,6 +1000,31 @@ export const AuthModal: React.FC<AuthModalProps> = ({
               </button>
             )}
 
+            {/* Direct Refresh & Cache-Buster Button */}
+            <button
+              type="button"
+              onClick={async () => {
+                try {
+                  if ('caches' in window) {
+                    const keys = await caches.keys();
+                    await Promise.all(keys.map(k => caches.delete(k)));
+                  }
+                  if ('serviceWorker' in navigator) {
+                    const regs = await navigator.serviceWorker.getRegistrations();
+                    for (const reg of regs) {
+                      await reg.unregister();
+                    }
+                  }
+                } catch (e) {}
+                window.location.reload();
+              }}
+              className="py-2 px-2.5 bg-orange-50 hover:bg-orange-100 text-orange-700 font-black text-xs rounded-xl transition-all flex items-center gap-1 cursor-pointer border border-orange-200"
+              title="تحديث التطبيق ومسح الكاش فوراً"
+            >
+              <RefreshCw className="w-3.5 h-3.5 text-orange-600" />
+              <span className="hidden xs:inline">تحديث 🔄</span>
+            </button>
+
             {onClose && (
               <button
                 type="button"

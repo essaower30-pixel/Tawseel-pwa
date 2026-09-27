@@ -1,10 +1,10 @@
 // ==============================================================================
 // Tawseel Progressive Web App (PWA) - Service Worker
-// Version: tawseel-v57-manager-secret-gate
+// Version: tawseel-v58-manager-secret-gate
 // Designed for instant startup and automatic freshness for all customers & staff
 // ==============================================================================
 
-const CACHE_NAME = 'tawseel-v57-manager-secret-gate';
+const CACHE_NAME = 'tawseel-v58-manager-secret-gate';
 
 // Dynamically determine the base path (e.g. '/Tawseel-pwa' on GitHub Pages or '' on root domain)
 const getBasePath = () => {
@@ -332,33 +332,59 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // B. STATIC ASSETS: JS bundles, CSS stylesheets, Web Fonts, and Images
-  // STRATEGY: Cache First with Background Update (Stale-While-Revalidate)
+  // B. SCRIPTS & STYLES (JS bundles & CSS stylesheets)
+  // STRATEGY: Network First with Cache Fallback - Ensures live updates are loaded immediately
   if (
     request.destination === 'script' ||
     request.destination === 'style' ||
+    url.pathname.endsWith('.js') ||
+    url.pathname.endsWith('.css')
+  ) {
+    event.respondWith(
+      (async () => {
+        const cache = await caches.open(CACHE_NAME);
+        try {
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 3000);
+          const netRes = await fetch(request, { signal: controller.signal });
+          clearTimeout(timeoutId);
+          if (netRes && (netRes.status === 200 || netRes.type === 'opaque')) {
+            cache.put(request, netRes.clone()).catch(() => {});
+            return netRes;
+          }
+        } catch (e) {
+          // Network failed or offline: fall back to cache
+        }
+        const cached = (await matchCacheFlexible(cache, request)) || (await cache.match(request));
+        if (cached) return cached;
+        return new Response('/* offline bundle fallback */ export default {};', {
+          headers: { 'Content-Type': 'application/javascript' }
+        });
+      })()
+    );
+    return;
+  }
+
+  // C. STATIC ASSETS: Images, Fonts, Audio
+  // STRATEGY: Cache First with Background Update (Stale-While-Revalidate)
+  if (
     request.destination === 'font' ||
     request.destination === 'image' ||
-    url.pathname.includes('/assets/') ||
     url.pathname.includes('/fonts/') ||
     url.hostname.includes('fonts.googleapis.com') ||
     url.hostname.includes('fonts.gstatic.com') ||
     url.hostname.includes('images.unsplash.com') ||
-    url.pathname.endsWith('.js') ||
-    url.pathname.endsWith('.css') ||
     url.pathname.endsWith('.png') ||
     url.pathname.endsWith('.svg') ||
     url.pathname.endsWith('.jpg') ||
     url.pathname.endsWith('.jpeg') ||
     url.pathname.endsWith('.webp') ||
-    url.pathname.endsWith('.woff2')
+    url.pathname.endsWith('.woff2') ||
+    url.pathname.endsWith('.wav')
   ) {
     event.respondWith(
       caches.open(CACHE_NAME).then(async (cache) => {
-        // 1. Flexible cache lookup (handles path differences & hashes)
         const cached = await matchCacheFlexible(cache, request);
-
-        // 2. Background network fetch
         const networkFetch = fetch(request)
           .then((networkResponse) => {
             if (networkResponse && (networkResponse.status === 200 || networkResponse.type === 'opaque')) {
@@ -369,37 +395,20 @@ self.addEventListener('fetch', (event) => {
           })
           .catch(() => null);
 
-        // 3. If cached, return immediately
         if (cached) {
           return cached;
         }
-
-        // 4. If not cached, await network
         const netRes = await networkFetch;
         if (netRes) {
           return netRes;
         }
-
-        // 5. CRITICAL SAFEGUARD: Never return null/undefined to respondWith!
-        if (request.destination === 'script' || url.pathname.endsWith('.js')) {
-          return new Response('/* offline bundle fallback */ export default {};', {
-            headers: { 'Content-Type': 'application/javascript' }
-          });
-        }
-
-        if (request.destination === 'style' || url.pathname.endsWith('.css')) {
-          return new Response('/* offline style fallback */', {
-            headers: { 'Content-Type': 'text/css' }
-          });
-        }
-
-        return new Response('', { status: 408, statusText: 'Offline Asset Unavailable' });
+        return new Response('', { status: 404 });
       })
     );
     return;
   }
 
-  // C. API REQUESTS (/api/*): Network First with 3.5s timeout, then cache, then offline JSON
+  // D. API REQUESTS (/api/*): Network First with 3.5s timeout, then cache, then offline JSON
   if (url.pathname.startsWith('/api/')) {
     event.respondWith(
       caches.open(CACHE_NAME).then((cache) => {
