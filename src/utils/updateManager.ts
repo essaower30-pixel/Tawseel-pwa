@@ -23,17 +23,18 @@ const BROADCAST_CHANNEL_NAME = "tw_app_update_channel";
  * Default update representing the latest comprehensive platform enhancements
  */
 export const DEFAULT_INITIAL_UPDATE: AppUpdateInfo = {
-  id: "update_v3_7_0_manager_bike_gate",
-  version: "v3.7.0",
-  title: "بوابة المدير العام المشفرة 🛡️ ودخول الكوادر والموظفين",
-  releaseDate: "سبتمبر 2026",
+  id: "update_v3_8_0_staff_security_streamlined",
+  version: "v3.8.0",
+  title: "حماية الكوادر وتطوير شريط الإدارة والعمليات 🛡️",
+  releaseDate: "28 سبتمبر 2026",
   features: [
-    "تخصيص أيقونة الدراجة (نقر 4 مرات) حصرياً لدخول المدير العام بأعلى معايير الحماية المشفرة",
-    "إتاحة تسجيل دخول الموظفين والكوادر مباشرة مثل باقي المستخدمين من نافذة الدخول العامة",
-    "تحديث تلقائي وفوري وحذف الكاش القديم من متصفح الهاتف لتطبيق الميزات الجديدة فوراً",
-    "رنين التنبيهات وإشعارات الطلبات الفورية في الخلفية عند قفل شاشة الهاتف للمدير"
+    "تسجيل دخول الكوادر المباشر برقم الهاتف وكلمة المرور المشفرة وإخفاء أسماء الموظفين لضمان السرية والخصوصية",
+    "تطوير وتبسيط شريط الإدارة العلوي وحذف أزرار التصفح والخروج لتفادي الخروج غير المقصود",
+    "إلغاء الشروح المطولة وتسهيل تجميد واستئناف استقبال الطلبات الفورية بضغطة زر واحدة",
+    "بوابة المدير العام الحصرية والمشفرة عبر نقر أيقونة الدراجة 🚲 بأعلى النافذة 4 مرات",
+    "مزامنة شاملة لكافة بيانات التطبيق وتحديث فوري لمحرك PWA والكاش (v60) لكافة المستخدمين"
   ],
-  notes: "تحديث أمني محوري يفصل بوابة الإدارة العليا عن دخول الكوادر والمستخدمين.",
+  notes: "تحديث أمني وتنظيمي شامل يرفع من كفاءة العمل وخصوصية الكوادر والإدارة.",
   publishedAt: Date.now(),
   publishedBy: "الإدارة العامة"
 };
@@ -48,6 +49,11 @@ export function getLatestUpdate(): AppUpdateInfo {
     if (stored) {
       const parsed = JSON.parse(stored);
       if (parsed && parsed.id && parsed.version) {
+        // Auto-upgrade if stored version is older than latest system release (e.g. v3.7.0 -> v3.8.0)
+        if (parsed.version === "v3.7.0" || parsed.version < "v3.8.0") {
+          localStorage.setItem(UPDATE_STORAGE_KEY, JSON.stringify(DEFAULT_INITIAL_UPDATE));
+          return DEFAULT_INITIAL_UPDATE;
+        }
         return parsed;
       }
     }
@@ -130,9 +136,9 @@ export function publishNewUpdate(data: {
 }): AppUpdateInfo {
   const newUpdate: AppUpdateInfo = {
     id: `update_${Date.now()}`,
-    version: data.version.trim() || `v2.5.${Math.floor(Math.random() * 90 + 10)}`,
+    version: data.version.trim() || `v3.8.${Math.floor(Math.random() * 9 + 1)}`,
     title: data.title.trim() || "تحديث جديد للمنصة والخدمات 🚀",
-    releaseDate: data.releaseDate || new Date().toLocaleDateString("ar-SA", { year: "numeric", month: "long", day: "numeric" }),
+    releaseDate: data.releaseDate || new Date().toLocaleDateString("ar-EG", { year: "numeric", month: "long", day: "numeric" }),
     features: data.features.length > 0 ? data.features : ["تحسينات في الأداء وسرعة الاستجابة", "إضافة ميزات جديدة لتجربة المستخدم"],
     notes: data.notes?.trim(),
     publishedAt: Date.now(),

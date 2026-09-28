@@ -1926,7 +1926,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                     type="text"
                     value={newUpdateVersion}
                     onChange={(e) => setNewUpdateVersion(e.target.value)}
-                    placeholder="مثال: v2.5.1 أو v2.6.0"
+                    placeholder="مثال: v3.8.1 أو v3.9.0"
                     className="w-full p-2 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-800 focus:outline-hidden focus:border-orange-500"
                   />
                 </div>
