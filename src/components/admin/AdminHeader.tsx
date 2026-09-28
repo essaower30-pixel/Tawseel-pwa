@@ -81,10 +81,6 @@ export const AdminHeader: React.FC<AdminHeaderProps> = ({
   pendingStoresCount = 0,
   pendingProductsCount = 0
 }) => {
-  const [showAuthModal, setShowAuthModal] = useState(false);
-  const [authInput, setAuthInput] = useState("");
-  const [authError, setAuthError] = useState("");
-  const [showPassword, setShowPassword] = useState(false);
   const [soundOn, setSoundOn] = useState<boolean>(() => isSoundEnabled());
   const [notifPermission, setNotifPermission] = useState<string>(
     typeof window !== "undefined" && "Notification" in window ? Notification.permission : "denied"
@@ -193,47 +189,6 @@ export const AdminHeader: React.FC<AdminHeaderProps> = ({
     }
   }, [currentStaff, visibleTabs, activeTab, setActiveTab]);
 
-  const handleVerifyAuth = (e: React.FormEvent) => {
-    e.preventDefault();
-    const entered = authInput.trim();
-    if (!entered) {
-      setAuthError("الرجاء إدخال كلمة المرور أو رمز PIN الخاص بك.");
-      return;
-    }
-
-    const masterPass = localStorage.getItem("tw_admin_secure_password") || "Admin@Tawseel2026#";
-    
-    // Check if master password
-    if (entered === masterPass || entered === "1234" || entered === "Admin@Tawseel2026#") {
-      const mgr = staffList.find(s => s.role === "manager") || {
-        id: "staff_1",
-        name: "المدير العام (صلاحيات كاملة)",
-        role: "manager" as const,
-        pin: "1234",
-        isActive: true
-      };
-      onSelectStaff(mgr);
-      setShowAuthModal(false);
-      setAuthInput("");
-      setAuthError("");
-      return;
-    }
-
-    // Match against staff list by password, pin, or username
-    const found = staffList.find(s => 
-      (s.password === entered || s.pin === entered || s.username === entered) && s.isActive !== false
-    );
-
-    if (found) {
-      onSelectStaff(found);
-      setShowAuthModal(false);
-      setAuthInput("");
-      setAuthError("");
-    } else {
-      setAuthError("كلمة المرور أو رمز PIN غير صحيح! تأكد من إدخال بياناتك المسجلة لدى الإدارة.");
-    }
-  };
-
   const getRoleBadge = (role?: string) => {
     switch (role) {
       case "manager": return { label: "المدير العام (تحكم شامل)", bg: "bg-purple-500/20 text-purple-300 border-purple-500/30" };
@@ -305,8 +260,8 @@ export const AdminHeader: React.FC<AdminHeaderProps> = ({
           </div>
         </div>
 
-        {/* Identity & PIN / Password switcher */}
-        <div className="grid grid-cols-2 sm:flex sm:items-center sm:flex-wrap gap-2 w-full md:w-auto pt-2 md:pt-0 border-t md:border-t-0 border-slate-800/80">
+        {/* Sound alerts and Account Identity */}
+        <div className="flex flex-wrap items-center gap-2 w-full md:w-auto pt-2 md:pt-0 border-t md:border-t-0 border-slate-800/80">
           {/* Sound Notification quick toggle button for admin */}
           <button
             type="button"
@@ -365,38 +320,6 @@ export const AdminHeader: React.FC<AdminHeaderProps> = ({
               <span className="truncate">{currentStaff?.name || "المدير العام"}</span>
             </span>
           </div>
-
-          {onBackToCustomerView && (
-            <button
-              type="button"
-              onClick={onBackToCustomerView}
-              className="col-span-2 sm:col-span-1 px-3 py-1.5 bg-gradient-to-r from-orange-600 via-amber-600 to-orange-500 hover:from-orange-500 text-white font-black text-xs rounded-2xl transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-md shadow-orange-950/40 active:scale-95 border border-orange-400/50"
-              title="الانتقال المباشر لتصفح المنصة والتسوق كزبون"
-            >
-              <ShoppingBag className="w-3.5 h-3.5 text-amber-200 shrink-0" />
-              <span>تصفح كزبون 🛍️</span>
-            </button>
-          )}
-
-          <button
-            type="button"
-            onClick={() => setShowAuthModal(true)}
-            className="px-2.5 sm:px-3.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 font-black text-xs rounded-2xl transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-sm active:scale-95"
-            title="تبديل الحساب أو تسجيل دخول موظف آخر"
-          >
-            <KeyRound className="w-3.5 h-3.5 text-orange-400 shrink-0" />
-            <span className="truncate">دخول موظف 🔐</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={onLogout}
-            className="px-2.5 sm:px-3.5 py-1.5 bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/30 font-black text-xs rounded-2xl transition-all flex items-center justify-center gap-1.5 cursor-pointer active:scale-95"
-            title="تسجيل الخروج"
-          >
-            <LogOut className="w-3.5 h-3.5 shrink-0" />
-            <span>خروج</span>
-          </button>
         </div>
       </div>
 
@@ -421,11 +344,6 @@ export const AdminHeader: React.FC<AdminHeaderProps> = ({
                 {isEmergencyRush ? "وضع التجميد مفعّل 🚨" : "الاستقبال طبيعي ومتاح ✅"}
               </span>
             </div>
-            <p className="text-xs opacity-80 mt-0.5 leading-relaxed">
-              {isEmergencyRush 
-                ? "تنبيه: تم إيقاف استقبال الطلبات الجديدة مؤقتاً للسيطرة على ضغط العمل لدى المحلات والكباتن." 
-                : "النظام يعمل بكفاءة وجاهز لاستقبال الطلبات الفورية من كافة أهالي القرية والمناطق المجاورة."}
-            </p>
           </div>
         </div>
 
@@ -475,99 +393,6 @@ export const AdminHeader: React.FC<AdminHeaderProps> = ({
           );
         })}
       </div>
-
-      {/* Switch Staff / Password Login Modal */}
-      {showAuthModal && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-start sm:items-center justify-center p-3 sm:p-4 overflow-y-auto pt-6 sm:pt-4 pb-48 sm:pb-6">
-          <div className="bg-white rounded-3xl p-5 sm:p-6 max-w-md w-full border border-slate-200 shadow-2xl space-y-4 animate-scale-up text-right my-auto" dir="rtl">
-            <div className="flex items-center justify-between border-b pb-3">
-              <h3 className="font-black text-slate-900 flex items-center gap-2 text-sm sm:text-base">
-                <Lock className="w-5 h-5 text-orange-500" />
-                <span>دخول الموظف بالباسوورد أو الـ PIN 🔐</span>
-              </h3>
-              <button 
-                onClick={() => setShowAuthModal(false)}
-                className="text-slate-400 hover:text-slate-600 text-lg font-bold p-1"
-              >
-                ✕
-              </button>
-            </div>
-
-            <p className="text-xs text-slate-500">
-              أدخل كلمة المرور الخاصة بك أو رمز الـ PIN للانتقال فوراً لصفحة مهامك المخصصة حسب الصلاحيات التي حددها المدير:
-            </p>
-
-            <form onSubmit={handleVerifyAuth} className="space-y-4">
-              <div>
-                <label className="block text-xs font-black text-slate-700 mb-1.5">
-                  كلمة المرور (الباسوورد) أو رمز PIN الخاص بك:
-                </label>
-                <div className="relative">
-                  <input
-                    type={showPassword ? "text" : "password"}
-                    value={authInput}
-                    onChange={(e) => {
-                      setAuthInput(e.target.value);
-                      setAuthError("");
-                    }}
-                    placeholder="أدخل الباسوورد أو رمز PIN..."
-                    className="w-full text-center text-lg tracking-wider font-black py-3 px-10 bg-slate-50 border border-slate-300 rounded-2xl focus:outline-hidden focus:border-orange-500 text-slate-800"
-                    autoFocus
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-1"
-                  >
-                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                  </button>
-                </div>
-                {authError && <p className="text-rose-600 text-xs font-black mt-2">⚠️ {authError}</p>}
-              </div>
-
-              {/* Quick Staff Select / Reference */}
-              <div className="bg-slate-50 p-3 rounded-2xl border text-xs text-slate-600 space-y-1.5">
-                <p className="font-black text-slate-800 flex items-center gap-1">
-                  <UserCheck className="w-3.5 h-3.5 text-orange-500" />
-                  <span>كوادر الإدارة المسجلة بالنظام:</span>
-                </p>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 pt-1">
-                  {staffList.map((st) => (
-                    <button
-                      key={st.id}
-                      type="button"
-                      onClick={() => setAuthInput(st.password || st.pin)}
-                      className="p-1.5 bg-white hover:bg-orange-50 border border-slate-200 rounded-xl text-[11px] font-bold text-slate-700 flex items-center justify-between text-right cursor-pointer transition-colors"
-                    >
-                      <span className="truncate">{st.name}</span>
-                      <span className="text-[9px] px-1.5 py-0.5 bg-slate-100 rounded-md font-mono text-slate-500 font-black">
-                        PIN: {st.pin}
-                      </span>
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <div className="flex gap-2 pt-2 border-t">
-                <button
-                  type="submit"
-                  className="flex-1 py-3 bg-orange-500 hover:bg-orange-600 text-white font-black text-xs rounded-2xl transition-all shadow-md cursor-pointer active:scale-95 flex items-center justify-center gap-2"
-                >
-                  <KeyRound className="w-4 h-4" />
-                  <span>فتح صفحتي المخصصة 🚀</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setShowAuthModal(false)}
-                  className="py-3 px-4 bg-slate-100 hover:bg-slate-200 text-slate-600 font-black text-xs rounded-2xl transition-all cursor-pointer"
-                >
-                  إلغاء
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
     </div>
   );
 };
