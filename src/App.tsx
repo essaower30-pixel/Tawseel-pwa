@@ -611,7 +611,15 @@ export default function App() {
   const [activeOrder, setActiveOrder] = useState<Order | null>(() => {
     try {
       const raw = localStorage.getItem("tw_active_order");
-      if (raw) return JSON.parse(raw);
+      if (raw) {
+        const parsed: Order = JSON.parse(raw);
+        // Do NOT restore delivered or cancelled orders as active order
+        if (parsed && parsed.status !== "delivered" && parsed.status !== "cancelled") {
+          return parsed;
+        } else {
+          localStorage.removeItem("tw_active_order");
+        }
+      }
 
       if (typeof window !== "undefined") {
         const params = new URLSearchParams(window.location.search);
@@ -1699,7 +1707,14 @@ export default function App() {
           }
         }
 
-        setActiveOrder(fresh);
+        // If order was delivered or cancelled, remove from activeOrder so it disappears from customer tracking view and moves to archive
+        if (fresh.status === "delivered" || fresh.status === "cancelled") {
+          setActiveOrder(null);
+          localStorage.removeItem("tw_active_order");
+          recordCustomerOrderId(fresh.id);
+        } else {
+          setActiveOrder(fresh);
+        }
         if (typeof window !== "undefined") {
           localStorage.setItem(`tw_customer_seen_status_${fresh.id}`, fresh.status);
         }
@@ -2939,7 +2954,13 @@ export default function App() {
                   }
 
                   // Update activeOrder so live tracker shows status update instantly
-                  if (!activeOrder || activeOrder.id === newOrder.id) {
+                  if (newOrder.status === "delivered" || newOrder.status === "cancelled") {
+                    if (activeOrder && activeOrder.id === newOrder.id) {
+                      setActiveOrder(null);
+                      localStorage.removeItem("tw_active_order");
+                      recordCustomerOrderId(newOrder.id);
+                    }
+                  } else if (!activeOrder || activeOrder.id === newOrder.id) {
                     setActiveOrder(newOrder);
                   }
                   if (typeof window !== "undefined") {
@@ -3281,7 +3302,13 @@ export default function App() {
             ...(isStoreAccepting ? { storeAccepted: true, storeAcceptedAt: o.storeAcceptedAt || nowIso } : {})
           };
           if (activeOrder && activeOrder.id === orderId) {
-            setActiveOrder(updated);
+            if (status === "delivered" || status === "cancelled") {
+              setActiveOrder(null);
+              localStorage.removeItem("tw_active_order");
+              recordCustomerOrderId(orderId);
+            } else {
+              setActiveOrder(updated);
+            }
           }
           const statusLabels: Record<string, string> = {
             accepted: "المتجر اعتمد الطلب وجارٍ التجهيز",
@@ -4814,6 +4841,11 @@ export default function App() {
                 mapNodes={mapNodes}
                 stores={stores}
                 onCancelOrder={(orderId) => handleUpdateOrderStatus(orderId, "cancelled")}
+                onOpenArchive={() => {
+                  setActiveOrder(null);
+                  localStorage.removeItem("tw_active_order");
+                  setShowCustomerArchiveModal(true);
+                }}
               />
             </motion.div>
           ) : isViewingCart ? (
@@ -5777,13 +5809,12 @@ export default function App() {
             }
           }}
           activeOrdersCount={
-            allOrders.filter(
-              (o) =>
-                userProfile?.phone &&
-                o.customerPhone === userProfile.phone &&
-                o.status !== "delivered" &&
-                o.status !== "cancelled"
-            ).length
+            allOrders.filter((o) => {
+              if (o.status === "delivered" || o.status === "cancelled") return false;
+              if (activeOrder && activeOrder.id === o.id) return true;
+              if (userProfile?.phone && o.customerPhone && cleanPhone(o.customerPhone) === cleanPhone(userProfile.phone)) return true;
+              return false;
+            }).length
           }
           cartCount={cartItems.reduce((sum, item) => sum + item.quantity, 0)}
           userName={userProfile?.name}

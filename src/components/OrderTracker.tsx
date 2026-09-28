@@ -20,7 +20,8 @@ import {
   KeyRound,
   Copy,
   Check,
-  RefreshCw
+  RefreshCw,
+  Archive
 } from "lucide-react";
 import { MapNode, Order } from "../types";
 import { ContactActions } from "./ContactActions";
@@ -31,6 +32,7 @@ interface OrderTrackerProps {
   mapNodes: MapNode[];
   onCancelOrder?: (orderId: string) => void;
   stores?: any[];
+  onOpenArchive?: () => void;
 }
 
 export const OrderTracker: React.FC<OrderTrackerProps> = ({
@@ -38,7 +40,8 @@ export const OrderTracker: React.FC<OrderTrackerProps> = ({
   onBack,
   mapNodes,
   onCancelOrder,
-  stores = []
+  stores = [],
+  onOpenArchive
 }) => {
   const [zoomedImage, setZoomedImage] = useState<string | null>(null);
   const [isCopiedOtp, setIsCopiedOtp] = useState(false);
@@ -169,60 +172,97 @@ export const OrderTracker: React.FC<OrderTrackerProps> = ({
       </div>
 
       {/* Delivery Handover Verification Code Card (كود استلام الطلبية) */}
-      <div className="bg-gradient-to-br from-slate-900 via-slate-850 to-slate-900 text-white rounded-3xl p-5 sm:p-6 border border-slate-750 shadow-xl space-y-4">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-700/70 pb-3">
-          <div className="flex items-center gap-3">
-            <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-amber-400 to-orange-500 text-slate-950 flex items-center justify-center font-black shrink-0 shadow-md">
-              <KeyRound className="w-6 h-6 text-slate-950" />
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h3 className="font-black text-sm sm:text-base text-white">
-                  كود تسليم واستلام الطلبية 🔑
-                </h3>
-                {order.status === "delivered" ? (
+      {order.status === "delivered" ? (
+        <div className="bg-gradient-to-br from-emerald-950 via-slate-900 to-emerald-950 text-white rounded-3xl p-5 sm:p-6 border border-emerald-500/40 shadow-xl space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-emerald-500/20 pb-4">
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 rounded-2xl bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center justify-center font-black text-2xl shrink-0">
+                ✅
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <h3 className="font-black text-sm sm:text-base text-white">
+                    تم استلام وتسليم الطلبية بنجاح 🟢
+                  </h3>
                   <span className="text-[10px] bg-emerald-500/20 text-emerald-300 font-bold px-2 py-0.5 rounded-full border border-emerald-500/30">
-                    تم التسليم والتحقق ✅
+                    تم التسليم ومطابقة الكود
                   </span>
-                ) : (
+                </div>
+                <p className="text-emerald-200/80 text-xs font-medium mt-0.5">
+                  تم تسليم الطلب لك ومطابقة كود الأمان بنجاح. تم نقل هذا الطلب تلقائياً إلى سجل طلباتك المستلمة (الأرشيف).
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 self-start sm:self-auto shrink-0">
+              {onOpenArchive && (
+                <button
+                  type="button"
+                  onClick={onOpenArchive}
+                  className="py-2 px-3.5 bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs rounded-xl transition-all shadow-md active:scale-95 flex items-center gap-1.5 cursor-pointer"
+                >
+                  <Archive className="w-4 h-4" />
+                  <span>عرض الأرشيف 📦</span>
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={onBack}
+                className="py-2 px-3 bg-slate-800 hover:bg-slate-700 text-slate-200 font-black text-xs rounded-xl transition-all active:scale-95 cursor-pointer border border-slate-700"
+              >
+                <span>إغلاق ✕</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : (
+        <div className="bg-gradient-to-br from-slate-900 via-slate-850 to-slate-900 text-white rounded-3xl p-5 sm:p-6 border border-slate-750 shadow-xl space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-700/70 pb-3">
+            <div className="flex items-center gap-3">
+              <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-amber-400 to-orange-500 text-slate-950 flex items-center justify-center font-black shrink-0 shadow-md">
+                <KeyRound className="w-6 h-6 text-slate-950" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <h3 className="font-black text-sm sm:text-base text-white">
+                    كود تسليم واستلام الطلبية 🔑
+                  </h3>
                   <span className="text-[10px] bg-amber-500/20 text-amber-300 font-bold px-2 py-0.5 rounded-full border border-amber-500/30 animate-pulse">
                     أعطه للكابتن عند باب منزلك فقط
                   </span>
-                )}
+                </div>
+                <p className="text-slate-400 text-xs font-medium mt-0.5">
+                  هذا الرمز سري وخاص بك وحدك لضمان عدم تسليم الطلب وهمياً أو لغير صاحبه. أعطه للكابتن عند الاستلام الفعلي باليد.
+                </p>
               </div>
-              <p className="text-slate-400 text-xs font-medium mt-0.5">
-                {order.status === "delivered"
-                  ? "تم تسليم الطلب للزبون بنجاح ومطابقة كود الأمان."
-                  : "هذا الرمز سري وخاص بك وحدك لضمان عدم تسليم الطلب وهمياً أو لغير صاحبه. أعطه للكابتن عند الاستلام الفعلي باليد."}
-              </p>
-            </div>
-          </div>
-
-          {/* 4-Digit Display Pill */}
-          <div className="flex items-center gap-2 self-start sm:self-auto bg-slate-800/90 border border-slate-700 p-2 sm:p-2.5 rounded-2xl" dir="ltr">
-            <div className="flex items-center gap-1.5 font-mono font-black text-xl sm:text-2xl tracking-widest text-amber-400 px-3 py-1 bg-black/40 rounded-xl border border-amber-500/20 select-all" dir="ltr">
-              {otpCode.split("").map((digit, i) => (
-                <span key={i} className="inline-block w-6 text-center" dir="ltr">
-                  {digit}
-                </span>
-              ))}
             </div>
 
-            <button
-              type="button"
-              onClick={handleCopyOtp}
-              className={`p-2.5 rounded-xl border transition-all cursor-pointer flex items-center justify-center text-xs font-bold active:scale-95 ${
-                isCopiedOtp
-                  ? "bg-emerald-600 text-white border-emerald-500"
-                  : "bg-slate-700 hover:bg-slate-600 text-slate-200 border-slate-600"
-              }`}
-              title="نسخ الكود"
-            >
-              {isCopiedOtp ? <Check className="w-4 h-4 text-white" /> : <Copy className="w-4 h-4 text-slate-300" />}
-            </button>
+            {/* 4-Digit Display Pill */}
+            <div className="flex items-center gap-2 self-start sm:self-auto bg-slate-800/90 border border-slate-700 p-2 sm:p-2.5 rounded-2xl" dir="ltr">
+              <div className="flex items-center gap-1.5 font-mono font-black text-xl sm:text-2xl tracking-widest text-amber-400 px-3 py-1 bg-black/40 rounded-xl border border-amber-500/20 select-all" dir="ltr">
+                {otpCode.split("").map((digit, i) => (
+                  <span key={i} className="inline-block w-6 text-center" dir="ltr">
+                    {digit}
+                  </span>
+                ))}
+              </div>
+
+              <button
+                type="button"
+                onClick={handleCopyOtp}
+                className={`p-2.5 rounded-xl border transition-all cursor-pointer flex items-center justify-center text-xs font-bold active:scale-95 ${
+                  isCopiedOtp
+                    ? "bg-emerald-600 text-white border-emerald-500"
+                    : "bg-slate-700 hover:bg-slate-600 text-slate-200 border-slate-600"
+                }`}
+                title="نسخ الكود"
+              >
+                {isCopiedOtp ? <Check className="w-4 h-4 text-white" /> : <Copy className="w-4 h-4 text-slate-300" />}
+              </button>
+            </div>
           </div>
         </div>
-      </div>
+      )}
 
       {/* Progress Stepper Card */}
       <div className="bg-white rounded-3xl p-5 sm:p-7 border border-slate-200/80 shadow-xs space-y-6">

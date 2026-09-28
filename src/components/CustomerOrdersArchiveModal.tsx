@@ -51,9 +51,31 @@ export const CustomerOrdersArchiveModal: React.FC<CustomerOrdersArchiveModalProp
 
   // Filter orders matching this customer
   const customerOrders = orders.filter((o) => {
+    // 1. Check local order IDs recorded on this device/browser
+    try {
+      const rawLocalIds = localStorage.getItem("tw_customer_order_ids");
+      const localIds: string[] = rawLocalIds ? JSON.parse(rawLocalIds) : [];
+      const lastSubmittedId = localStorage.getItem("tw_last_submitted_order_id");
+      if (localIds.includes(o.id) || (lastSubmittedId && lastSubmittedId === o.id)) {
+        return true;
+      }
+    } catch {}
+
     if (!customerPhone && !customerName) return true; // if guest with local orders, show all recorded locally
-    const matchesPhone = customerPhone && o.customerPhone === customerPhone;
-    const matchesName = customerName && o.customerName === customerName;
+    
+    // Normalize phone numbers for robust comparison
+    const normCustomerPhone = customerPhone ? customerPhone.replace(/\D/g, "") : "";
+    const normOrderPhone = o.customerPhone ? o.customerPhone.replace(/\D/g, "") : "";
+    const matchesPhone = Boolean(
+      normCustomerPhone && 
+      normOrderPhone && 
+      (normCustomerPhone === normOrderPhone || normCustomerPhone.endsWith(normOrderPhone) || normOrderPhone.endsWith(normCustomerPhone))
+    );
+    const matchesName = Boolean(
+      customerName && 
+      o.customerName && 
+      o.customerName.trim().toLowerCase() === customerName.trim().toLowerCase()
+    );
     return matchesPhone || matchesName;
   });
 
