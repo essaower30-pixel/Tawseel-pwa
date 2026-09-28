@@ -1,10 +1,10 @@
 // ==============================================================================
 // Tawseel Progressive Web App (PWA) - Service Worker
-// Version: tawseel-v58-manager-secret-gate
+// Version: tawseel-v59-staff-phone-password
 // Designed for instant startup and automatic freshness for all customers & staff
 // ==============================================================================
 
-const CACHE_NAME = 'tawseel-v58-manager-secret-gate';
+const CACHE_NAME = 'tawseel-v59-staff-phone-password';
 
 // Dynamically determine the base path (e.g. '/Tawseel-pwa' on GitHub Pages or '' on root domain)
 const getBasePath = () => {
