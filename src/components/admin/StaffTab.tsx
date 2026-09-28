@@ -56,6 +56,7 @@ const ALL_PERMISSIONS: PermissionOption[] = [
   { id: "coupons", label: "كوبونات الخصم والترويج", category: "المتاجر والمنتجات", emoji: "🏷️", desc: "إنشاء رموز الخصم ونسب التخفيض" },
   { id: "landmarks", label: "إدارة المعالم الجغرافية", category: "الخدمات والبيانات", emoji: "📍", desc: "إضافة وتعديل نقاط التوصيل والأحياء بالقرية" },
   { id: "craftsmen", label: "دليل الحرفيين وأصحاب المهن", category: "الخدمات والبيانات", emoji: "🛠️", desc: "إدارة أرقام وخدمات المهنيين والسباكين والكهربائيين" },
+  { id: "doctors", label: "دليل وسجل الأطباء والعيادات", category: "الخدمات والبيانات", emoji: "🩺", desc: "إدارة البطاقات التعريفية للأطباء والاختصاصات وأرقام التواصل" },
   { id: "share", label: "نشر وتوزيع التطبيق", category: "الخدمات والبيانات", emoji: "📢", desc: "مشاركة رابط التثبيت وباركود QR للمستخدمين" },
   { id: "logs", label: "سجل عمليات الموظفين", category: "الرقابة والمراجعة", emoji: "📑", desc: "مراجعة أنشطة النظام وسجل الدخول والتعديلات" },
   { id: "vault", label: "خزنة بيانات الدخول السرية", category: "حساس / إدارة عليا", emoji: "🔒", desc: "استعراض وتعديل كلمات مرور كافة المستخدمين" },
@@ -64,10 +65,10 @@ const ALL_PERMISSIONS: PermissionOption[] = [
 ];
 
 const DEFAULT_ROLE_PERMISSIONS: Record<StaffRole, StaffPermission[]> = {
-  manager: ["stats", "archive_reports", "vault", "customers", "orders", "stores", "products", "coupons", "drivers", "landmarks", "craftsmen", "staff", "logs", "settings", "share"],
+  manager: ["stats", "archive_reports", "vault", "customers", "orders", "stores", "products", "coupons", "drivers", "landmarks", "craftsmen", "doctors", "staff", "logs", "settings", "share"],
   orders_clerk: ["orders", "drivers", "customers", "landmarks", "archive_reports"],
   accountant: ["stats", "archive_reports", "logs", "customers"],
-  support: ["customers", "orders", "craftsmen", "landmarks", "drivers"],
+  support: ["customers", "orders", "craftsmen", "doctors", "landmarks", "drivers"],
   products_specialist: ["stores", "products", "coupons", "landmarks"],
   custom: ["orders", "customers"]
 };

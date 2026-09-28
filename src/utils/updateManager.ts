@@ -23,18 +23,18 @@ const BROADCAST_CHANNEL_NAME = "tw_app_update_channel";
  * Default update representing the latest comprehensive platform enhancements
  */
 export const DEFAULT_INITIAL_UPDATE: AppUpdateInfo = {
-  id: "update_v3_8_0_staff_security_streamlined",
-  version: "v3.8.0",
-  title: "حماية الكوادر وتطوير شريط الإدارة والعمليات 🛡️",
+  id: "update_v3_9_0_dedicated_doctors_directory",
+  version: "v3.9.0",
+  title: "إطلاق دليل وبطاقات الأطباء والاستشارات الطبية المستقلة 🩺",
   releaseDate: "28 سبتمبر 2026",
   features: [
-    "تسجيل دخول الكوادر المباشر برقم الهاتف وكلمة المرور المشفرة وإخفاء أسماء الموظفين لضمان السرية والخصوصية",
-    "تطوير وتبسيط شريط الإدارة العلوي وحذف أزرار التصفح والخروج لتفادي الخروج غير المقصود",
-    "إلغاء الشروح المطولة وتسهيل تجميد واستئناف استقبال الطلبات الفورية بضغطة زر واحدة",
-    "بوابة المدير العام الحصرية والمشفرة عبر نقر أيقونة الدراجة 🚲 بأعلى النافذة 4 مرات",
-    "مزامنة شاملة لكافة بيانات التطبيق وتحديث فوري لمحرك PWA والكاش (v60) لكافة المستخدمين"
+    "تخصيص سجل ودليل أطباء مستقل تماماً وغير تابع لفئات المتاجر ولا أصحاب المهن الحرفية",
+    "اعتماد البطاقة التعريفية الصافية للطبيب (الاسم، الاختصاص، ورقم التواصل المباشر)",
+    "إلغاء الأصناف والطلبات الخاصة وسلات التسوق عن الأطباء لضمان الخصوصية والتعامل المهني اللائق",
+    "إتاحة الاتصال الهاتفي والمراسلة عبر الواتساب بنقرة زر واحدة لحجز المواعيد والاستشارات الطبية",
+    "إضافة قسم مخصص في لوحة الإدارة لإضافة وتعديل بيانات الأطباء بكل سهولة وسرعة"
   ],
-  notes: "تحديث أمني وتنظيمي شامل يرفع من كفاءة العمل وخصوصية الكوادر والإدارة.",
+  notes: "تحديث تنظيمي وطبي يفصل العيادات والأطباء عن الأنشطة التجارية والتسوقية.",
   publishedAt: Date.now(),
   publishedBy: "الإدارة العامة"
 };
@@ -49,8 +49,8 @@ export function getLatestUpdate(): AppUpdateInfo {
     if (stored) {
       const parsed = JSON.parse(stored);
       if (parsed && parsed.id && parsed.version) {
-        // Auto-upgrade if stored version is older than latest system release (e.g. v3.7.0 -> v3.8.0)
-        if (parsed.version === "v3.7.0" || parsed.version < "v3.8.0") {
+        // Auto-upgrade if stored version is older than latest system release
+        if (parsed.version === "v3.7.0" || parsed.version === "v3.8.0" || parsed.version < "v3.9.0") {
           localStorage.setItem(UPDATE_STORAGE_KEY, JSON.stringify(DEFAULT_INITIAL_UPDATE));
           return DEFAULT_INITIAL_UPDATE;
         }

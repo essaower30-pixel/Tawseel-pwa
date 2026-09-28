@@ -1,4 +1,4 @@
-import { Craftsman, DriverMember, StaffMember, Coupon, AuditLog, AppSettings, RegisteredCustomer, Order } from "../types";
+import { Craftsman, Doctor, DriverMember, StaffMember, Coupon, AuditLog, AppSettings, RegisteredCustomer, Order } from "../types";
 
 export const initialCustomers: RegisteredCustomer[] = [
   { 
@@ -143,8 +143,56 @@ export const initialCraftsmen: Craftsman[] = [
   { id: "craft_2", name: "الأستاذ فادي الكهربائي", craft: "كهربائي وطاقة شمسية", phone: "0995223344", neighborhood: "قرب الجامع الكبير", description: "تمديدات منزلية، صيانة إنفرتر وبطاريات طاقة شمسية، تصليح غسالات وبرادات", availability: "available", rating: 4.9 },
   { id: "craft_3", name: "المعلم هيثم النجار", craft: "نجارة وموبيليا وألمنيوم", phone: "0996334455", neighborhood: "شارع البلدية", description: "تفصيل وتصليح غرف نوم، مطابخ ألمنيوم، شبابيك وأبواب خشبية", availability: "available", rating: 4.8 },
   { id: "craft_4", name: "الحداد أبو سمير", craft: "حدادة وأبواب فولاذية", phone: "0997445566", neighborhood: "طريق السهل", description: "أبواب حماية، حمايات نوافذ، تصليح خزانات حديد وشناكل زراعية", availability: "available", rating: 4.7 },
-  { id: "craft_5", name: "الدكتور سامر البيطار", craft: "طبيب بيطري وأدوية زراعية", phone: "0998556677", neighborhood: "مفرق المزارع", description: "معاينة الأبقار والمواشي والدواجن، توفير لقاحات وأدوية مرخصة", availability: "available", rating: 5.0 },
+  { id: "craft_5", name: "المعلم نادر الدهان", craft: "دهان وديكورات داخلية", phone: "0998556677", neighborhood: "الحارة الغربية", description: "دهان منازل وفلل، معجون وديكورات جبس بورد، معالجة الرطوبة والنش", availability: "available", rating: 4.9 },
   { id: "craft_6", name: "الأسطى رضوان الميكانيكي", craft: "ميكانيك سيارات ودراجات", phone: "0999667788", neighborhood: "المدخل الغربي", description: "صيانة كهرباء وميكانيك الدراجات النارية والسيارات والشاحنات الخفيفة", availability: "available", rating: 4.8 }
+];
+
+export const initialDoctors: Doctor[] = [
+  {
+    id: "doc_1",
+    name: "د. سمير كنعان",
+    specialty: "طب أطفال وحديثي ولادة",
+    phone: "0933445566",
+    clinicAddress: "مجمع الياسمين الطبي - الطابق الثاني",
+    workingHours: "4:00 عصراً - 8:30 مساءً",
+    notes: "معاينة الأطفال، لقاحات ومتابعة نمو، استشارات هاتفية طارئة"
+  },
+  {
+    id: "doc_2",
+    name: "د. ميساء العلي",
+    specialty: "طب وجراحة الأسنان",
+    phone: "0944112233",
+    clinicAddress: "شارع البلدية - جانب الصيدلية المركزية",
+    workingHours: "10:00 صباحاً - 3:00 عصراً",
+    notes: "معالجة وجراحة الأسنان، تبييض وزراعة، تركيبات تجميلية"
+  },
+  {
+    id: "doc_3",
+    name: "د. خالد المحمود",
+    specialty: "أمراض باطنية وقلبية",
+    phone: "0955223344",
+    clinicAddress: "ساحة البلدة العامة - برج الشفاء",
+    workingHours: "5:00 مساءً - 9:00 مساءً",
+    notes: "تخطيط قلب، متابعة الضغط والسكري، استشارات باطنية عامة"
+  },
+  {
+    id: "doc_4",
+    name: "د. ريم درويش",
+    specialty: "أمراض نسائية وتوليد",
+    phone: "0966334455",
+    clinicAddress: "طريق المدارس - البناء الطبي الحديث",
+    workingHours: "11:00 صباحاً - 4:00 عصراً",
+    notes: "متابعة حمل وإيكو، رعاية الأمومة، تشخيص واستشارات نسائية"
+  },
+  {
+    id: "doc_5",
+    name: "د. طارق الجاسم",
+    specialty: "جراحة عظمية ومفاصل",
+    phone: "0988776655",
+    clinicAddress: "قرب دوار الساعة - عمارة السلام",
+    workingHours: "4:30 عصراً - 8:00 مساءً",
+    notes: "علاج الكسور، آلام المفاصل والفقرات، تنظير وجراحة عظام"
+  }
 ];
 
 export const initialCoupons: Coupon[] = [

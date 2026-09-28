@@ -145,7 +145,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       { id: "pharmacies", label: "صيدليات" },
       { id: "vegetables", label: "خضار وفواكه" },
       { id: "sweets", label: "حلويات ومعجنات" },
-      { id: "doctors", label: "عيادات وأطباء" },
       { id: "crafts", label: "مهن وصيانة" },
       { id: "drivers", label: "خدمات وسائقين" }
     ];

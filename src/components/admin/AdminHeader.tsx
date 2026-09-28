@@ -28,7 +28,8 @@ import {
   VolumeX,
   Sparkles,
   ShoppingBag,
-  Bell
+  Bell,
+  Stethoscope
 } from "lucide-react";
 import { StaffMember, StaffPermission } from "../../types";
 import { playOrderAlertSound, isSoundEnabled, setSoundEnabled, requestNotificationPermission, showSystemNotification } from "../../utils/soundNotifications";
@@ -48,6 +49,7 @@ export type AdminTab =
   | "landmarks" 
   | "coupons" 
   | "craftsmen" 
+  | "doctors"
   | "customers" 
   | "logs" 
   | "settings";
@@ -160,6 +162,7 @@ export const AdminHeader: React.FC<AdminHeaderProps> = ({
     { id: "drivers", label: "إدارة الكباتن والمناديب", icon: Bike, emoji: "🛵" },
     { id: "landmarks", label: "إدارة المعالم الجغرافية", icon: MapPin, emoji: "📍" },
     { id: "craftsmen", label: "دليل الحرفيين وأصحاب المهن", icon: Wrench, emoji: "🛠️" },
+    { id: "doctors", label: "دليل وسجل الأطباء والعيادات", icon: Stethoscope, emoji: "🩺" },
     { id: "staff", label: "طاقم العمل وتخصيص الصلاحيات", icon: KeyRound, emoji: "🔑" },
     { id: "logs", label: "سجل عمليات الموظفين", icon: FileText, emoji: "📑" },
     { id: "settings", label: "الإعدادات والرسوم وباسوورد الإدارة", icon: Settings, emoji: "⚙️" },

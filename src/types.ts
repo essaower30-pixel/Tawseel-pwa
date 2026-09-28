@@ -197,6 +197,7 @@ export type StaffPermission =
   | "drivers"
   | "landmarks"
   | "craftsmen"
+  | "doctors"
   | "staff"
   | "logs"
   | "settings"
@@ -246,6 +247,18 @@ export interface Craftsman {
   avatar?: string;
   availability?: "available" | "busy" | "offline";
   rating?: number;
+}
+
+export interface Doctor {
+  id: string;
+  name: string;             // اسم الطبيب (مثلاً: د. سمير كنعان)
+  specialty: string;        // الاختصاص (مثلاً: طب أطفال وحديثي ولادة)
+  phone: string;            // رقم التواصل (هاتف / واتساب)
+  clinicAddress?: string;   // عنوان أو مكان العيادة (اختياري)
+  workingHours?: string;    // أوقات الدوام أو الاستشارة (اختياري)
+  notes?: string;           // ملاحظات إضافية (اختياري)
+  rating?: number;
+  createdAt?: string;
 }
 
 export interface AuditLog {

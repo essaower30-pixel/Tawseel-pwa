@@ -6,6 +6,7 @@ import {
   Category, 
   Coupon, 
   Craftsman, 
+  Doctor,
   DriverMember, 
   MapNode, 
   Order, 
@@ -20,6 +21,7 @@ import {
   initialStaff, 
   initialDrivers, 
   initialCraftsmen, 
+  initialDoctors,
   initialCoupons, 
   initialAppSettings,
   initialCustomers 
@@ -31,6 +33,7 @@ import { ProductsTab } from "./admin/ProductsTab";
 import { StaffTab } from "./admin/StaffTab";
 import { DriversTab } from "./admin/DriversTab";
 import { CraftsmenTab } from "./admin/CraftsmenTab";
+import { DoctorsTab } from "./admin/DoctorsTab";
 import { LandmarksTab } from "./admin/LandmarksTab";
 import { CouponsTab } from "./admin/CouponsTab";
 import { OrdersTab } from "./admin/OrdersTab";
@@ -366,6 +369,37 @@ export const Dashboard: React.FC<DashboardProps> = ({
     localStorage.setItem("tw_craftsmen", JSON.stringify(next));
   };
 
+  // Doctors State (سجل ودليل الأطباء المستقل)
+  const [doctorsList, setDoctorsList] = useState<Doctor[]>(() => {
+    try {
+      const saved = localStorage.getItem("tw_doctors");
+      return saved ? JSON.parse(saved) : initialDoctors;
+    } catch {
+      return initialDoctors;
+    }
+  });
+
+  const handleAddDoctor = (doctor: Doctor) => {
+    const next = [doctor, ...doctorsList];
+    setDoctorsList(next);
+    localStorage.setItem("tw_doctors", JSON.stringify(next));
+    window.dispatchEvent(new CustomEvent("tw_doctors_updated"));
+  };
+
+  const handleUpdateDoctor = (doctor: Doctor) => {
+    const next = doctorsList.map(d => d.id === doctor.id ? doctor : d);
+    setDoctorsList(next);
+    localStorage.setItem("tw_doctors", JSON.stringify(next));
+    window.dispatchEvent(new CustomEvent("tw_doctors_updated"));
+  };
+
+  const handleDeleteDoctor = (id: string) => {
+    const next = doctorsList.filter(d => d.id !== id);
+    setDoctorsList(next);
+    localStorage.setItem("tw_doctors", JSON.stringify(next));
+    window.dispatchEvent(new CustomEvent("tw_doctors_updated"));
+  };
+
   // Coupons State
   const [coupons, setCoupons] = useState<Coupon[]>(() => {
     try {
@@ -651,6 +685,15 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 onAddCraftsman={handleAddCraftsman}
                 onUpdateCraftsman={handleUpdateCraftsman}
                 onDeleteCraftsman={handleDeleteCraftsman}
+              />
+            )}
+
+            {activeTab === "doctors" && (
+              <DoctorsTab
+                doctorsList={doctorsList}
+                onAddDoctor={handleAddDoctor}
+                onUpdateDoctor={handleUpdateDoctor}
+                onDeleteDoctor={handleDeleteDoctor}
               />
             )}
 

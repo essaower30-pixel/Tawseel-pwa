@@ -46,9 +46,9 @@ import {
   WifiOff,
   RefreshCw
 } from "lucide-react";
-import { CartItem, Category, DriverMember, MapNode, Order, Product, Store, StoreAddition, StoreSize, UserProfile, StoreBroadcast, StoreReview, Coupon } from "./types";
+import { CartItem, Category, Doctor, DriverMember, MapNode, Order, Product, Store, StoreAddition, StoreSize, UserProfile, StoreBroadcast, StoreReview, Coupon } from "./types";
 import { initialCategories, initialMapNodes, initialProducts, initialStores, initialStoreBroadcasts, initialStoreReviews } from "./data/initialData";
-import { initialDrivers, initialOrders, initialCoupons, initialStaff } from "./data/adminInitialData";
+import { initialDrivers, initialDoctors, initialOrders, initialCoupons, initialStaff } from "./data/adminInitialData";
 import { AuthModal } from "./components/AuthModal";
 import { StoreDetails } from "./components/StoreDetails";
 import { CartCheckout } from "./components/CartCheckout";
@@ -69,6 +69,7 @@ if (typeof window !== "undefined") {
 }
 
 import { CustomerOrdersArchiveModal } from "./components/CustomerOrdersArchiveModal";
+import { DoctorsDirectoryModal } from "./components/DoctorsDirectoryModal";
 import { InstallPromptModal } from "./components/InstallPromptModal";
 import { CustomStoreOrderModal } from "./components/CustomStoreOrderModal";
 import { BottomNavigation } from "./components/BottomNavigation";
@@ -416,7 +417,38 @@ export default function App() {
 
   const [showAuthModal, setShowAuthModal] = useState<boolean>(false);
   const [showCustomerArchiveModal, setShowCustomerArchiveModal] = useState<boolean>(false);
+  const [showDoctorsModal, setShowDoctorsModal] = useState<boolean>(false);
   const [showManagerSecretModal, setShowManagerSecretModal] = useState<boolean>(false);
+
+  // Doctors State
+  const [doctorsList, setDoctorsList] = useState<Doctor[]>(() => {
+    try {
+      const saved = localStorage.getItem("tw_doctors");
+      return saved ? JSON.parse(saved) : initialDoctors;
+    } catch {
+      return initialDoctors;
+    }
+  });
+
+  useEffect(() => {
+    const handleDoctorsUpdate = () => {
+      try {
+        const saved = localStorage.getItem("tw_doctors");
+        if (saved) {
+          setDoctorsList(JSON.parse(saved));
+        }
+      } catch {}
+    };
+    window.addEventListener("tw_doctors_updated", handleDoctorsUpdate);
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === "tw_doctors") handleDoctorsUpdate();
+    };
+    window.addEventListener("storage", handleStorageChange);
+    return () => {
+      window.removeEventListener("tw_doctors_updated", handleDoctorsUpdate);
+      window.removeEventListener("storage", handleStorageChange);
+    };
+  }, []);
   const [bikeHeaderClicks, setBikeHeaderClicks] = useState<number>(0);
   const lastBikeClickTimeRef = useRef<number>(0);
 
@@ -5018,6 +5050,22 @@ export default function App() {
                   </span>
                 </button>
 
+                {/* Dedicated Doctors Directory Button (البطاقات التعريفية للأطباء بدون أصناف أو سلة) */}
+                <button
+                  type="button"
+                  onClick={() => setShowDoctorsModal(true)}
+                  className="snap-center shrink-0 p-2.5 sm:p-4 rounded-xl sm:rounded-2xl border text-right transition-all flex items-center gap-2 sm:gap-3 cursor-pointer min-w-[125px] sm:min-w-0 border-teal-500/30 bg-teal-50/80 hover:bg-teal-100/90 text-teal-950 shadow-xs"
+                >
+                  <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg sm:rounded-xl flex items-center justify-center bg-teal-600 text-white shadow-xs">
+                    <Stethoscope className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                  </div>
+                  <div className="flex items-center gap-1 min-w-0">
+                    <span className="text-xs sm:text-sm font-extrabold whitespace-nowrap text-teal-900">
+                      دليل الأطباء 🩺
+                    </span>
+                  </div>
+                </button>
+
                 {/* Categories List (Including Offers according to sorted order) */}
                 {categories.filter((cat) => !cat.isHidden).map((cat) => {
                   const isOffers = cat.id === "offers";
@@ -5482,6 +5530,15 @@ export default function App() {
               setSelectedStore(null);
             }
           }}
+        />
+      )}
+
+      {/* Customer Doctors Directory Modal */}
+      {showDoctorsModal && (
+        <DoctorsDirectoryModal
+          isOpen={showDoctorsModal}
+          onClose={() => setShowDoctorsModal(false)}
+          doctors={doctorsList}
         />
       )}
 

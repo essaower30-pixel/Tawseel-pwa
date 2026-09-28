@@ -9,7 +9,6 @@ export const initialCategories: Category[] = [
   { id: "pharmacies", label: "صيدليات", icon: "Pill" },
   { id: "vegetables", label: "خضار وفواكه", icon: "Leaf" },
   { id: "sweets", label: "حلويات ومعجنات", icon: "CakeSlice" },
-  { id: "doctors", label: "عيادات وأطباء", icon: "Stethoscope" },
   { id: "crafts", label: "مهن وصيانة", icon: "Wrench" },
   { id: "drivers", label: "خدمات وسائقين", icon: "Car" }
 ];
@@ -141,22 +140,6 @@ export const initialStores: Store[] = [
     ownerPhone: "0955667788",
     contactPhone: "0955667788",
     ownerPin: "1234"
-  },
-  {
-    id: "service_clinic",
-    name: "عيادة د. سمير للأطفال",
-    category: "doctors",
-    image: "https://images.unsplash.com/photo-1622253692010-333f2da6031d?w=500&auto=format&fit=crop&q=60",
-    rating: 4.9,
-    deliveryTime: "حجز موعد",
-    deliveryFee: 0,
-    locationNode: "landmark_jasmine_complex",
-    featuredProduct: "معاينة طبية ومتابعة صحية",
-    contactPhone: "0933445566",
-    status: "open",
-    isApproved: true,
-    isService: true,
-    description: "استشارات طبية، لقاحات ومعاينة للأطفال"
   },
   {
     id: "service_blacksmith",
