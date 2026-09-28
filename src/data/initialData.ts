@@ -9,6 +9,7 @@ export const initialCategories: Category[] = [
   { id: "pharmacies", label: "صيدليات", icon: "Pill" },
   { id: "vegetables", label: "خضار وفواكه", icon: "Leaf" },
   { id: "sweets", label: "حلويات ومعجنات", icon: "CakeSlice" },
+  { id: "doctors", label: "عيادات وأطباء", icon: "Stethoscope" },
   { id: "crafts", label: "مهن وصيانة", icon: "Wrench" },
   { id: "drivers", label: "خدمات وسائقين", icon: "Car" }
 ];

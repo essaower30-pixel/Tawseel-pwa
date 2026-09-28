@@ -70,6 +70,7 @@ if (typeof window !== "undefined") {
 
 import { CustomerOrdersArchiveModal } from "./components/CustomerOrdersArchiveModal";
 import { DoctorsDirectoryModal } from "./components/DoctorsDirectoryModal";
+import { ContactActions } from "./components/ContactActions";
 import { InstallPromptModal } from "./components/InstallPromptModal";
 import { CustomStoreOrderModal } from "./components/CustomStoreOrderModal";
 import { BottomNavigation } from "./components/BottomNavigation";
@@ -424,7 +425,14 @@ export default function App() {
   const [doctorsList, setDoctorsList] = useState<Doctor[]>(() => {
     try {
       const saved = localStorage.getItem("tw_doctors");
-      return saved ? JSON.parse(saved) : initialDoctors;
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return parsed;
+        }
+      }
+      localStorage.setItem("tw_doctors", JSON.stringify(initialDoctors));
+      return initialDoctors;
     } catch {
       return initialDoctors;
     }
@@ -5050,22 +5058,6 @@ export default function App() {
                   </span>
                 </button>
 
-                {/* Dedicated Doctors Directory Button (البطاقات التعريفية للأطباء بدون أصناف أو سلة) */}
-                <button
-                  type="button"
-                  onClick={() => setShowDoctorsModal(true)}
-                  className="snap-center shrink-0 p-2.5 sm:p-4 rounded-xl sm:rounded-2xl border text-right transition-all flex items-center gap-2 sm:gap-3 cursor-pointer min-w-[125px] sm:min-w-0 border-teal-500/30 bg-teal-50/80 hover:bg-teal-100/90 text-teal-950 shadow-xs"
-                >
-                  <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg sm:rounded-xl flex items-center justify-center bg-teal-600 text-white shadow-xs">
-                    <Stethoscope className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-                  </div>
-                  <div className="flex items-center gap-1 min-w-0">
-                    <span className="text-xs sm:text-sm font-extrabold whitespace-nowrap text-teal-900">
-                      دليل الأطباء 🩺
-                    </span>
-                  </div>
-                </button>
-
                 {/* Categories List (Including Offers according to sorted order) */}
                 {categories.filter((cat) => !cat.isHidden).map((cat) => {
                   const isOffers = cat.id === "offers";
@@ -5249,6 +5241,108 @@ export default function App() {
                       </div>
                     );
                   })}
+                </div>
+              </div>
+            ) : selectedCategory === "doctors" ? (
+              <div className="space-y-5">
+                {/* Header Section for Doctors Directory */}
+                <div className="bg-gradient-to-r from-teal-900 via-cyan-950 to-slate-900 text-white rounded-3xl p-5 sm:p-6 border border-teal-500/30 shadow-xl relative overflow-hidden text-right">
+                  <div className="absolute top-0 left-0 w-64 h-64 bg-teal-400/10 rounded-full blur-2xl -ml-20 -mt-20 pointer-events-none" />
+                  <div className="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div className="flex items-center gap-3">
+                      <div className="w-12 h-12 rounded-2xl bg-teal-500/20 border border-teal-400/30 flex items-center justify-center text-teal-300 shadow-inner">
+                        <Stethoscope className="w-6 h-6" />
+                      </div>
+                      <div>
+                        <h3 className="text-base sm:text-xl font-black">
+                          دليل الأطباء والعيادات والاستشارات الطبية 🩺
+                        </h3>
+                        <p className="text-xs text-teal-200/90 font-medium mt-0.5">
+                          بطاقات تعريفية مباشرة للتواصل، حجز موعد واستشارة الطبيب (بدون أصناف وبدون طلبات)
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Search Bar for Doctors */}
+                <div className="relative">
+                  <input
+                    type="text"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder="ابحث باسم الطبيب، الاختصاص الطبي، العيادة..."
+                    className="w-full bg-white border border-slate-200 focus:border-teal-500 rounded-2xl py-3 pr-11 pl-4 text-xs sm:text-sm outline-none text-slate-800 transition-all shadow-xs text-right"
+                  />
+                  <Search className="w-4.5 h-4.5 text-slate-400 absolute right-3.5 top-1/2 -translate-y-1/2" />
+                </div>
+
+                {/* Doctor Cards Grid */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {doctorsList
+                    .filter((doc) => {
+                      const q = searchQuery.toLowerCase().trim();
+                      if (!q) return true;
+                      return (
+                        doc.name.toLowerCase().includes(q) ||
+                        doc.specialty.toLowerCase().includes(q) ||
+                        doc.phone.includes(q) ||
+                        (doc.clinicAddress && doc.clinicAddress.toLowerCase().includes(q))
+                      );
+                    })
+                    .map((doc) => (
+                      <div
+                        key={doc.id}
+                        className="bg-white rounded-3xl p-5 border border-slate-200/90 hover:border-teal-400/60 shadow-xs hover:shadow-md transition-all space-y-4 text-right flex flex-col justify-between"
+                      >
+                        <div className="space-y-3">
+                          <div className="flex items-start gap-3 border-b border-slate-100 pb-3">
+                            <div className="w-12 h-12 rounded-2xl bg-teal-50 border border-teal-100 text-teal-600 flex items-center justify-center text-2xl shrink-0">
+                              🩺
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <h4 className="font-black text-slate-900 text-base leading-snug">
+                                {doc.name}
+                              </h4>
+                              <div className="mt-1">
+                                <span className="inline-flex items-center px-3 py-1 rounded-full bg-teal-50 border border-teal-200 text-teal-800 text-xs font-black">
+                                  {doc.specialty}
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="space-y-2 text-xs text-slate-600 bg-slate-50/80 p-3 rounded-2xl border border-slate-100">
+                            {doc.clinicAddress && (
+                              <div className="flex items-center gap-2">
+                                <MapPin className="w-3.5 h-3.5 text-teal-600 shrink-0" />
+                                <span className="font-bold text-slate-700 truncate">{doc.clinicAddress}</span>
+                              </div>
+                            )}
+                            {doc.workingHours && (
+                              <div className="flex items-center gap-2">
+                                <Clock className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+                                <span className="font-bold text-slate-700">{doc.workingHours}</span>
+                              </div>
+                            )}
+                            {doc.notes && (
+                              <div className="flex items-start gap-2 pt-1 border-t border-slate-200/60 text-[11px] text-slate-500 font-medium">
+                                <span>💡 {doc.notes}</span>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="pt-2 border-t border-slate-100">
+                          <ContactActions
+                            phone={doc.phone}
+                            name={doc.name}
+                            defaultMessage={`مرحباً ${doc.name}، أود الاستفسار وحجز موعد استشارة طبية (${doc.specialty}).`}
+                            variant="full"
+                          />
+                        </div>
+                      </div>
+                    ))}
                 </div>
               </div>
             ) : (
