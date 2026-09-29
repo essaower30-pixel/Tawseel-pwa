@@ -24,7 +24,8 @@ import {
   Coupon,
   AppSettings,
   Category,
-  StaffMember
+  StaffMember,
+  Craftsman
 } from "../types";
 import {
   initialStores,
@@ -32,7 +33,7 @@ import {
   initialCategories,
   initialMapNodes
 } from "../data/initialData";
-import { initialOrders, initialDrivers, initialCoupons, initialStaff } from "../data/adminInitialData";
+import { initialOrders, initialDrivers, initialCoupons, initialStaff, initialCraftsmen } from "../data/adminInitialData";
 
 // Helper to remove undefined values before Firestore writes
 function sanitizeForFirestore<T>(data: T): Record<string, any> {
@@ -647,6 +648,84 @@ export async function deleteStaffFromFirestore(staffId: string): Promise<boolean
     return true;
   } catch (err) {
     console.error("Error deleting staff from Firestore:", err);
+    return false;
+  }
+}
+
+// -------------------------------------------------------------
+// Craftsmen Firestore Sync & Realtime Listener
+// -------------------------------------------------------------
+export function subscribeToCraftsmen(
+  callback: (craftsmen: Craftsman[]) => void
+): () => void {
+  try {
+    const craftsmenRef = collection(db, "craftsmen");
+    const unsubscribe = onSnapshot(
+      craftsmenRef,
+      (snapshot) => {
+        if (!snapshot.empty) {
+          const list: Craftsman[] = [];
+          snapshot.forEach((docSnap) => {
+            const data = docSnap.data();
+            list.push({
+              id: docSnap.id,
+              name: data.name || "",
+              craft: data.craft || "",
+              phone: data.phone || "",
+              neighborhood: data.neighborhood || "",
+              description: data.description || "",
+              avatar: data.avatar || "",
+              availability: data.availability || "available",
+              rating: typeof data.rating === "number" ? data.rating : 0
+            });
+          });
+          callback(list);
+        } else {
+          // If Firestore collection is empty, seed with initialCraftsmen
+          seedInitialCraftsmenToFirestore().catch(() => {});
+          callback(initialCraftsmen);
+        }
+      },
+      (error) => {
+        console.warn("Firestore subscribeToCraftsmen listener notice:", error);
+      }
+    );
+    return unsubscribe;
+  } catch (err) {
+    console.warn("Failed to subscribe to craftsmen:", err);
+    return () => {};
+  }
+}
+
+export async function seedInitialCraftsmenToFirestore(): Promise<void> {
+  try {
+    for (const c of initialCraftsmen) {
+      const docRef = doc(db, "craftsmen", c.id);
+      await setDoc(docRef, sanitizeForFirestore(c), { merge: true });
+    }
+  } catch (err) {
+    console.warn("Notice: seedInitialCraftsmenToFirestore:", err);
+  }
+}
+
+export async function saveCraftsmanToFirestore(craftsman: Craftsman): Promise<boolean> {
+  try {
+    const docRef = doc(db, "craftsmen", craftsman.id);
+    await setDoc(docRef, sanitizeForFirestore(craftsman), { merge: true });
+    return true;
+  } catch (err) {
+    console.warn("Error saving craftsman to Firestore:", err);
+    return false;
+  }
+}
+
+export async function deleteCraftsmanFromFirestore(craftsmanId: string): Promise<boolean> {
+  try {
+    const docRef = doc(db, "craftsmen", craftsmanId);
+    await deleteDoc(docRef);
+    return true;
+  } catch (err) {
+    console.warn("Error deleting craftsman from Firestore:", err);
     return false;
   }
 }

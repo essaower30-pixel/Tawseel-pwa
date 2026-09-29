@@ -250,6 +250,15 @@ const defaultInitialCategories = [
   { id: "drivers", label: "خدمات وسائقين", icon: "Car" }
 ];
 
+const defaultInitialCraftsmen = [
+  { id: "craft_1", name: "المعلم أبو خالد السباك", craft: "سباك وتمديدات صحية", phone: "0994112233", neighborhood: "الحارة الشرقية", description: "صيانة وتمديد شبكات المياه والمضخات وفلاتر المياه على مدار الساعة", availability: "available", rating: 4.9 },
+  { id: "craft_2", name: "الأستاذ فادي الكهربائي", craft: "كهربائي وطاقة شمسية", phone: "0995223344", neighborhood: "قرب الجامع الكبير", description: "تمديدات منزلية، صيانة إنفرتر وبطاريات طاقة شمسية، تصليح غسالات وبرادات", availability: "available", rating: 4.9 },
+  { id: "craft_3", name: "المعلم هيثم النجار", craft: "نجارة وموبيليا وألمنيوم", phone: "0996334455", neighborhood: "شارع البلدية", description: "تفصيل وتصليح غرف نوم، مطابخ ألمنيوم، شبابيك وأبواب خشبية", availability: "available", rating: 4.8 },
+  { id: "craft_4", name: "الحداد أبو سمير", craft: "حدادة وأبواب فولاذية", phone: "0997445566", neighborhood: "طريق السهل", description: "أبواب حماية، حمايات نوافذ، تصليح خزانات حديد وشناكل زراعية", availability: "available", rating: 4.7 },
+  { id: "craft_5", name: "المعلم نادر الدهان", craft: "دهان وديكورات داخلية", phone: "0998556677", neighborhood: "الحارة الغربية", description: "دهان منازل وفلل، معجون وديكورات جبس بورد، معالجة الرطوبة والنش", availability: "available", rating: 4.9 },
+  { id: "craft_6", name: "الأسطى رضوان الميكانيكي", craft: "ميكانيك سيارات ودراجات", phone: "0999667788", neighborhood: "المدخل الغربي", description: "صيانة كهرباء وميكانيك الدراجات النارية والسيارات والشاحنات الخفيفة", availability: "available", rating: 4.8 }
+];
+
 function readServerData() {
   try {
     if (fs.existsSync(STORAGE_FILE)) {
@@ -260,6 +269,7 @@ function readServerData() {
         if (!parsed.orders) parsed.orders = [];
         if (!parsed.products) parsed.products = [];
         if (!parsed.drivers) parsed.drivers = [];
+        if (!parsed.craftsmen) parsed.craftsmen = [];
         if (!parsed.notifications) parsed.notifications = [];
         if (!parsed.deletedCategoryIds) parsed.deletedCategoryIds = [];
         if (!parsed.categories || !Array.isArray(parsed.categories) || parsed.categories.length === 0) {
@@ -279,6 +289,9 @@ function readServerData() {
       if (!parsed.stores) parsed.stores = defaultInitialStores;
       if (!parsed.orders) parsed.orders = [];
       if (!parsed.products) parsed.products = [];
+      if (!parsed.craftsmen || !Array.isArray(parsed.craftsmen) || parsed.craftsmen.length === 0) {
+        parsed.craftsmen = defaultInitialCraftsmen;
+      }
       if (!parsed.deletedDriverIds) parsed.deletedDriverIds = [];
       if (!parsed.deletedStoreIds) parsed.deletedStoreIds = [];
       if (!parsed.deletedCategoryIds) parsed.deletedCategoryIds = [];
@@ -749,6 +762,57 @@ app.delete("/api/categories/:id", (req, res) => {
     deletedCategoryIds: data.deletedCategoryIds,
     reassignedStoresCount
   });
+});
+
+// 2.2 API: Craftsmen Management (Real-time Cloud Sync)
+app.get("/api/craftsmen", (req, res) => {
+  const data = readServerData();
+  res.json(data.craftsmen || defaultInitialCraftsmen);
+});
+
+app.post("/api/craftsmen", (req, res) => {
+  const craftsman = req.body;
+  if (!craftsman || !craftsman.name) {
+    return res.status(400).json({ error: "اسم صاحب المهنة مطلوب" });
+  }
+
+  const data = readServerData();
+  if (!data.craftsmen || !Array.isArray(data.craftsmen)) {
+    data.craftsmen = [...defaultInitialCraftsmen];
+  }
+
+  const id = craftsman.id || ("craft_" + Date.now().toString(36));
+  const craftsmanItem = {
+    ...craftsman,
+    id,
+    name: String(craftsman.name).trim(),
+    craft: String(craftsman.craft || "مهني عام").trim(),
+    phone: String(craftsman.phone || "").trim(),
+    neighborhood: String(craftsman.neighborhood || "وسط البلد").trim(),
+    description: String(craftsman.description || "").trim(),
+    availability: craftsman.availability || "available",
+    rating: typeof craftsman.rating === "number" ? craftsman.rating : 0
+  };
+
+  const existingIdx = data.craftsmen.findIndex((c: any) => c.id === id);
+  if (existingIdx >= 0) {
+    data.craftsmen[existingIdx] = craftsmanItem;
+  } else {
+    data.craftsmen.push(craftsmanItem);
+  }
+
+  writeServerData(data);
+  res.json({ success: true, craftsman: craftsmanItem, craftsmen: data.craftsmen });
+});
+
+app.delete("/api/craftsmen/:id", (req, res) => {
+  const craftId = req.params.id;
+  const data = readServerData();
+  if (data.craftsmen && Array.isArray(data.craftsmen)) {
+    data.craftsmen = data.craftsmen.filter((c: any) => c.id !== craftId);
+    writeServerData(data);
+  }
+  res.json({ success: true, craftsmen: data.craftsmen || [] });
 });
 
 // 3. API: Get all stores

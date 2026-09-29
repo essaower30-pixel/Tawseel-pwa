@@ -46,9 +46,9 @@ import {
   WifiOff,
   RefreshCw
 } from "lucide-react";
-import { CartItem, Category, Doctor, DriverMember, MapNode, Order, Product, Store, StoreAddition, StoreSize, UserProfile, StoreBroadcast, StoreReview, Coupon } from "./types";
+import { CartItem, Category, Craftsman, Doctor, DriverMember, MapNode, Order, Product, Store, StoreAddition, StoreSize, UserProfile, StoreBroadcast, StoreReview, Coupon } from "./types";
 import { initialCategories, initialMapNodes, initialProducts, initialStores, initialStoreBroadcasts, initialStoreReviews } from "./data/initialData";
-import { initialDrivers, initialDoctors, initialOrders, initialCoupons, initialStaff } from "./data/adminInitialData";
+import { initialDrivers, initialDoctors, initialCraftsmen, initialOrders, initialCoupons, initialStaff } from "./data/adminInitialData";
 import { AuthModal } from "./components/AuthModal";
 import { StoreDetails } from "./components/StoreDetails";
 import { CartCheckout } from "./components/CartCheckout";
@@ -70,6 +70,7 @@ if (typeof window !== "undefined") {
 
 import { CustomerOrdersArchiveModal } from "./components/CustomerOrdersArchiveModal";
 import { DoctorsDirectoryModal } from "./components/DoctorsDirectoryModal";
+import { CraftsmenDirectoryModal } from "./components/CraftsmenDirectoryModal";
 import { ContactActions } from "./components/ContactActions";
 import { InstallPromptModal } from "./components/InstallPromptModal";
 import { CustomStoreOrderModal } from "./components/CustomStoreOrderModal";
@@ -172,7 +173,8 @@ import {
   subscribeToEmergencyRush,
   subscribeToSystemStatus,
   saveAppSettingsToFirestore,
-  syncOrderStatusRealtime
+  syncOrderStatusRealtime,
+  subscribeToCraftsmen
 } from "./services/firebaseService";
 import { testFirestoreConnection } from "./firebase";
 import { CategoryIcon } from "./components/CategoryIcon";
@@ -420,6 +422,8 @@ export default function App() {
   const [showAuthModal, setShowAuthModal] = useState<boolean>(false);
   const [showCustomerArchiveModal, setShowCustomerArchiveModal] = useState<boolean>(false);
   const [showDoctorsModal, setShowDoctorsModal] = useState<boolean>(false);
+  const [showCraftsmenModal, setShowCraftsmenModal] = useState<boolean>(false);
+  const [selectedCraftFilter, setSelectedCraftFilter] = useState<string>("all");
   const [showManagerSecretModal, setShowManagerSecretModal] = useState<boolean>(false);
 
   // Doctors State
@@ -456,6 +460,56 @@ export default function App() {
     return () => {
       window.removeEventListener("tw_doctors_updated", handleDoctorsUpdate);
       window.removeEventListener("storage", handleStorageChange);
+    };
+  }, []);
+
+  // Craftsmen State (دليل الحرفيين وأصحاب المهن المستقل)
+  const [craftsmenList, setCraftsmenList] = useState<Craftsman[]>(() => {
+    try {
+      const saved = localStorage.getItem("tw_craftsmen");
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return parsed;
+        }
+      }
+      localStorage.setItem("tw_craftsmen", JSON.stringify(initialCraftsmen));
+      return initialCraftsmen;
+    } catch {
+      return initialCraftsmen;
+    }
+  });
+
+  useEffect(() => {
+    const handleCraftsmenUpdate = () => {
+      try {
+        const saved = localStorage.getItem("tw_craftsmen");
+        if (saved) {
+          setCraftsmenList(JSON.parse(saved));
+        }
+      } catch {}
+    };
+    window.addEventListener("tw_craftsmen_updated", handleCraftsmenUpdate);
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === "tw_craftsmen") handleCraftsmenUpdate();
+    };
+    window.addEventListener("storage", handleStorageChange);
+    return () => {
+      window.removeEventListener("tw_craftsmen_updated", handleCraftsmenUpdate);
+      window.removeEventListener("storage", handleStorageChange);
+    };
+  }, []);
+
+  // Subscribe to real-time craftsmen updates from Firebase
+  useEffect(() => {
+    const unsubscribe = subscribeToCraftsmen((cloudCraftsmen) => {
+      if (cloudCraftsmen && Array.isArray(cloudCraftsmen) && cloudCraftsmen.length > 0) {
+        setCraftsmenList(cloudCraftsmen);
+        localStorage.setItem("tw_craftsmen", JSON.stringify(cloudCraftsmen));
+      }
+    });
+    return () => {
+      unsubscribe();
     };
   }, []);
   const [bikeHeaderClicks, setBikeHeaderClicks] = useState<number>(0);
@@ -3196,6 +3250,19 @@ export default function App() {
           return currentLocal;
         });
       }
+
+      // 6. Sync Craftsmen from Server
+      if (serverData.craftsmen && Array.isArray(serverData.craftsmen) && serverData.craftsmen.length > 0) {
+        setCraftsmenList((currentLocal) => {
+          const currentIds = new Set(currentLocal.map((c) => c.id));
+          const hasNew = serverData.craftsmen!.some((sc) => !currentIds.has(sc.id));
+          if (hasNew || serverData.craftsmen!.length !== currentLocal.length) {
+            localStorage.setItem("tw_craftsmen", JSON.stringify(serverData.craftsmen));
+            return serverData.craftsmen!;
+          }
+          return currentLocal;
+        });
+      }
     };
 
     performSync();
@@ -5337,6 +5404,191 @@ export default function App() {
                     ))}
                 </div>
               </div>
+            ) : (selectedCategory === "crafts" || selectedCategory === "craftsmen") ? (
+              <div className="space-y-5">
+                {/* Header Section for Craftsmen Directory */}
+                <div className="bg-gradient-to-r from-amber-700 via-orange-850 to-slate-900 text-white rounded-3xl p-5 sm:p-6 border border-orange-500/30 shadow-xl relative overflow-hidden text-right">
+                  <div className="absolute top-0 left-0 w-64 h-64 bg-amber-400/10 rounded-full blur-2xl -ml-20 -mt-20 pointer-events-none" />
+                  <div className="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div className="flex items-center gap-3">
+                      <div className="w-12 h-12 rounded-2xl bg-amber-500/20 border border-amber-400/30 flex items-center justify-center text-amber-300 shadow-inner">
+                        <Wrench className="w-6 h-6" />
+                      </div>
+                      <div>
+                        <h3 className="text-base sm:text-xl font-black">
+                          دليل الحرفيين وأصحاب المهن والصيانة 🛠️
+                        </h3>
+                        <p className="text-xs text-amber-200/90 font-medium mt-0.5">
+                          بطاقات تعريفية مباشرة للتواصل، السباكة، الكهرباء، النجارة، والحدادة وغيرها
+                        </p>
+                      </div>
+                    </div>
+                    <div className="self-start sm:self-center bg-white/10 backdrop-blur-md px-3.5 py-1.5 rounded-xl border border-white/20 text-xs font-black">
+                      {craftsmenList.length} مهني معتمد
+                    </div>
+                  </div>
+                </div>
+
+                {/* Search & Craft Filter Chips */}
+                <div className="space-y-2.5">
+                  <div className="relative">
+                    <input
+                      type="text"
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      placeholder="ابحث باسم الحرفي، المهنة (حداد، سباك، كهربائي)، أو المنطقة..."
+                      className="w-full bg-white border border-slate-200 focus:border-orange-500 rounded-2xl py-3 pr-11 pl-4 text-xs sm:text-sm outline-none text-slate-800 transition-all shadow-xs text-right"
+                    />
+                    <Search className="w-4.5 h-4.5 text-slate-400 absolute right-3.5 top-1/2 -translate-y-1/2" />
+                  </div>
+
+                  {/* Craft Filter Chips */}
+                  <div className="flex items-center gap-1.5 overflow-x-auto pb-1 text-xs no-scrollbar">
+                    <button
+                      type="button"
+                      onClick={() => setSelectedCraftFilter("all")}
+                      className={`py-1.5 px-3 rounded-xl font-black whitespace-nowrap transition-all cursor-pointer ${
+                        selectedCraftFilter === "all"
+                          ? "bg-orange-600 text-white shadow-xs"
+                          : "bg-white text-slate-700 border border-slate-200 hover:bg-slate-100"
+                      }`}
+                    >
+                      كافة المهن ({craftsmenList.length})
+                    </button>
+                    {Array.from(new Set(craftsmenList.map((c) => c.craft.trim()).filter(Boolean))).map((cr) => (
+                      <button
+                        key={cr}
+                        type="button"
+                        onClick={() => setSelectedCraftFilter(cr)}
+                        className={`py-1.5 px-3 rounded-xl font-black whitespace-nowrap transition-all cursor-pointer ${
+                          selectedCraftFilter === cr
+                            ? "bg-orange-600 text-white shadow-xs"
+                            : "bg-white text-slate-700 border border-slate-200 hover:bg-slate-100"
+                        }`}
+                      >
+                        {cr}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Craftsmen Cards Grid */}
+                {(() => {
+                  const filteredCraftsmen = craftsmenList.filter((craftsman) => {
+                    const searchableCraftText = `${craftsman.name} ${craftsman.craft} ${craftsman.neighborhood || ""} ${craftsman.description || ""} ${craftsman.phone} مهني حرفي سباك كهربائي حداد نجار ميكانيكي دهان`;
+                    const matchesSearch = matchesArabicSearch(searchableCraftText, searchQuery);
+                    const matchesCraft = selectedCraftFilter === "all" || craftsman.craft.trim() === selectedCraftFilter;
+                    return matchesSearch && matchesCraft;
+                  });
+
+                  if (filteredCraftsmen.length === 0) {
+                    return (
+                      <div className="bg-white rounded-3xl p-8 sm:p-12 text-center border border-slate-100 shadow-xs space-y-3">
+                        <div className="w-12 h-12 rounded-2xl bg-amber-50 text-amber-600 mx-auto flex items-center justify-center shadow-xs">
+                          <Wrench className="w-6 h-6" />
+                        </div>
+                        <p className="text-slate-800 font-extrabold text-sm sm:text-base">
+                          لم نجد أي حرفي مطابق للبحث
+                        </p>
+                        <p className="text-slate-400 text-xs">
+                          جرب كتابة اسم المهنة مثل "حداد" أو اختيار تصنيف آخر من الأزرار بالأعلى
+                        </p>
+                        {searchQuery && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setSearchQuery("");
+                              setSelectedCraftFilter("all");
+                            }}
+                            className="mt-2 text-xs font-black text-orange-600 bg-orange-50 border border-orange-200 px-4 py-2 rounded-xl"
+                          >
+                            عرض كافة الحرفيين
+                          </button>
+                        )}
+                      </div>
+                    );
+                  }
+
+                  return (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {filteredCraftsmen.map((craftsman) => {
+                        const isAvailable = craftsman.availability !== "offline" && craftsman.availability !== "busy";
+                        return (
+                          <div
+                            key={craftsman.id}
+                            className="bg-white rounded-3xl p-5 border border-slate-200/90 hover:border-orange-300 shadow-xs hover:shadow-md transition-all space-y-4 text-right flex flex-col justify-between"
+                          >
+                            <div className="space-y-3">
+                              <div className="flex items-start justify-between gap-3 border-b border-slate-100 pb-3">
+                                <div className="flex items-center gap-3 min-w-0">
+                                  <div className="w-12 h-12 rounded-2xl bg-amber-50 border border-amber-200 text-amber-700 flex items-center justify-center text-2xl shrink-0">
+                                    {craftsman.craft.includes("حداد") ? "🔨" : craftsman.craft.includes("كهرب") ? "⚡" : craftsman.craft.includes("سباك") ? "🔧" : craftsman.craft.includes("نجار") ? "🪚" : "🛠️"}
+                                  </div>
+                                  <div className="min-w-0">
+                                    <h4 className="font-black text-slate-900 text-base leading-snug">
+                                      {craftsman.name}
+                                    </h4>
+                                    <div className="mt-1">
+                                      <span className="inline-flex items-center px-3 py-1 rounded-full bg-orange-50 border border-orange-200 text-orange-800 text-xs font-black">
+                                        {craftsman.craft}
+                                      </span>
+                                    </div>
+                                  </div>
+                                </div>
+
+                                <span
+                                  className={`text-[10px] font-black px-2.5 py-1 rounded-full shrink-0 border ${
+                                    isAvailable
+                                      ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                                      : "bg-slate-100 text-slate-500 border-slate-200"
+                                  }`}
+                                >
+                                  {isAvailable ? "🟢 متاح للعمل" : "🟡 غير متاح"}
+                                </span>
+                              </div>
+
+                              {craftsman.description && (
+                                <p className="text-xs text-slate-600 leading-relaxed bg-slate-50/70 p-3 rounded-2xl border border-slate-100">
+                                  {craftsman.description}
+                                </p>
+                              )}
+
+                              <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-slate-500 pt-1">
+                                {craftsman.neighborhood && (
+                                  <div className="flex items-center gap-1.5">
+                                    <MapPin className="w-3.5 h-3.5 text-orange-600 shrink-0" />
+                                    <span className="font-bold text-slate-700">{craftsman.neighborhood}</span>
+                                  </div>
+                                )}
+
+                                <div className="flex items-center gap-1 bg-amber-50 text-amber-800 px-2.5 py-1 rounded-xl border border-amber-200 font-bold">
+                                  <Star className="w-3.5 h-3.5 text-amber-500 fill-amber-500" />
+                                  <span>
+                                    {craftsman.rating !== undefined && craftsman.rating !== null
+                                      ? craftsman.rating === 0
+                                        ? "جديد"
+                                        : craftsman.rating
+                                      : "جديد"}
+                                  </span>
+                                </div>
+                              </div>
+                            </div>
+
+                            <div className="pt-2 border-t border-slate-100">
+                              <ContactActions
+                                phone={craftsman.phone}
+                                name={craftsman.name}
+                                defaultMessage={`مرحباً ${craftsman.name} (${craftsman.craft})، أود الاستفسار عن خدمة مهنية.`}
+                                variant="full"
+                              />
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  );
+                })()}
+              </div>
             ) : (
               <div className="space-y-5">
                 {/* Search and Header Section */}
@@ -5359,6 +5611,62 @@ export default function App() {
                     <Search className="w-4 h-4 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2" />
                   </div>
                 </div>
+
+                {/* Matching Craftsmen Preview if user searched for craft or craftsman (like "حداد" or "سباك") */}
+                {searchQuery.trim() && (() => {
+                  const matchingCraftsmen = craftsmenList.filter((c) => {
+                    const text = `${c.name} ${c.craft} ${c.neighborhood || ""} ${c.description || ""} مهني حرفي سباك كهربائي حداد نجار دهان ميكانيكي`;
+                    return matchesArabicSearch(text, searchQuery);
+                  });
+                  if (matchingCraftsmen.length === 0) return null;
+                  return (
+                    <div className="bg-amber-50/90 border border-amber-300 rounded-3xl p-4 sm:p-5 space-y-3 text-right animate-fade-in shadow-xs">
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2.5">
+                          <div className="w-8 h-8 rounded-xl bg-orange-500 text-white flex items-center justify-center text-sm shadow-xs font-black">
+                            🛠️
+                          </div>
+                          <div>
+                            <h4 className="font-black text-slate-900 text-xs sm:text-sm">
+                              أصحاب المهن والحرفيون المطابقون للبحث ({matchingCraftsmen.length})
+                            </h4>
+                            <p className="text-[10px] text-amber-800 font-medium">
+                              تواصل مباشر وفوري عبر الاتصال أو الواتساب
+                            </p>
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSelectedCategory("crafts");
+                          }}
+                          className="text-xs font-black text-amber-900 bg-white border border-amber-300 hover:bg-amber-100 px-3 py-1.5 rounded-xl transition-colors cursor-pointer shrink-0"
+                        >
+                          عرض قسم المهن ⬅️
+                        </button>
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                        {matchingCraftsmen.slice(0, 4).map((craftsman) => (
+                          <div key={craftsman.id} className="bg-white rounded-2xl p-3 border border-amber-200/90 shadow-xs flex items-center justify-between gap-2">
+                            <div className="min-w-0">
+                              <div className="font-black text-slate-900 text-xs sm:text-sm truncate">{craftsman.name}</div>
+                              <div className="text-[10px] text-orange-600 font-bold truncate">
+                                {craftsman.craft} {craftsman.neighborhood ? `• ${craftsman.neighborhood}` : ""}
+                              </div>
+                            </div>
+                            <ContactActions
+                              phone={craftsman.phone}
+                              name={craftsman.name}
+                              defaultMessage={`مرحباً ${craftsman.name} (${craftsman.craft})، أود الاستفسار عن خدمة مهنية.`}
+                              variant="compact"
+                            />
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })()}
 
                 {/* Stores Listing Grid */}
                 {visibleStores.length === 0 ? (
@@ -5625,6 +5933,15 @@ export default function App() {
           isOpen={showDoctorsModal}
           onClose={() => setShowDoctorsModal(false)}
           doctors={doctorsList}
+        />
+      )}
+
+      {/* Customer Craftsmen Directory Modal */}
+      {showCraftsmenModal && (
+        <CraftsmenDirectoryModal
+          isOpen={showCraftsmenModal}
+          onClose={() => setShowCraftsmenModal(false)}
+          craftsmen={craftsmenList}
         />
       )}
 

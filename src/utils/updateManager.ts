@@ -23,18 +23,18 @@ const BROADCAST_CHANNEL_NAME = "tw_app_update_channel";
  * Default update representing the latest comprehensive platform enhancements
  */
 export const DEFAULT_INITIAL_UPDATE: AppUpdateInfo = {
-  id: "update_v3_9_1_smart_arabic_search",
-  version: "v3.9.1",
-  title: "محرك البحث العربي الذكي وتطبيع الهمزات والكلمات المشابهة 🔍",
+  id: "update_v3_9_2_craftsmen_directory_customer_view",
+  version: "v3.9.2",
+  title: "إتاحة بطاقات ودليل الحرفيين وأصحاب المهن بشاشة الزبائن والمزامنة السحابية 🛠️",
   releaseDate: "29 سبتمبر 2026",
   features: [
-    "محرك بحث عربي ذكي يتجاهل الهمزات تماماً (أ, إ, آ, ء, ئ, ؤ) ويوحد الألف والياء والتاء المربوطة",
-    "دعم البحث بـ 'الـ' التعريف وبدونها (البحث بـ 'اسنان' يجد 'الأسنان' والعكس تلقائياً)",
-    "البحث المرن وتطابق الكلمات المفتاحية دون التقيد الحرفي بالعبارات المسجلة",
-    "تعميم البحث الذكي على كامل المنصة: بطاقات الأطباء، المتاجر، المنتجات، المهن الحرفية، والطلبات",
-    "تحديث محرك PWA وتطهير الكاش (v65) للعمل الفوري على كافة أجهزة الهواتف"
+    "إظهار بطاقات دليل الحرفيين (حدادة، سباكة، كهرباء، نجارة...) مباشرة في شاشة الزبون عند اختيار قسم 'مهن وصيانة'",
+    "تكامل البحث الفوري الذكي: كتابة 'حداد' أو 'سباك' تظهر بطاقات الحرفيين فوراً مع أزرار الاتصال الهاتفي والواتساب",
+    "تفعيل المزامنة السحابية اللحظية (Firestore & Server): أي حرفي أو حداد جديد يضاف من لوحة الإدارة يظهر فوراً لكافة الزبائن",
+    "تصنيف وفلترة الحرفيين حسب نوع المهنة مع حالة التوافر (متاح / غير متاح) وتقييمات الحرفيين والمنطقة",
+    "ترقية نظام PWA وتطهير الكاش (v67) للعمل المباشر على جميع أجهزة الهواتف"
   ],
-  notes: "تحديث تقني متقدم يجعل عملية البحث فائقة السهولة والذكاء لجميع الزبائن والإدارة.",
+  notes: "تحديث رئيسي يربط أصحاب المهن والحرفيين مباشرة بالزبائن وسكان المنطقة.",
   publishedAt: Date.now(),
   publishedBy: "الإدارة العامة"
 };
@@ -50,7 +50,7 @@ export function getLatestUpdate(): AppUpdateInfo {
       const parsed = JSON.parse(stored);
       if (parsed && parsed.id && parsed.version) {
         // Auto-upgrade if stored version is older than latest system release
-        if (parsed.version === "v3.7.0" || parsed.version === "v3.8.0" || parsed.version === "v3.9.0" || parsed.version < "v3.9.1") {
+        if (parsed.version === "v3.7.0" || parsed.version === "v3.8.0" || parsed.version === "v3.9.0" || parsed.version === "v3.9.1" || parsed.version < "v3.9.2") {
           localStorage.setItem(UPDATE_STORAGE_KEY, JSON.stringify(DEFAULT_INITIAL_UPDATE));
           return DEFAULT_INITIAL_UPDATE;
         }

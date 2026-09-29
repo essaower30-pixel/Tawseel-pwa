@@ -43,6 +43,8 @@ import { OrdersArchiveReportsTab } from "./admin/OrdersArchiveReportsTab";
 import { PlatformFeaturesTab } from "./admin/PlatformFeaturesTab";
 import { BottomNavigation } from "./BottomNavigation";
 import { AccountSettingsModal } from "./AccountSettingsModal";
+import { saveCraftsmanToFirestore, deleteCraftsmanFromFirestore } from "../services/firebaseService";
+import { saveCraftsmanOnServer, deleteCraftsmanOnServer } from "../utils/apiSync";
 import { saveStaffToFirestore, deleteStaffFromFirestore, subscribeToStaff, saveAppSettingsToFirestore } from "../services/firebaseService";
 
 interface DashboardProps {
@@ -351,22 +353,46 @@ export const Dashboard: React.FC<DashboardProps> = ({
     }
   });
 
+  useEffect(() => {
+    const handleCraftsmenUpdate = () => {
+      try {
+        const saved = localStorage.getItem("tw_craftsmen");
+        if (saved) {
+          setCraftsmenList(JSON.parse(saved));
+        }
+      } catch {}
+    };
+    window.addEventListener("tw_craftsmen_updated", handleCraftsmenUpdate);
+    return () => {
+      window.removeEventListener("tw_craftsmen_updated", handleCraftsmenUpdate);
+    };
+  }, []);
+
   const handleAddCraftsman = (craftsman: Craftsman) => {
-    const next = [...craftsmenList, craftsman];
+    const next = [craftsman, ...craftsmenList.filter(c => c.id !== craftsman.id)];
     setCraftsmenList(next);
     localStorage.setItem("tw_craftsmen", JSON.stringify(next));
+    window.dispatchEvent(new CustomEvent("tw_craftsmen_updated"));
+    saveCraftsmanToFirestore(craftsman).catch(() => {});
+    saveCraftsmanOnServer(craftsman).catch(() => {});
   };
 
   const handleUpdateCraftsman = (craftsman: Craftsman) => {
     const next = craftsmenList.map(c => c.id === craftsman.id ? craftsman : c);
     setCraftsmenList(next);
     localStorage.setItem("tw_craftsmen", JSON.stringify(next));
+    window.dispatchEvent(new CustomEvent("tw_craftsmen_updated"));
+    saveCraftsmanToFirestore(craftsman).catch(() => {});
+    saveCraftsmanOnServer(craftsman).catch(() => {});
   };
 
   const handleDeleteCraftsman = (id: string) => {
     const next = craftsmenList.filter(c => c.id !== id);
     setCraftsmenList(next);
     localStorage.setItem("tw_craftsmen", JSON.stringify(next));
+    window.dispatchEvent(new CustomEvent("tw_craftsmen_updated"));
+    deleteCraftsmanFromFirestore(id).catch(() => {});
+    deleteCraftsmanOnServer(id).catch(() => {});
   };
 
   // Doctors State (سجل ودليل الأطباء المستقل)

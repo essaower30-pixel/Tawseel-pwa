@@ -1,6 +1,6 @@
-import { Store, Order, Product, Category, DriverMember } from "../types";
+import { Store, Order, Product, Category, DriverMember, Craftsman } from "../types";
 import { initialStores, initialProducts, initialCategories, initialMapNodes } from "../data/initialData";
-import { initialOrders, initialDrivers } from "../data/adminInitialData";
+import { initialOrders, initialDrivers, initialCraftsmen } from "../data/adminInitialData";
 
 export interface ServerNotification {
   id: string;
@@ -17,6 +17,7 @@ export interface ServerSyncData {
   products: Product[];
   orders: Order[];
   drivers?: DriverMember[];
+  craftsmen?: Craftsman[];
   notifications?: ServerNotification[];
   categories?: Category[];
   lastUpdated: number;
@@ -507,5 +508,35 @@ export async function fetchSystemStatusFromServer(): Promise<{ emergencyRush: bo
     console.warn("Failed to fetch system status from server:", err);
   }
   return null;
+}
+
+// -------------------------------------------------------------
+// Craftsmen API Sync Helpers
+// -------------------------------------------------------------
+export async function saveCraftsmanOnServer(craftsman: Craftsman): Promise<boolean> {
+  try {
+    const res = await fetch(`${API_BASE}/api/craftsmen`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(craftsman)
+    });
+    return res.ok;
+  } catch (err) {
+    console.warn("Failed to save craftsman on server:", err);
+    return false;
+  }
+}
+
+export async function deleteCraftsmanOnServer(craftsmanId: string): Promise<boolean> {
+  try {
+    const res = await fetch(`${API_BASE}/api/craftsmen/${craftsmanId}`, {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" }
+    });
+    return res.ok;
+  } catch (err) {
+    console.warn("Failed to delete craftsman on server:", err);
+    return false;
+  }
 }
 
