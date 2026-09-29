@@ -23,19 +23,17 @@ const BROADCAST_CHANNEL_NAME = "tw_app_update_channel";
  * Default update representing the latest comprehensive platform enhancements
  */
 export const DEFAULT_INITIAL_UPDATE: AppUpdateInfo = {
-  id: "update_v3_9_3_universal_services_live_search",
-  version: "v3.9.3",
-  title: "محرك البحث الشامل لكافة خدمات المنصة: أطباء، عيادات، حرفيين، وسائقين 🔍",
+  id: "update_v3_9_4_precise_search_filter_fix",
+  version: "v3.9.4",
+  title: "معالجة دقة محرك البحث ومنع النتائج العشوائية أو غير المتطابقة 🎯",
   releaseDate: "29 سبتمبر 2026",
   features: [
-    "تعميم نتائج البحث الفوري على كافة الخدمات: البحث بـ 'اسنان' أو 'اطفال' أو 'طبيب' يظهر بطاقات الأطباء والعيادات فوراً",
-    "دمج أصحاب المهن والحرفيين: البحث بـ 'حداد' أو 'سباك' أو 'كهربائي' يظهر الحرفيين المعتمدين مع أزرار الاتصال والواتساب",
-    "دمج خدمات التوصيل والنقل: البحث بـ 'تكسي' أو 'سائق' أو 'سيارة' يظهر بطاقات السائقين المتاحة بالمنطقة",
-    "دمج الأصناف والمنتجات: البحث عن أي سلعة يظهر بطاقات الأصناف مع أسعارها وزر الإضافة للسلة مباشرة",
-    "إلغاء رسالة 'لم نجد أي متجر' عند وجود خدمات أو أطباء أو مهنيين مطابقين للبحث",
-    "ترقية محرك PWA وتطهير الكاش (v68) للعمل المباشر على جميع أجهزة الهواتف"
+    "إصلاح خوارزمية تطابق الكلمات: منع ظهور نتائج لا تشترك بأي كلمة مع عبارة البحث المدخلة",
+    "معالجة البحث بالحروف المفردة (مثل: 'وحيد ع'): الحرف المنفصل يطابق بداية الكلمات حصراً ولا يطابق الحروف العشوائية وسط الكلمات",
+    "تنقية نصوص البحث للأطباء والحرفيين: إلغاء الكلمات الدلالية العامة المتداخلة لضمان ظهور صاحب الاختصاص المطلوب حصراً",
+    "ترقية PWA وتطهير الكاش (v69) لضمان العمل الفوري بالدقة الجديدة على جميع الهواتف"
   ],
-  notes: "تحديث رئيسي يجعل شريط البحث بالصفحة الرئيسية دليلاً شاملاً يربط الزبون بكافة خدمات البلدة والمنطقة.",
+  notes: "تحديث رئيسي يعزز دقة وذكاء محرك البحث ويمنع النتائج غير المرتبطة نهائياً.",
   publishedAt: Date.now(),
   publishedBy: "الإدارة العامة"
 };
@@ -51,7 +49,7 @@ export function getLatestUpdate(): AppUpdateInfo {
       const parsed = JSON.parse(stored);
       if (parsed && parsed.id && parsed.version) {
         // Auto-upgrade if stored version is older than latest system release
-        if (parsed.version === "v3.7.0" || parsed.version === "v3.8.0" || parsed.version === "v3.9.0" || parsed.version === "v3.9.1" || parsed.version === "v3.9.2" || parsed.version < "v3.9.3") {
+        if (parsed.version === "v3.7.0" || parsed.version === "v3.8.0" || parsed.version === "v3.9.0" || parsed.version < "v3.9.4") {
           localStorage.setItem(UPDATE_STORAGE_KEY, JSON.stringify(DEFAULT_INITIAL_UPDATE));
           return DEFAULT_INITIAL_UPDATE;
         }

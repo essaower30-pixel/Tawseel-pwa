@@ -33,7 +33,7 @@ export const CraftsmenDirectoryModal: React.FC<CraftsmenDirectoryModalProps> = (
   );
 
   const filteredCraftsmen = craftsmen.filter((c) => {
-    const craftFullText = `${c.name} ${c.craft} ${c.phone} ${c.neighborhood || ""} ${c.description || ""} مهني حرفي سباك كهربائي حداد نجار ميكانيكي دهان`;
+    const craftFullText = `${c.name} ${c.craft} ${c.phone} ${c.neighborhood || ""} ${c.description || ""} مهني حرفي`;
     const matchesSearch = matchesArabicSearch(craftFullText, searchQuery);
     const matchesCraft =
       selectedCraft === "all" || c.craft.trim() === selectedCraft;

@@ -5475,7 +5475,7 @@ export default function App() {
                 {/* Craftsmen Cards Grid */}
                 {(() => {
                   const filteredCraftsmen = craftsmenList.filter((craftsman) => {
-                    const searchableCraftText = `${craftsman.name} ${craftsman.craft} ${craftsman.neighborhood || ""} ${craftsman.description || ""} ${craftsman.phone} مهني حرفي سباك كهربائي حداد نجار ميكانيكي دهان`;
+                    const searchableCraftText = `${craftsman.name} ${craftsman.craft} ${craftsman.neighborhood || ""} ${craftsman.description || ""} ${craftsman.phone} مهني حرفي`;
                     const matchesSearch = matchesArabicSearch(searchableCraftText, searchQuery);
                     const matchesCraft = selectedCraftFilter === "all" || craftsman.craft.trim() === selectedCraftFilter;
                     return matchesSearch && matchesCraft;
@@ -5625,7 +5625,7 @@ export default function App() {
                 {/* 1. Matching Doctors & Clinics Preview */}
                 {searchQuery.trim() && (() => {
                   const matchingDoctors = doctorsList.filter((doc) => {
-                    const text = `${doc.name} ${doc.specialty} ${doc.clinicAddress || ""} ${doc.workingHours || ""} ${doc.notes || ""} ${doc.phone} دكتور طبيب عيادة اسنان اطفال باطنية قلب صحة استشارة`;
+                    const text = `${doc.name} ${doc.specialty} ${doc.clinicAddress || ""} ${doc.workingHours || ""} ${doc.notes || ""} ${doc.phone} دكتور طبيب عيادة`;
                     return matchesArabicSearch(text, searchQuery);
                   });
                   if (matchingDoctors.length === 0) return null;
@@ -5707,7 +5707,7 @@ export default function App() {
                 {/* 2. Matching Craftsmen Preview */}
                 {searchQuery.trim() && (() => {
                   const matchingCraftsmen = craftsmenList.filter((c) => {
-                    const text = `${c.name} ${c.craft} ${c.neighborhood || ""} ${c.description || ""} ${c.phone} مهني حرفي سباك كهربائي حداد نجار دهان ميكانيكي صيانة تصليح`;
+                    const text = `${c.name} ${c.craft} ${c.neighborhood || ""} ${c.description || ""} ${c.phone} مهني حرفي`;
                     return matchesArabicSearch(text, searchQuery);
                   });
                   if (matchingCraftsmen.length === 0) return null;
@@ -5927,13 +5927,13 @@ export default function App() {
                   const hasMatchingStores = visibleStores.length > 0;
                   const hasMatchingDoctors = searchQuery.trim()
                     ? doctorsList.some((doc) => {
-                        const text = `${doc.name} ${doc.specialty} ${doc.clinicAddress || ""} ${doc.workingHours || ""} ${doc.notes || ""} ${doc.phone} دكتور طبيب عيادة اسنان اطفال باطنية قلب صحة استشارة`;
+                        const text = `${doc.name} ${doc.specialty} ${doc.clinicAddress || ""} ${doc.workingHours || ""} ${doc.notes || ""} ${doc.phone} دكتور طبيب عيادة`;
                         return matchesArabicSearch(text, searchQuery);
                       })
                     : false;
                   const hasMatchingCraftsmen = searchQuery.trim()
                     ? craftsmenList.some((c) => {
-                        const text = `${c.name} ${c.craft} ${c.neighborhood || ""} ${c.description || ""} ${c.phone} مهني حرفي سباك كهربائي حداد نجار دهان ميكانيكي صيانة`;
+                        const text = `${c.name} ${c.craft} ${c.neighborhood || ""} ${c.description || ""} ${c.phone} مهني حرفي`;
                         return matchesArabicSearch(text, searchQuery);
                       })
                     : false;

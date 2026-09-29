@@ -50,44 +50,82 @@ export function matchesArabicSearch(targetText: string, query: string): boolean 
 
   if (!normQuery) return true;
 
-  // 1. فحص التطابق المباشر بعد التطبيع
-  if (normTarget.includes(normQuery)) return true;
+  // 1. فحص التطابق التام أو تطابق العبارة الكاملة (للاستعلامات المكونة من حرفين فأكثر)
+  if (normQuery.length >= 2) {
+    if (normTarget.includes(normQuery)) return true;
+  }
 
   // 2. استخراج كلمات البحث وكلمات الهدف
   const queryWords = normQuery.split(/\s+/).filter(Boolean);
   const targetWords = normTarget.split(/\s+/).filter(Boolean);
+
+  if (queryWords.length === 0) return true;
+  if (targetWords.length === 0) return false;
 
   const queryWordsNoAl = queryWords.map(stripLeadingAl);
   const targetWordsNoAl = targetWords.map(stripLeadingAl);
   const normTargetNoAl = targetWordsNoAl.join(" ");
   const normQueryNoAl = queryWordsNoAl.join(" ");
 
-  // 3. فحص الجملة كاملة بعد حذف "الـ" التعريف
-  if (normTargetNoAl.includes(normQueryNoAl) || normTarget.includes(normQueryNoAl)) {
-    return true;
-  }
-
-  // 4. فحص كل كلمة بحث على حدة (All search tokens must match somewhere)
-  return queryWords.every((qWord, idx) => {
-    const qWordNoAl = queryWordsNoAl[idx];
-
-    // تطابق مع النص الكامل أو النص المنزوع منه "الـ"
-    if (normTarget.includes(qWord) || normTarget.includes(qWordNoAl) || normTargetNoAl.includes(qWordNoAl)) {
+  // 3. فحص الجملة كاملة بعد حذف "الـ" التعريف (إذا كانت 3 أحرف فأكثر)
+  if (normQueryNoAl.length >= 3) {
+    if (normTargetNoAl.includes(normQueryNoAl) || normTarget.includes(normQueryNoAl)) {
       return true;
     }
+  }
 
-    // تطابق مع أي كلمة من كلمات الهدف
+  // 4. فحص كل كلمة بحث على حدة (يجب أن تتطابق كل كلمة من كلمات البحث مع كلمة مستهدفة)
+  return queryWords.every((qWord, idx) => {
+    const qWordNoAl = queryWordsNoAl[idx];
+    const qLen = qWord.length;
+    const qNoAlLen = qWordNoAl.length;
+
+    // إذا كانت كلمة البحث حرفاً واحداً (مثل "ع" أو "م"):
+    // يجب أن تبدأ بها إحدى كلمات الهدف حصراً، ولا نستخدم includes منعاً للتطابق مع كل الحروف!
+    if (qLen === 1) {
+      return targetWords.some((tWord, tIdx) => {
+        const tWordNoAl = targetWordsNoAl[tIdx];
+        return tWord.startsWith(qWord) || tWordNoAl.startsWith(qWord);
+      });
+    }
+
+    // فحص التطابق مع كلمات الهدف
     return targetWords.some((tWord, tIdx) => {
       const tWordNoAl = targetWordsNoAl[tIdx];
 
-      return (
-        tWord.includes(qWord) ||
-        tWord.includes(qWordNoAl) ||
-        tWordNoAl.includes(qWord) ||
-        tWordNoAl.includes(qWordNoAl) ||
-        qWord.includes(tWord) ||
-        qWordNoAl.includes(tWordNoAl)
-      );
+      // 1. التطابق التام
+      if (
+        tWord === qWord ||
+        tWord === qWordNoAl ||
+        tWordNoAl === qWord ||
+        tWordNoAl === qWordNoAl
+      ) {
+        return true;
+      }
+
+      // 2. تطابق البداية (Prefix) مثل "سمي" -> "سمير" أو "اسنان" -> "اسنانهم"
+      if (
+        tWord.startsWith(qWord) ||
+        tWord.startsWith(qWordNoAl) ||
+        tWordNoAl.startsWith(qWord) ||
+        tWordNoAl.startsWith(qWordNoAl)
+      ) {
+        return true;
+      }
+
+      // 3. التطابق الجزئي داخل الكلمة فقط للكلمات المكونة من 3 أحرف فأكثر (مثل "كنعان" في "الكنعان")
+      if (qLen >= 3 || qNoAlLen >= 3) {
+        if (
+          tWord.includes(qWord) ||
+          tWord.includes(qWordNoAl) ||
+          tWordNoAl.includes(qWord) ||
+          tWordNoAl.includes(qWordNoAl)
+        ) {
+          return true;
+        }
+      }
+
+      return false;
     });
   });
 }
