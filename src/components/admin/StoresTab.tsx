@@ -38,6 +38,7 @@ import { openWhatsApp } from "../../utils/whatsapp";
 import { getAppUrl } from "../../utils/appUrl";
 import { ImageUploader } from "../ImageUploader";
 import { approveStoreOnServer } from "../../utils/apiSync";
+import { matchesArabicSearch } from "../../utils/arabicSearch";
 import { CategoryManagerModal, detectIconFromName, POPULAR_CATEGORY_PRESETS } from "./CategoryManagerModal";
 import { AVAILABLE_CATEGORY_ICONS, CategoryIcon } from "../CategoryIcon";
 import { StoreBroadcastModal } from "./StoreBroadcastModal";
@@ -325,11 +326,8 @@ export const StoresTab: React.FC<StoresTabProps> = ({
     if (approvalFilter === "pending" && st.isApproved !== false) return false;
     if (approvalFilter === "approved" && st.isApproved === false) return false;
 
-    const matchesSearch = st.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
-                          (st.description && st.description.toLowerCase().includes(searchQuery.toLowerCase())) ||
-                          (st.ownerName && st.ownerName.toLowerCase().includes(searchQuery.toLowerCase())) ||
-                          (st.contactPhone && st.contactPhone.includes(searchQuery)) ||
-                          (st.ownerPhone && st.ownerPhone.includes(searchQuery));
+    const storeFullText = `${st.name} ${st.description || ""} ${st.ownerName || ""} ${st.contactPhone || ""} ${st.ownerPhone || ""} متجر محل`;
+    const matchesSearch = matchesArabicSearch(storeFullText, searchQuery);
     const matchesCat = selectedCat === "all" || st.category === selectedCat;
     return matchesSearch && matchesCat;
   });

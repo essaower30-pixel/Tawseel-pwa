@@ -13,6 +13,7 @@ import { PrescriptionModal } from "./PrescriptionModal";
 import { CustomStoreOrderModal } from "./CustomStoreOrderModal";
 import { StoreReviewModal } from "./StoreReviewModal";
 import { openWhatsApp, formatWhatsAppPhone } from "../utils/whatsapp";
+import { matchesArabicSearch } from "../utils/arabicSearch";
 
 interface StoreDetailsProps {
   store: Store;
@@ -191,9 +192,8 @@ export const StoreDetails: React.FC<StoreDetailsProps> = ({
   const storeProducts = useMemo(() => {
     return allStoreProducts
       .filter((p) => {
-        const matchesSearch =
-          p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          p.description.toLowerCase().includes(searchQuery.toLowerCase());
+        const prodText = `${p.name} ${p.description || ""} ${p.category || ""}`;
+        const matchesSearch = matchesArabicSearch(prodText, searchQuery);
         const matchesPrice = maxPriceFilter === null ? true : p.price <= maxPriceFilter;
         const matchesOffers = onlyOffers ? !!p.isOffer : true;
         return matchesSearch && matchesPrice && matchesOffers;

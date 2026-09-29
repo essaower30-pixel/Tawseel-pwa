@@ -53,11 +53,11 @@
         }
       })();
     </script>
-    <!-- Auto-purge stale cache for v64 update -->
+    <!-- Auto-purge stale cache for v65 update -->
     <script>
       (function() {
         try {
-          var PURGE_KEY = 'tw_purged_v64';
+          var PURGE_KEY = 'tw_purged_v65';
           if (localStorage.getItem(PURGE_KEY) !== 'done') {
             localStorage.setItem(PURGE_KEY, 'done');
             try {
@@ -144,7 +144,7 @@
             const pathname = window.location.pathname;
             const dir = pathname.substring(0, pathname.lastIndexOf('/') + 1) || '/';
             // Version query string ensures browser bypasses HTTP caching of sw.js
-            const swPath = dir + 'sw.js?v=64';
+            const swPath = dir + 'sw.js?v=65';
             const swScope = dir;
             navigator.serviceWorker.register(swPath, { scope: swScope }).then((reg) => {
               reg.update();

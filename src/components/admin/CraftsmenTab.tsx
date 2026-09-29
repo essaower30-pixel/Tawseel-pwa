@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { Craftsman } from "../../types";
 import { ContactActions } from "../ContactActions";
+import { matchesArabicSearch } from "../../utils/arabicSearch";
 
 interface CraftsmenTabProps {
   craftsmenList: Craftsman[];
@@ -118,9 +119,8 @@ export const CraftsmenTab: React.FC<CraftsmenTabProps> = ({
   };
 
   const filtered = craftsmenList.filter(c => {
-    const matchesSearch = c.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
-                          c.craft.toLowerCase().includes(searchQuery.toLowerCase()) || 
-                          (c.description && c.description.toLowerCase().includes(searchQuery.toLowerCase()));
+    const craftFullText = `${c.name} ${c.craft} ${c.description || ""} ${c.phone} حرفي مهني`;
+    const matchesSearch = matchesArabicSearch(craftFullText, searchQuery);
     const matchesCraft = selectedCraft === "all" || c.craft.includes(selectedCraft);
     return matchesSearch && matchesCraft;
   });

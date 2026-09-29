@@ -22,6 +22,7 @@ import {
 } from "lucide-react";
 import { Category, Product, Store, StoreAddition, StoreSize } from "../../types";
 import { ImageUploader } from "../ImageUploader";
+import { matchesArabicSearch } from "../../utils/arabicSearch";
 
 interface ProductsTabProps {
   products: Product[];
@@ -247,11 +248,8 @@ export const ProductsTab: React.FC<ProductsTabProps> = ({
 
       // 3. Search Filter
       if (searchQuery.trim()) {
-        const q = searchQuery.toLowerCase();
-        const matchedName = p.name.toLowerCase().includes(q);
-        const matchedDesc = (p.description || "").toLowerCase().includes(q);
-        const matchedStore = (p.storeName || "").toLowerCase().includes(q);
-        if (!matchedName && !matchedDesc && !matchedStore) return false;
+        const productFullText = `${p.name} ${p.description || ""} ${p.storeName || ""} ${p.category || ""}`;
+        if (!matchesArabicSearch(productFullText, searchQuery)) return false;
       }
 
       return true;

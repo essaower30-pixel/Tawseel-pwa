@@ -23,6 +23,7 @@ import {
   MessageCircle
 } from "lucide-react";
 import { DriverMember, Order, Store } from "../../types";
+import { matchesArabicSearch } from "../../utils/arabicSearch";
 import { openWhatsApp } from "../../utils/whatsapp";
 
 interface OrdersArchiveReportsTabProps {
@@ -76,14 +77,8 @@ export const OrdersArchiveReportsTab: React.FC<OrdersArchiveReportsTabProps> = (
 
       // Search Query
       if (searchQuery.trim()) {
-        const q = searchQuery.toLowerCase().trim();
-        const match =
-          o.id.toLowerCase().includes(q) ||
-          o.customerName.toLowerCase().includes(q) ||
-          o.customerPhone.includes(q) ||
-          o.storeName.toLowerCase().includes(q) ||
-          (o.driverName && o.driverName.toLowerCase().includes(q));
-        if (!match) return false;
+        const orderFullText = `${o.id} ${o.customerName} ${o.customerPhone} ${o.storeName} ${o.driverName || ""}`;
+        if (!matchesArabicSearch(orderFullText, searchQuery)) return false;
       }
 
       return true;

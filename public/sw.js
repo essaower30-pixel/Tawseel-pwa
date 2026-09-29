@@ -1,10 +1,10 @@
 // ==============================================================================
 // Tawseel Progressive Web App (PWA) - Service Worker
-// Version: tawseel-v64-doctors-cards-direct-view
+// Version: tawseel-v65-smart-arabic-fuzzy-search
 // Designed for instant startup and automatic freshness for all customers & staff
 // ==============================================================================
 
-const CACHE_NAME = 'tawseel-v64-doctors-cards-direct-view';
+const CACHE_NAME = 'tawseel-v65-smart-arabic-fuzzy-search';
 
 // Dynamically determine the base path (e.g. '/Tawseel-pwa' on GitHub Pages or '' on root domain)
 const getBasePath = () => {

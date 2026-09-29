@@ -87,6 +87,7 @@ import {
   sendTestPushNotification
 } from "./utils/pushManager";
 import { openWhatsApp } from "./utils/whatsapp";
+import { matchesArabicSearch } from "./utils/arabicSearch";
 import {
   playOrderAlertSound,
   isSoundEnabled,
@@ -4215,11 +4216,8 @@ export default function App() {
       selectedCategory === "all" ||
       store.category === selectedCategory ||
       (selectedCategory === "clothes" && (store.category === "cat_mtuj2s13ho2" || store.category === "ألبسة وملابس وأزياء" || store.category?.includes("cloth")));
-    const sName = (store.name || "").toLowerCase();
-    const sDesc = (store.description || "").toLowerCase();
-    const sFeat = (store.featuredProduct || "").toLowerCase();
-    const q = (searchQuery || "").toLowerCase();
-    const matchesSearch = sName.includes(q) || sDesc.includes(q) || sFeat.includes(q);
+    const storeText = `${store.name || ""} ${store.description || ""} ${store.featuredProduct || ""}`;
+    const matchesSearch = matchesArabicSearch(storeText, searchQuery);
     return matchesCategory && matchesSearch;
   });
 
@@ -5281,14 +5279,8 @@ export default function App() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {doctorsList
                     .filter((doc) => {
-                      const q = searchQuery.toLowerCase().trim();
-                      if (!q) return true;
-                      return (
-                        doc.name.toLowerCase().includes(q) ||
-                        doc.specialty.toLowerCase().includes(q) ||
-                        doc.phone.includes(q) ||
-                        (doc.clinicAddress && doc.clinicAddress.toLowerCase().includes(q))
-                      );
+                      const searchableDocText = `${doc.name} ${doc.specialty} ${doc.clinicAddress || ""} ${doc.workingHours || ""} ${doc.notes || ""} ${doc.phone} دكتور طبيب عيادة`;
+                      return matchesArabicSearch(searchableDocText, searchQuery);
                     })
                     .map((doc) => (
                       <div

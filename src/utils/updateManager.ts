@@ -23,18 +23,18 @@ const BROADCAST_CHANNEL_NAME = "tw_app_update_channel";
  * Default update representing the latest comprehensive platform enhancements
  */
 export const DEFAULT_INITIAL_UPDATE: AppUpdateInfo = {
-  id: "update_v3_9_0_dedicated_doctors_directory",
-  version: "v3.9.0",
-  title: "إطلاق دليل وبطاقات الأطباء والاستشارات الطبية المستقلة 🩺",
-  releaseDate: "28 سبتمبر 2026",
+  id: "update_v3_9_1_smart_arabic_search",
+  version: "v3.9.1",
+  title: "محرك البحث العربي الذكي وتطبيع الهمزات والكلمات المشابهة 🔍",
+  releaseDate: "29 سبتمبر 2026",
   features: [
-    "تخصيص سجل ودليل أطباء مستقل تماماً وغير تابع لفئات المتاجر ولا أصحاب المهن الحرفية",
-    "اعتماد البطاقة التعريفية الصافية للطبيب (الاسم، الاختصاص، ورقم التواصل المباشر)",
-    "إلغاء الأصناف والطلبات الخاصة وسلات التسوق عن الأطباء لضمان الخصوصية والتعامل المهني اللائق",
-    "إتاحة الاتصال الهاتفي والمراسلة عبر الواتساب بنقرة زر واحدة لحجز المواعيد والاستشارات الطبية",
-    "إضافة قسم مخصص في لوحة الإدارة لإضافة وتعديل بيانات الأطباء بكل سهولة وسرعة"
+    "محرك بحث عربي ذكي يتجاهل الهمزات تماماً (أ, إ, آ, ء, ئ, ؤ) ويوحد الألف والياء والتاء المربوطة",
+    "دعم البحث بـ 'الـ' التعريف وبدونها (البحث بـ 'اسنان' يجد 'الأسنان' والعكس تلقائياً)",
+    "البحث المرن وتطابق الكلمات المفتاحية دون التقيد الحرفي بالعبارات المسجلة",
+    "تعميم البحث الذكي على كامل المنصة: بطاقات الأطباء، المتاجر، المنتجات، المهن الحرفية، والطلبات",
+    "تحديث محرك PWA وتطهير الكاش (v65) للعمل الفوري على كافة أجهزة الهواتف"
   ],
-  notes: "تحديث تنظيمي وطبي يفصل العيادات والأطباء عن الأنشطة التجارية والتسوقية.",
+  notes: "تحديث تقني متقدم يجعل عملية البحث فائقة السهولة والذكاء لجميع الزبائن والإدارة.",
   publishedAt: Date.now(),
   publishedBy: "الإدارة العامة"
 };
@@ -50,7 +50,7 @@ export function getLatestUpdate(): AppUpdateInfo {
       const parsed = JSON.parse(stored);
       if (parsed && parsed.id && parsed.version) {
         // Auto-upgrade if stored version is older than latest system release
-        if (parsed.version === "v3.7.0" || parsed.version === "v3.8.0" || parsed.version < "v3.9.0") {
+        if (parsed.version === "v3.7.0" || parsed.version === "v3.8.0" || parsed.version === "v3.9.0" || parsed.version < "v3.9.1") {
           localStorage.setItem(UPDATE_STORAGE_KEY, JSON.stringify(DEFAULT_INITIAL_UPDATE));
           return DEFAULT_INITIAL_UPDATE;
         }

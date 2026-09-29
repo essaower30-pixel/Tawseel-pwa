@@ -27,6 +27,7 @@ import { DriverMember, Order } from "../../types";
 import { ContactActions } from "../ContactActions";
 import { playOrderAlertSound, requestNotificationPermission, showSystemNotification } from "../../utils/soundNotifications";
 import { subscribeToPushNotifications } from "../../utils/pushManager";
+import { matchesArabicSearch } from "../../utils/arabicSearch";
 
 interface OrdersTabProps {
   orders: Order[];
@@ -141,10 +142,8 @@ export const OrdersTab: React.FC<OrdersTabProps> = ({
       matchesStatus = o.status === statusFilter;
     }
 
-    const matchesSearch = o.id.toLowerCase().includes(searchQuery.toLowerCase()) || 
-                          o.customerName.toLowerCase().includes(searchQuery.toLowerCase()) || 
-                          o.customerPhone.includes(searchQuery) ||
-                          o.storeName.toLowerCase().includes(searchQuery.toLowerCase());
+    const orderFullText = `${o.id} ${o.customerName} ${o.customerPhone} ${o.storeName} ${o.driverName || ""}`;
+    const matchesSearch = matchesArabicSearch(orderFullText, searchQuery);
     return matchesStatus && matchesSearch;
   });
 

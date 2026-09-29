@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { Doctor } from "../../types";
 import { ContactActions } from "../ContactActions";
+import { matchesArabicSearch } from "../../utils/arabicSearch";
 
 interface DoctorsTabProps {
   doctorsList: Doctor[];
@@ -134,13 +135,8 @@ export const DoctorsTab: React.FC<DoctorsTabProps> = ({
 
   // Filtered doctors
   const filteredDoctors = doctorsList.filter((doc) => {
-    const q = searchQuery.toLowerCase().trim();
-    const matchesSearch =
-      !q ||
-      doc.name.toLowerCase().includes(q) ||
-      doc.specialty.toLowerCase().includes(q) ||
-      doc.phone.includes(q) ||
-      (doc.clinicAddress && doc.clinicAddress.toLowerCase().includes(q));
+    const docFullText = `${doc.name} ${doc.specialty} ${doc.phone} ${doc.clinicAddress || ""} ${doc.workingHours || ""} ${doc.notes || ""} طبيب دكتور عيادة`;
+    const matchesSearch = matchesArabicSearch(docFullText, searchQuery);
 
     const matchesSpecialty =
       selectedSpecialty === "all" || doc.specialty.trim() === selectedSpecialty;

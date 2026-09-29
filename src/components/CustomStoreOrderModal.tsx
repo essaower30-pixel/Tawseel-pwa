@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 import { Store, UserProfile } from "../types";
 import { openWhatsApp } from "../utils/whatsapp";
+import { matchesArabicSearch } from "../utils/arabicSearch";
 
 interface CustomStoreOrderModalProps {
   isOpen: boolean;
@@ -113,9 +114,8 @@ export const CustomStoreOrderModal: React.FC<CustomStoreOrderModalProps> = ({
 
   // Filtered stores for picker
   const filteredStores = stores.filter((s) => {
-    const matchesSearch =
-      s.name.toLowerCase().includes(storeSearchQuery.toLowerCase()) ||
-      (s.neighborhood && s.neighborhood.toLowerCase().includes(storeSearchQuery.toLowerCase()));
+    const storeFullText = `${s.name} ${s.description || ""} ${s.neighborhood || ""} متجر محل`;
+    const matchesSearch = matchesArabicSearch(storeFullText, storeSearchQuery);
     const matchesCategory = categoryFilter === "all" || s.category === categoryFilter;
     return matchesSearch && matchesCategory;
   });
