@@ -13,9 +13,6 @@
     margin: 0 !important;
     padding: 0 !important;
     -webkit-text-size-adjust: 100%;
-    /* Keep view responsive to mobile virtual keyboard resizing and eliminate navigation bar jitter */
-    overscroll-behavior-y: contain;
-    height: 100%;
   }
 
   body {
@@ -27,9 +24,7 @@
     margin: 0 auto !important;
     padding: 0 !important;
     position: relative;
-    touch-action: pan-y;
-    overscroll-behavior-y: contain;
-    min-height: 100%;
+    min-height: 100vh;
   }
 
   /* Prevent automatic iOS zoom on inputs while keeping text sharp */

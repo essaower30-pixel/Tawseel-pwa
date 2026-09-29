@@ -1,10 +1,10 @@
 // ==============================================================================
 // Tawseel Progressive Web App (PWA) - Service Worker
-// Version: tawseel-v65-smart-arabic-fuzzy-search
+// Version: tawseel-v66-smooth-scrolling-fix
 // Designed for instant startup and automatic freshness for all customers & staff
 // ==============================================================================
 
-const CACHE_NAME = 'tawseel-v65-smart-arabic-fuzzy-search';
+const CACHE_NAME = 'tawseel-v66-smooth-scrolling-fix';
 
 // Dynamically determine the base path (e.g. '/Tawseel-pwa' on GitHub Pages or '' on root domain)
 const getBasePath = () => {

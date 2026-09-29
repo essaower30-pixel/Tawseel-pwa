@@ -2,7 +2,7 @@
 <html lang="ar" dir="rtl">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
     <title>توصيل - التوصيل المحلي</title>
     <meta name="description" content="تطبيق توصيل الطلبات للمحافظات والقرى، يدعم تتبع المندوب، المحادثة المباشرة، العروض، وإدارة الطلبات." />
     
@@ -53,11 +53,11 @@
         }
       })();
     </script>
-    <!-- Auto-purge stale cache for v65 update -->
+    <!-- Auto-purge stale cache for v66 update -->
     <script>
       (function() {
         try {
-          var PURGE_KEY = 'tw_purged_v65';
+          var PURGE_KEY = 'tw_purged_v66';
           if (localStorage.getItem(PURGE_KEY) !== 'done') {
             localStorage.setItem(PURGE_KEY, 'done');
             try {
@@ -76,7 +76,7 @@
             if ('caches' in window) {
               caches.keys().then(function(names) {
                 names.forEach(function(name) {
-                  if (name.indexOf('v65') === -1) {
+                  if (name.indexOf('v66') === -1) {
                     caches.delete(name);
                   }
                 });
