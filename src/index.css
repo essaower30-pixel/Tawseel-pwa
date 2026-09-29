@@ -13,7 +13,8 @@
     margin: 0 !important;
     padding: 0 !important;
     -webkit-text-size-adjust: 100%;
-    /* Keep view responsive to mobile virtual keyboard resizing */
+    /* Keep view responsive to mobile virtual keyboard resizing and eliminate navigation bar jitter */
+    overscroll-behavior-y: contain;
     height: 100%;
   }
 
@@ -27,6 +28,7 @@
     padding: 0 !important;
     position: relative;
     touch-action: pan-y;
+    overscroll-behavior-y: contain;
     min-height: 100%;
   }
 

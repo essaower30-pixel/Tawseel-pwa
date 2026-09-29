@@ -2,7 +2,7 @@
 <html lang="ar" dir="rtl">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
     <title>توصيل - التوصيل المحلي</title>
     <meta name="description" content="تطبيق توصيل الطلبات للمحافظات والقرى، يدعم تتبع المندوب، المحادثة المباشرة، العروض، وإدارة الطلبات." />
     
@@ -75,12 +75,11 @@
             } catch (errAct) {}
             if ('caches' in window) {
               caches.keys().then(function(names) {
-                names.forEach(function(name) { caches.delete(name); });
-              });
-            }
-            if ('serviceWorker' in navigator) {
-              navigator.serviceWorker.getRegistrations().then(function(regs) {
-                regs.forEach(function(reg) { reg.unregister(); });
+                names.forEach(function(name) {
+                  if (name.indexOf('v65') === -1) {
+                    caches.delete(name);
+                  }
+                });
               });
             }
           }
@@ -120,22 +119,27 @@
         const isIframePreview = window.self !== window.top && !window.location.search.includes('enable_sw');
 
         if (!isLocalDev && !isIframePreview) {
-          // Listen for controllerchange to reload the page when a new service worker takes over
-          let refreshing = false;
-          navigator.serviceWorker.addEventListener('controllerchange', () => {
-            if (!refreshing) {
-              refreshing = true;
-              window.location.reload();
-            }
-          });
+          // Guard against multiple automatic reloads (prevents Android system UI flickering)
+          let hadPreviousController = !!navigator.serviceWorker.controller;
+          let isReloading = false;
 
-          // Also listen for SW_VERSION_UPDATED postMessage from SW activate
-          navigator.serviceWorker.addEventListener('message', (event) => {
-            if (event.data && event.data.type === 'SW_VERSION_UPDATED') {
-              if (!refreshing) {
-                refreshing = true;
-                window.location.reload();
-              }
+          navigator.serviceWorker.addEventListener('controllerchange', () => {
+            // Only reload if the page was previously controlled by an older service worker
+            if (!hadPreviousController) {
+              hadPreviousController = true;
+              return;
+            }
+
+            const lastReload = Number(sessionStorage.getItem('tw_sw_reload_ts') || 0);
+            const now = Date.now();
+            if (now - lastReload < 15000) {
+              return; // Prevent rapid consecutive reloads
+            }
+
+            if (!isReloading) {
+              isReloading = true;
+              sessionStorage.setItem('tw_sw_reload_ts', String(now));
+              window.location.reload();
             }
           });
 
@@ -143,29 +147,13 @@
             // Dynamically resolve service worker path and scope based on current location
             const pathname = window.location.pathname;
             const dir = pathname.substring(0, pathname.lastIndexOf('/') + 1) || '/';
-            // Version query string ensures browser bypasses HTTP caching of sw.js
-            const swPath = dir + 'sw.js?v=65';
+            const swPath = dir + 'sw.js';
             const swScope = dir;
             navigator.serviceWorker.register(swPath, { scope: swScope }).then((reg) => {
-              reg.update();
-              reg.onupdatefound = () => {
-                const installingWorker = reg.installing;
-                if (installingWorker) {
-                  installingWorker.onstatechange = () => {
-                    if (installingWorker.state === 'installed' && navigator.serviceWorker.controller) {
-                      // New worker installed over existing controller - force reload to activate!
-                      if (!refreshing) {
-                        refreshing = true;
-                        window.location.reload();
-                      }
-                    }
-                  };
-                }
-              };
-              window.addEventListener('focus', () => reg.update());
+              // Gracefully check for updates without reload storms
               setInterval(() => {
-                reg.update();
-              }, 30000);
+                reg.update().catch(() => {});
+              }, 60000);
             }).catch((err) => {
               console.warn('SW registration notice:', err);
             });
