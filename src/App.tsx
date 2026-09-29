@@ -5596,26 +5596,118 @@ export default function App() {
                   <div className="flex items-center gap-2 select-none">
                     <StoreIcon className="w-5.5 h-5.5 text-slate-800" />
                     <h3 className="text-lg font-extrabold text-slate-800">
-                      المتاجر والمحلات المتوفرة بالمنطقة
+                      {searchQuery.trim() ? "نتائج البحث الشامل" : "المتاجر والمحلات والخدمات بالمنطقة"}
                     </h3>
                   </div>
 
-                  <div className="relative w-full sm:max-w-xs">
+                  <div className="relative w-full sm:max-w-md">
                     <input
                       type="text"
                       value={searchQuery}
                       onChange={(e) => setSearchQuery(e.target.value)}
-                      placeholder="ابحث عن متجر بالاسم..."
-                      className="w-full bg-white border border-slate-200 focus:border-slate-900 rounded-xl py-2.5 pr-10 pl-4 text-xs sm:text-sm outline-none text-slate-800 transition-all shadow-xs"
+                      placeholder="ابحث عن طبيب (مثل: اسنان)، حرفي، سائق، متجر، أو صنف..."
+                      className="w-full bg-white border border-slate-200 focus:border-slate-900 rounded-xl py-2.5 pr-10 pl-9 text-xs sm:text-sm outline-none text-slate-800 transition-all shadow-xs"
                     />
                     <Search className="w-4 h-4 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2" />
+                    {searchQuery && (
+                      <button
+                        type="button"
+                        onClick={() => setSearchQuery("")}
+                        className="absolute left-2.5 top-1/2 -translate-y-1/2 w-5 h-5 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 flex items-center justify-center text-xs cursor-pointer font-bold"
+                        title="مسح البحث"
+                      >
+                        ✕
+                      </button>
+                    )}
                   </div>
                 </div>
 
-                {/* Matching Craftsmen Preview if user searched for craft or craftsman (like "حداد" or "سباك") */}
+                {/* 1. Matching Doctors & Clinics Preview */}
+                {searchQuery.trim() && (() => {
+                  const matchingDoctors = doctorsList.filter((doc) => {
+                    const text = `${doc.name} ${doc.specialty} ${doc.clinicAddress || ""} ${doc.workingHours || ""} ${doc.notes || ""} ${doc.phone} دكتور طبيب عيادة اسنان اطفال باطنية قلب صحة استشارة`;
+                    return matchesArabicSearch(text, searchQuery);
+                  });
+                  if (matchingDoctors.length === 0) return null;
+                  return (
+                    <div className="bg-teal-50/90 border border-teal-300 rounded-3xl p-4 sm:p-5 space-y-3 text-right animate-fade-in shadow-xs">
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2.5">
+                          <div className="w-8 h-8 rounded-xl bg-teal-600 text-white flex items-center justify-center text-sm shadow-xs font-black">
+                            🩺
+                          </div>
+                          <div>
+                            <h4 className="font-black text-slate-900 text-xs sm:text-sm">
+                              الأطباء والعيادات الطبية والاستشارات ({matchingDoctors.length})
+                            </h4>
+                            <p className="text-[10px] text-teal-800 font-medium">
+                              حجز موعد واستشارة طبية مباشرة عبر الاتصال أو الواتساب
+                            </p>
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSelectedCategory("doctors");
+                          }}
+                          className="text-xs font-black text-teal-900 bg-white border border-teal-300 hover:bg-teal-100 px-3 py-1.5 rounded-xl transition-colors cursor-pointer shrink-0"
+                        >
+                          عرض قسم الأطباء ⬅️
+                        </button>
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        {matchingDoctors.map((doc) => (
+                          <div key={doc.id} className="bg-white rounded-2xl p-3.5 border border-teal-200/90 shadow-xs flex flex-col justify-between gap-3 text-right">
+                            <div className="space-y-1.5">
+                              <div className="flex items-start justify-between gap-2 border-b border-slate-100 pb-2">
+                                <div className="min-w-0">
+                                  <h5 className="font-black text-slate-900 text-xs sm:text-sm truncate">{doc.name}</h5>
+                                  <span className="inline-block mt-0.5 px-2 py-0.5 rounded-md bg-teal-50 border border-teal-200 text-teal-800 text-[10px] font-black">
+                                    {doc.specialty}
+                                  </span>
+                                </div>
+                                <span className="text-xl">🩺</span>
+                              </div>
+
+                              <div className="space-y-1 text-[11px] text-slate-600 pt-0.5">
+                                {doc.clinicAddress && (
+                                  <div className="flex items-center gap-1.5">
+                                    <MapPin className="w-3 h-3 text-teal-600 shrink-0" />
+                                    <span className="truncate font-medium">{doc.clinicAddress}</span>
+                                  </div>
+                                )}
+                                {doc.workingHours && (
+                                  <div className="flex items-center gap-1.5 text-amber-700">
+                                    <Clock className="w-3 h-3 shrink-0" />
+                                    <span className="font-medium">{doc.workingHours}</span>
+                                  </div>
+                                )}
+                                {doc.notes && (
+                                  <p className="text-[10px] text-slate-500 line-clamp-1">💡 {doc.notes}</p>
+                                )}
+                              </div>
+                            </div>
+
+                            <div className="pt-2 border-t border-slate-100">
+                              <ContactActions
+                                phone={doc.phone}
+                                name={doc.name}
+                                defaultMessage={`مرحباً ${doc.name}، أود الاستفسار وحجز موعد استشارة طبية (${doc.specialty}).`}
+                                variant="full"
+                              />
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })()}
+
+                {/* 2. Matching Craftsmen Preview */}
                 {searchQuery.trim() && (() => {
                   const matchingCraftsmen = craftsmenList.filter((c) => {
-                    const text = `${c.name} ${c.craft} ${c.neighborhood || ""} ${c.description || ""} مهني حرفي سباك كهربائي حداد نجار دهان ميكانيكي`;
+                    const text = `${c.name} ${c.craft} ${c.neighborhood || ""} ${c.description || ""} ${c.phone} مهني حرفي سباك كهربائي حداد نجار دهان ميكانيكي صيانة تصليح`;
                     return matchesArabicSearch(text, searchQuery);
                   });
                   if (matchingCraftsmen.length === 0) return null;
@@ -5628,7 +5720,7 @@ export default function App() {
                           </div>
                           <div>
                             <h4 className="font-black text-slate-900 text-xs sm:text-sm">
-                              أصحاب المهن والحرفيون المطابقون للبحث ({matchingCraftsmen.length})
+                              أصحاب المهن والحرفيون والصيانة ({matchingCraftsmen.length})
                             </h4>
                             <p className="text-[10px] text-amber-800 font-medium">
                               تواصل مباشر وفوري عبر الاتصال أو الواتساب
@@ -5646,21 +5738,133 @@ export default function App() {
                         </button>
                       </div>
 
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                        {matchingCraftsmen.slice(0, 4).map((craftsman) => (
-                          <div key={craftsman.id} className="bg-white rounded-2xl p-3 border border-amber-200/90 shadow-xs flex items-center justify-between gap-2">
-                            <div className="min-w-0">
-                              <div className="font-black text-slate-900 text-xs sm:text-sm truncate">{craftsman.name}</div>
-                              <div className="text-[10px] text-orange-600 font-bold truncate">
-                                {craftsman.craft} {craftsman.neighborhood ? `• ${craftsman.neighborhood}` : ""}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        {matchingCraftsmen.slice(0, 4).map((craftsman) => {
+                          const isAvailable = craftsman.availability !== "offline" && craftsman.availability !== "busy";
+                          return (
+                            <div key={craftsman.id} className="bg-white rounded-2xl p-3.5 border border-amber-200/90 shadow-xs flex flex-col justify-between gap-3 text-right">
+                              <div className="space-y-1.5">
+                                <div className="flex items-start justify-between gap-2 border-b border-slate-100 pb-2">
+                                  <div className="min-w-0">
+                                    <h5 className="font-black text-slate-900 text-xs sm:text-sm truncate">{craftsman.name}</h5>
+                                    <span className="inline-block mt-0.5 px-2 py-0.5 rounded-md bg-orange-50 border border-orange-200 text-orange-800 text-[10px] font-black">
+                                      {craftsman.craft}
+                                    </span>
+                                  </div>
+                                  <span className={`text-[9px] font-black px-2 py-0.5 rounded-full border ${
+                                    isAvailable ? "bg-emerald-50 text-emerald-700 border-emerald-200" : "bg-slate-100 text-slate-500 border-slate-200"
+                                  }`}>
+                                    {isAvailable ? "🟢 متاح" : "🟡 غير متاح"}
+                                  </span>
+                                </div>
+
+                                <div className="space-y-1 text-[11px] text-slate-600 pt-0.5">
+                                  {craftsman.neighborhood && (
+                                    <div className="flex items-center gap-1.5">
+                                      <MapPin className="w-3 h-3 text-orange-600 shrink-0" />
+                                      <span className="font-medium">{craftsman.neighborhood}</span>
+                                    </div>
+                                  )}
+                                  {craftsman.description && (
+                                    <p className="text-[10px] text-slate-500 line-clamp-1 leading-relaxed">
+                                      {craftsman.description}
+                                    </p>
+                                  )}
+                                </div>
+                              </div>
+
+                              <div className="pt-2 border-t border-slate-100">
+                                <ContactActions
+                                  phone={craftsman.phone}
+                                  name={craftsman.name}
+                                  defaultMessage={`مرحباً ${craftsman.name} (${craftsman.craft})، أود الاستفسار عن خدمة مهنية.`}
+                                  variant="full"
+                                />
                               </div>
                             </div>
-                            <ContactActions
-                              phone={craftsman.phone}
-                              name={craftsman.name}
-                              defaultMessage={`مرحباً ${craftsman.name} (${craftsman.craft})، أود الاستفسار عن خدمة مهنية.`}
-                              variant="compact"
-                            />
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                })()}
+
+                {/* 3. Matching Drivers & Ride Services Preview */}
+                {searchQuery.trim() && (() => {
+                  const matchingFleet = driversList.filter((d) => {
+                    const text = `${d.name} ${d.vehicle || ""} ${d.phone || ""} سائق كابتن تكسي توصيل ركاب مشوار سيارة دراجة نقل`;
+                    return matchesArabicSearch(text, searchQuery);
+                  }).map(d => ({
+                    id: d.id,
+                    name: d.name,
+                    service: d.vehicle || "سائق وتوصيل ركاب",
+                    phone: d.phone,
+                    rating: d.rating || 5.0
+                  }));
+
+                  const matchingStoreServices = stores.filter((s) => (s.category === "drivers" || s.isService) && (
+                    matchesArabicSearch(`${s.name} ${s.description || ""} ${s.featuredProduct || ""} ${s.contactPhone || ""} تكسي سيارة توصيل`, searchQuery)
+                  )).map(s => ({
+                    id: s.id,
+                    name: s.name,
+                    service: s.featuredProduct || s.description || "خدمة نقل وتوصيل ركاب",
+                    phone: s.contactPhone || s.ownerPhone || "",
+                    rating: s.rating || 5.0
+                  }));
+
+                  const allMatchingDrivers = [...matchingFleet, ...matchingStoreServices];
+                  if (allMatchingDrivers.length === 0) return null;
+
+                  return (
+                    <div className="bg-blue-50/90 border border-blue-300 rounded-3xl p-4 sm:p-5 space-y-3 text-right animate-fade-in shadow-xs">
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2.5">
+                          <div className="w-8 h-8 rounded-xl bg-blue-600 text-white flex items-center justify-center text-sm shadow-xs font-black">
+                            🚗
+                          </div>
+                          <div>
+                            <h4 className="font-black text-slate-900 text-xs sm:text-sm">
+                              خدمات التوصيل والسائقين والنقل ({allMatchingDrivers.length})
+                            </h4>
+                            <p className="text-[10px] text-blue-800 font-medium">
+                              تكسي، سيارات خاصة، ومشاوير سريعة
+                            </p>
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSelectedCategory("drivers");
+                          }}
+                          className="text-xs font-black text-blue-900 bg-white border border-blue-300 hover:bg-blue-100 px-3 py-1.5 rounded-xl transition-colors cursor-pointer shrink-0"
+                        >
+                          عرض قسم النقل ⬅️
+                        </button>
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        {allMatchingDrivers.slice(0, 4).map((item) => (
+                          <div key={item.id} className="bg-white rounded-2xl p-3.5 border border-blue-200/90 shadow-xs flex flex-col justify-between gap-3 text-right">
+                            <div className="space-y-1.5">
+                              <div className="flex items-start justify-between gap-2 border-b border-slate-100 pb-2">
+                                <div className="min-w-0">
+                                  <h5 className="font-black text-slate-900 text-xs sm:text-sm truncate">{item.name}</h5>
+                                  <span className="inline-block mt-0.5 px-2 py-0.5 rounded-md bg-blue-50 border border-blue-200 text-blue-800 text-[10px] font-black">
+                                    {item.service}
+                                  </span>
+                                </div>
+                                <span className="text-xl">🚕</span>
+                              </div>
+                            </div>
+
+                            <div className="pt-2 border-t border-slate-100">
+                              <ContactActions
+                                phone={item.phone}
+                                name={item.name}
+                                defaultMessage={`مرحباً ${item.name}، أود الاستفسار عن خدمة التوصيل / المشوار.`}
+                                variant="full"
+                              />
+                            </div>
                           </div>
                         ))}
                       </div>
@@ -5668,110 +5872,195 @@ export default function App() {
                   );
                 })()}
 
-                {/* Stores Listing Grid */}
-                {visibleStores.length === 0 ? (
-                  <div className="bg-white rounded-3xl p-8 sm:p-12 text-center border border-slate-100 shadow-xs space-y-3">
-                    <div className="w-12 h-12 rounded-2xl bg-orange-50 text-orange-500 mx-auto flex items-center justify-center shadow-xs">
-                      <StoreIcon className="w-6 h-6" />
-                    </div>
-                    <p className="text-slate-800 font-extrabold text-sm sm:text-base">
-                      {selectedCategory !== "all"
-                        ? `لا توجد محلات مسجلة حالياً في قسم "${categories.find(c => c.id === selectedCategory)?.label || ''}"`
-                        : "عذراً، لم نجد أي متجر مطابق للبحث!"}
-                    </p>
-                    <p className="text-slate-400 text-xs max-w-md mx-auto">
-                      {selectedCategory !== "all"
-                        ? "القسم مفعل ومتاح في المنصة. يمكنك تسجيل المتاجر فيه وتفعيلها لتظهر هنا للزبائن."
-                        : "جرب تصنيفات أخرى في الأعلى لتكتشف محلات جديدة."}
-                    </p>
-                    <div className="flex flex-wrap items-center justify-center gap-2 pt-2">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setSelectedCategory("all");
-                          setSearchQuery("");
-                        }}
-                        className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-black transition-all cursor-pointer shadow-xs"
-                      >
-                        عرض كافة المحلات المتاحة
-                      </button>
-                      {isAdminMode && (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setIsAdminMode(true);
-                          }}
-                          className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-black transition-all cursor-pointer shadow-xs"
-                        >
-                          + إضافة متجر جديد من لوحة التحكم
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                ) : (
-                  <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-6">
-                    {visibleStores.map((store) => {
-                      const categoryObj = categories.find((c) => c.id === store.category);
-                      return (
-                        <div
-                          key={store.id}
-                          onClick={() => setSelectedStore(store)}
-                          className="bg-white rounded-2xl sm:rounded-3xl border border-slate-200/80 overflow-hidden shadow-xs hover:shadow-xl hover:border-orange-500/25 transition-all duration-300 cursor-pointer flex flex-col group h-full text-right"
-                        >
-                          <div className="h-28 xs:h-36 sm:h-44 bg-slate-100 relative overflow-hidden">
-                            <img
-                              src={store.image}
-                              alt={store.name}
-                              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                              referrerPolicy="no-referrer"
-                            />
-                            <div className="absolute top-2 right-2 sm:top-3 sm:right-3 bg-slate-900/85 backdrop-blur-md text-white font-extrabold text-[8px] sm:text-[10px] py-0.5 px-1.5 sm:py-1 sm:px-2.5 rounded-full flex items-center gap-1 shadow">
-                              <Star className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-orange-400 fill-current" />
-                              <span>{store.rating !== undefined && store.rating !== null ? (store.rating === 0 ? "0 (جديد)" : store.rating) : "0 (جديد)"}</span>
-                            </div>
-                          </div>
+                {/* 4. Matching Products in Stores Preview */}
+                {searchQuery.trim() && (() => {
+                  const matchingProducts = products.filter((p) => {
+                    if (p.isHidden || p.isApproved === false || p.approvalStatus === "pending" || p.approvalStatus === "rejected") return false;
+                    const text = `${p.name} ${p.description || ""} ${p.category || ""}`;
+                    return matchesArabicSearch(text, searchQuery);
+                  });
+                  if (matchingProducts.length === 0) return null;
 
-                          <div className="p-3 sm:p-5 flex-1 flex flex-col justify-between space-y-2 sm:space-y-4">
-                            <div className="space-y-1 sm:space-y-1.5 min-w-0">
-                              <span className="text-[8px] sm:text-[10px] font-extrabold text-orange-600 bg-orange-500/10 py-0.5 px-1.5 sm:py-1 sm:px-2.5 rounded-full inline-block">
-                                {categoryObj?.label || store.category}
-                              </span>
-                              <h4 className="font-extrabold text-slate-800 text-xs sm:text-base group-hover:text-orange-600 transition-colors truncate">
-                                {store.name}
-                              </h4>
-                              {store.featuredProduct && (
-                                <p className="text-slate-400 text-[9px] sm:text-xs font-medium truncate">
-                                  سلعة مميزة: <b className="text-slate-500">{store.featuredProduct}</b>
-                                </p>
-                              )}
-                              {store.workingHours && (
-                                <p className="text-slate-400 text-[9px] sm:text-xs font-medium flex items-center gap-1 mt-0.5 truncate">
-                                  <MapPin className="w-3 h-3 text-orange-500 shrink-0" />
-                                  <span className="truncate">
-                                    الدوام: <b className="text-slate-600 font-bold">{store.workingHours}</b>
-                                  </span>
-                                </p>
-                              )}
-                            </div>
+                  return (
+                    <div className="bg-slate-50 border border-slate-200 rounded-3xl p-4 sm:p-5 space-y-3 text-right animate-fade-in shadow-xs">
+                      <div className="flex items-center gap-2">
+                        <ShoppingBag className="w-4 h-4 text-orange-600" />
+                        <h4 className="font-black text-slate-900 text-xs sm:text-sm">
+                          المنتجات والأصناف المطابقة بالمنطقة ({matchingProducts.length})
+                        </h4>
+                      </div>
 
-                            <div className="border-t border-slate-100 pt-2 sm:pt-3 flex flex-col xs:flex-row xs:items-center justify-between text-[8px] sm:text-xs text-slate-500 gap-1">
-                              <div className="flex items-center gap-1 shrink-0">
-                                <Clock className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-slate-400" />
-                                <span>{store.deliveryTime}</span>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2.5">
+                        {matchingProducts.slice(0, 6).map((product) => {
+                          const store = stores.find((s) => s.id === product.storeId);
+                          return (
+                            <div key={product.id} className="bg-white rounded-2xl p-3 border border-slate-200 shadow-xs flex items-center gap-3">
+                              <img
+                                src={product.image || "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=120"}
+                                alt={product.name}
+                                className="w-12 h-12 rounded-xl object-cover shrink-0 border border-slate-100"
+                              />
+                              <div className="min-w-0 flex-1">
+                                <div className="font-black text-slate-900 text-xs truncate">{product.name}</div>
+                                {store && (
+                                  <div className="text-[10px] text-slate-500 truncate">{store.name}</div>
+                                )}
+                                <div className="text-orange-600 font-black text-xs mt-0.5">{product.price} ل.س</div>
                               </div>
-                              <div className="flex items-center gap-0.5 sm:gap-1 font-bold text-slate-700 truncate">
-                                <Bike className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-orange-500 shrink-0" />
-                                <span className={`truncate ${store.deliveryFee === 0 ? "text-emerald-600 font-black" : ""}`}>
-                                  {store.isService ? "خدمة فورية" : (store.deliveryFee === 0 || store.deliveryFee === undefined ? "توصيل مجاني" : `${store.deliveryFee.toLocaleString()} ل.س`)}
-                                </span>
-                              </div>
+                              <button
+                                type="button"
+                                onClick={() => handleAddToCart(product)}
+                                className="px-2.5 py-1.5 bg-slate-900 hover:bg-orange-500 hover:text-slate-950 text-white rounded-xl text-[11px] font-black transition-colors cursor-pointer shrink-0"
+                              >
+                                أضف
+                              </button>
                             </div>
-                          </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                })()}
+
+                {/* Unified Search Engine & Stores Results */}
+                {(() => {
+                  const hasMatchingStores = visibleStores.length > 0;
+                  const hasMatchingDoctors = searchQuery.trim()
+                    ? doctorsList.some((doc) => {
+                        const text = `${doc.name} ${doc.specialty} ${doc.clinicAddress || ""} ${doc.workingHours || ""} ${doc.notes || ""} ${doc.phone} دكتور طبيب عيادة اسنان اطفال باطنية قلب صحة استشارة`;
+                        return matchesArabicSearch(text, searchQuery);
+                      })
+                    : false;
+                  const hasMatchingCraftsmen = searchQuery.trim()
+                    ? craftsmenList.some((c) => {
+                        const text = `${c.name} ${c.craft} ${c.neighborhood || ""} ${c.description || ""} ${c.phone} مهني حرفي سباك كهربائي حداد نجار دهان ميكانيكي صيانة`;
+                        return matchesArabicSearch(text, searchQuery);
+                      })
+                    : false;
+                  const hasMatchingDrivers = searchQuery.trim()
+                    ? driversList.some((d) => {
+                        const text = `${d.name} ${d.vehicle || ""} ${d.phone || ""} سائق كابتن تكسي توصيل ركاب مشوار سيارة دراجة نقل`;
+                        return matchesArabicSearch(text, searchQuery);
+                      }) || stores.some((s) => (s.category === "drivers" || s.isService) && matchesArabicSearch(`${s.name} ${s.description || ""} ${s.featuredProduct || ""} ${s.contactPhone || ""}`, searchQuery))
+                    : false;
+                  const hasMatchingProducts = searchQuery.trim()
+                    ? products.some((p) => {
+                        if (p.isHidden || p.isApproved === false || p.approvalStatus === "pending" || p.approvalStatus === "rejected") return false;
+                        return matchesArabicSearch(`${p.name} ${p.description || ""} ${p.category || ""}`, searchQuery);
+                      })
+                    : false;
+
+                  const hasAnyResults = hasMatchingStores || hasMatchingDoctors || hasMatchingCraftsmen || hasMatchingDrivers || hasMatchingProducts;
+
+                  if (!hasAnyResults) {
+                    return (
+                      <div className="bg-white rounded-3xl p-8 sm:p-12 text-center border border-slate-100 shadow-xs space-y-3">
+                        <div className="w-12 h-12 rounded-2xl bg-orange-50 text-orange-500 mx-auto flex items-center justify-center shadow-xs">
+                          <StoreIcon className="w-6 h-6" />
                         </div>
-                      );
-                    })}
-                  </div>
-                )}
+                        <p className="text-slate-800 font-extrabold text-sm sm:text-base">
+                          {selectedCategory !== "all"
+                            ? `لا توجد نتائج مسجلة حالياً في قسم "${categories.find(c => c.id === selectedCategory)?.label || ''}"`
+                            : "عذراً، لم نجد أي متجر أو خدمة أو طبيب مطابق للبحث!"}
+                        </p>
+                        <p className="text-slate-400 text-xs max-w-md mx-auto">
+                          {selectedCategory !== "all"
+                            ? "القسم مفعل ومتاح في المنصة. يمكنك تسجيل الخدمات والمتاجر فيه وتفعيلها لتظهر هنا للزبائن."
+                            : "جرب البحث باسم الطبيب (مثل: اسنان، اطفال)، أو المهنة (مثل: حداد، سباك)، أو اسم المتجر أو المنتج."}
+                        </p>
+                        <div className="flex flex-wrap items-center justify-center gap-2 pt-2">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setSelectedCategory("all");
+                              setSearchQuery("");
+                            }}
+                            className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-black transition-all cursor-pointer shadow-xs"
+                          >
+                            عرض كافة الخدمات والمحلات المتاحة
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  }
+
+                  if (hasMatchingStores) {
+                    return (
+                      <div className="space-y-3">
+                        {searchQuery.trim() && (
+                          <div className="flex items-center gap-2 text-slate-800 font-extrabold text-xs sm:text-sm">
+                            <StoreIcon className="w-4 h-4 text-orange-600" />
+                            <span>المتاجر والمحلات المطابقة ({visibleStores.length})</span>
+                          </div>
+                        )}
+                        <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-6">
+                          {visibleStores.map((store) => {
+                            const categoryObj = categories.find((c) => c.id === store.category);
+                            return (
+                              <div
+                                key={store.id}
+                                onClick={() => setSelectedStore(store)}
+                                className="bg-white rounded-2xl sm:rounded-3xl border border-slate-200/80 overflow-hidden shadow-xs hover:shadow-xl hover:border-orange-500/25 transition-all duration-300 cursor-pointer flex flex-col group h-full text-right"
+                              >
+                                <div className="h-28 xs:h-36 sm:h-44 bg-slate-100 relative overflow-hidden">
+                                  <img
+                                    src={store.image}
+                                    alt={store.name}
+                                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                                    referrerPolicy="no-referrer"
+                                  />
+                                  <div className="absolute top-2 right-2 sm:top-3 sm:right-3 bg-slate-900/85 backdrop-blur-md text-white font-extrabold text-[8px] sm:text-[10px] py-0.5 px-1.5 sm:py-1 sm:px-2.5 rounded-full flex items-center gap-1 shadow">
+                                    <Star className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-orange-400 fill-current" />
+                                    <span>{store.rating !== undefined && store.rating !== null ? (store.rating === 0 ? "0 (جديد)" : store.rating) : "0 (جديد)"}</span>
+                                  </div>
+                                </div>
+
+                                <div className="p-3 sm:p-5 flex-1 flex flex-col justify-between space-y-2 sm:space-y-4">
+                                  <div className="space-y-1 sm:space-y-1.5 min-w-0">
+                                    <span className="text-[8px] sm:text-[10px] font-extrabold text-orange-600 bg-orange-500/10 py-0.5 px-1.5 sm:py-1 sm:px-2.5 rounded-full inline-block">
+                                      {categoryObj?.label || store.category}
+                                    </span>
+                                    <h4 className="font-extrabold text-slate-800 text-xs sm:text-base group-hover:text-orange-600 transition-colors truncate">
+                                      {store.name}
+                                    </h4>
+                                    {store.featuredProduct && (
+                                      <p className="text-slate-400 text-[9px] sm:text-xs font-medium truncate">
+                                        سلعة مميزة: <b className="text-slate-500">{store.featuredProduct}</b>
+                                      </p>
+                                    )}
+                                    {store.workingHours && (
+                                      <p className="text-slate-400 text-[9px] sm:text-xs font-medium flex items-center gap-1 mt-0.5 truncate">
+                                        <MapPin className="w-3 h-3 text-orange-500 shrink-0" />
+                                        <span className="truncate">
+                                          الدوام: <b className="text-slate-600 font-bold">{store.workingHours}</b>
+                                        </span>
+                                      </p>
+                                    )}
+                                  </div>
+
+                                  <div className="border-t border-slate-100 pt-2 sm:pt-3 flex flex-col xs:flex-row xs:items-center justify-between text-[8px] sm:text-xs text-slate-500 gap-1">
+                                    <div className="flex items-center gap-1 shrink-0">
+                                      <Clock className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-slate-400" />
+                                      <span>{store.deliveryTime}</span>
+                                    </div>
+                                    <div className="flex items-center gap-0.5 sm:gap-1 font-bold text-slate-700 truncate">
+                                      <Bike className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-orange-500 shrink-0" />
+                                      <span className={`truncate ${store.deliveryFee === 0 ? "text-emerald-600 font-black" : ""}`}>
+                                        {store.isService ? "خدمة فورية" : (store.deliveryFee === 0 || store.deliveryFee === undefined ? "توصيل مجاني" : `${store.deliveryFee.toLocaleString()} ل.س`)}
+                                      </span>
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    );
+                  }
+
+                  return null;
+                })()}
               </div>
             )}
 
