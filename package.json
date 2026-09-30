@@ -1,6 +1,6 @@
 {
   "name": "tawseel-delivery",
-  "version": "3.9.4",
+  "version": "3.9.5",
   "type": "module",
   "scripts": {
     "dev": "tsx server.ts",

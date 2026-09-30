@@ -259,6 +259,42 @@ const defaultInitialCraftsmen = [
   { id: "craft_6", name: "الأسطى رضوان الميكانيكي", craft: "ميكانيك سيارات ودراجات", phone: "0999667788", neighborhood: "المدخل الغربي", description: "صيانة كهرباء وميكانيك الدراجات النارية والسيارات والشاحنات الخفيفة", availability: "available", rating: 4.8 }
 ];
 
+const defaultInitialDriverServices = [
+  {
+    id: "drv_srv_1",
+    name: "الكابتن حمزة عوير - تكسي القرية",
+    vehicle: "تكسي أجرة سياحي وسرفيس خاص",
+    phone: "0966778899",
+    serviceArea: "داخل البلدة، ريف دمشق، ولكافة المحافظات",
+    workingHours: "متاح على مدار 24 ساعة",
+    notes: "سيارة حديثة ومكيفة، رحلات عائلية، مشاوير مطار ومحافظات، التزام بالمواعيد",
+    availability: "available",
+    rating: 5.0
+  },
+  {
+    id: "drv_srv_2",
+    name: "أبو عبدو لنقل البضائع والأثاث",
+    vehicle: "سوزوكي نقل حمولة وبضائع",
+    phone: "0955112233",
+    serviceArea: "نقل أثاث وبضائع وخضار بين القرى والأسواق المركزية",
+    workingHours: "من 6:00 صباحاً حتى 9:00 مساءً",
+    notes: "صندوق واسع وشادر حماية، حمولة حتى 1.5 طن، أسعار مناسبة وخدمة سريعة",
+    availability: "available",
+    rating: 4.8
+  },
+  {
+    id: "drv_srv_3",
+    name: "الكابتن وائل - مشاوير خاصة",
+    vehicle: "سيارة سياحية خاصة حديثة",
+    phone: "0944889900",
+    serviceArea: "مشاوير طبية عاجلة، نقل جامعات، ودمشق",
+    workingHours: "متاح 24 ساعة للطلبات والحالات الإسعافية",
+    notes: "تكييف ممتاز، رحلات هادئة وآمنة، تلبية فورية للنداءات المستعجلة",
+    availability: "available",
+    rating: 4.9
+  }
+];
+
 function readServerData() {
   try {
     if (fs.existsSync(STORAGE_FILE)) {
@@ -270,6 +306,7 @@ function readServerData() {
         if (!parsed.products) parsed.products = [];
         if (!parsed.drivers) parsed.drivers = [];
         if (!parsed.craftsmen) parsed.craftsmen = [];
+        if (!parsed.driverServices) parsed.driverServices = [];
         if (!parsed.notifications) parsed.notifications = [];
         if (!parsed.deletedCategoryIds) parsed.deletedCategoryIds = [];
         if (!parsed.categories || !Array.isArray(parsed.categories) || parsed.categories.length === 0) {
@@ -291,6 +328,9 @@ function readServerData() {
       if (!parsed.products) parsed.products = [];
       if (!parsed.craftsmen || !Array.isArray(parsed.craftsmen) || parsed.craftsmen.length === 0) {
         parsed.craftsmen = defaultInitialCraftsmen;
+      }
+      if (!parsed.driverServices || !Array.isArray(parsed.driverServices) || parsed.driverServices.length === 0) {
+        parsed.driverServices = defaultInitialDriverServices;
       }
       if (!parsed.deletedDriverIds) parsed.deletedDriverIds = [];
       if (!parsed.deletedStoreIds) parsed.deletedStoreIds = [];
@@ -813,6 +853,59 @@ app.delete("/api/craftsmen/:id", (req, res) => {
     writeServerData(data);
   }
   res.json({ success: true, craftsmen: data.craftsmen || [] });
+});
+
+// 2.3 API: Driver Services Management (Public Taxis & Passenger Transport)
+app.get("/api/driver-services", (req, res) => {
+  const data = readServerData();
+  res.json(data.driverServices || defaultInitialDriverServices);
+});
+
+app.post("/api/driver-services", (req, res) => {
+  const driverService = req.body;
+  if (!driverService || !driverService.name) {
+    return res.status(400).json({ error: "اسم السائق مطلوب" });
+  }
+
+  const data = readServerData();
+  if (!data.driverServices || !Array.isArray(data.driverServices)) {
+    data.driverServices = [...defaultInitialDriverServices];
+  }
+
+  const id = driverService.id || ("drv_srv_" + Date.now().toString(36));
+  const driverItem = {
+    ...driverService,
+    id,
+    name: String(driverService.name).trim(),
+    vehicle: String(driverService.vehicle || "تكسي أجرة وسياحي").trim(),
+    phone: String(driverService.phone || "").trim(),
+    whatsapp: driverService.whatsapp ? String(driverService.whatsapp).trim() : undefined,
+    serviceArea: String(driverService.serviceArea || "داخل البلدة").trim(),
+    workingHours: String(driverService.workingHours || "متاح على مدار 24 ساعة").trim(),
+    notes: String(driverService.notes || "").trim(),
+    availability: driverService.availability || "available",
+    rating: typeof driverService.rating === "number" ? driverService.rating : 5.0
+  };
+
+  const existingIdx = data.driverServices.findIndex((d: any) => d.id === id);
+  if (existingIdx >= 0) {
+    data.driverServices[existingIdx] = driverItem;
+  } else {
+    data.driverServices.push(driverItem);
+  }
+
+  writeServerData(data);
+  res.json({ success: true, driverService: driverItem, driverServices: data.driverServices });
+});
+
+app.delete("/api/driver-services/:id", (req, res) => {
+  const driverId = req.params.id;
+  const data = readServerData();
+  if (data.driverServices && Array.isArray(data.driverServices)) {
+    data.driverServices = data.driverServices.filter((d: any) => d.id !== driverId);
+    writeServerData(data);
+  }
+  res.json({ success: true, driverServices: data.driverServices || [] });
 });
 
 // 3. API: Get all stores

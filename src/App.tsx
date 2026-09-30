@@ -46,9 +46,9 @@ import {
   WifiOff,
   RefreshCw
 } from "lucide-react";
-import { CartItem, Category, Craftsman, Doctor, DriverMember, MapNode, Order, Product, Store, StoreAddition, StoreSize, UserProfile, StoreBroadcast, StoreReview, Coupon } from "./types";
+import { CartItem, Category, Craftsman, Doctor, DriverMember, DriverService, MapNode, Order, Product, Store, StoreAddition, StoreSize, UserProfile, StoreBroadcast, StoreReview, Coupon } from "./types";
 import { initialCategories, initialMapNodes, initialProducts, initialStores, initialStoreBroadcasts, initialStoreReviews } from "./data/initialData";
-import { initialDrivers, initialDoctors, initialCraftsmen, initialOrders, initialCoupons, initialStaff } from "./data/adminInitialData";
+import { initialDrivers, initialDoctors, initialCraftsmen, initialDriverServices, initialOrders, initialCoupons, initialStaff } from "./data/adminInitialData";
 import { AuthModal } from "./components/AuthModal";
 import { StoreDetails } from "./components/StoreDetails";
 import { CartCheckout } from "./components/CartCheckout";
@@ -71,6 +71,8 @@ if (typeof window !== "undefined") {
 import { CustomerOrdersArchiveModal } from "./components/CustomerOrdersArchiveModal";
 import { DoctorsDirectoryModal } from "./components/DoctorsDirectoryModal";
 import { CraftsmenDirectoryModal } from "./components/CraftsmenDirectoryModal";
+import { DriverIDCard } from "./components/DriverIDCard";
+import { DriverServicesDirectoryModal } from "./components/DriverServicesDirectoryModal";
 import { ContactActions } from "./components/ContactActions";
 import { InstallPromptModal } from "./components/InstallPromptModal";
 import { CustomStoreOrderModal } from "./components/CustomStoreOrderModal";
@@ -137,6 +139,8 @@ import {
   saveDriverOnServer,
   updateDriverOnServer,
   deleteDriverOnServer,
+  saveDriverServiceOnServer,
+  deleteDriverServiceOnServer,
   saveCategoryOnServer,
   reorderCategoriesOnServer,
   deleteCategoryOnServer,
@@ -174,7 +178,10 @@ import {
   subscribeToSystemStatus,
   saveAppSettingsToFirestore,
   syncOrderStatusRealtime,
-  subscribeToCraftsmen
+  subscribeToCraftsmen,
+  subscribeToDriverServices,
+  saveDriverServiceToFirestore,
+  deleteDriverServiceFromFirestore
 } from "./services/firebaseService";
 import { testFirestoreConnection } from "./firebase";
 import { CategoryIcon } from "./components/CategoryIcon";
@@ -512,6 +519,92 @@ export default function App() {
       unsubscribe();
     };
   }, []);
+
+  // Driver Services State (دليل وخدمات السائقين والتكاسي العامة للزبائن)
+  const [driverServicesList, setDriverServicesList] = useState<DriverService[]>(() => {
+    try {
+      const saved = localStorage.getItem("tw_driver_services");
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return parsed;
+        }
+      }
+      localStorage.setItem("tw_driver_services", JSON.stringify(initialDriverServices));
+      return initialDriverServices;
+    } catch {
+      return initialDriverServices;
+    }
+  });
+
+  const [selectedDriverVehicleFilter, setSelectedDriverVehicleFilter] = useState<string>("all");
+  const [showDriverServicesModal, setShowDriverServicesModal] = useState<boolean>(false);
+
+  useEffect(() => {
+    const handleDriverServicesUpdate = () => {
+      try {
+        const saved = localStorage.getItem("tw_driver_services");
+        if (saved) {
+          setDriverServicesList(JSON.parse(saved));
+        }
+      } catch {}
+    };
+    window.addEventListener("tw_driver_services_updated", handleDriverServicesUpdate);
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === "tw_driver_services") handleDriverServicesUpdate();
+    };
+    window.addEventListener("storage", handleStorageChange);
+    return () => {
+      window.removeEventListener("tw_driver_services_updated", handleDriverServicesUpdate);
+      window.removeEventListener("storage", handleStorageChange);
+    };
+  }, []);
+
+  // Subscribe to real-time driver services updates from Firebase
+  useEffect(() => {
+    const unsubscribe = subscribeToDriverServices((cloudServices) => {
+      if (cloudServices && Array.isArray(cloudServices) && cloudServices.length > 0) {
+        setDriverServicesList(cloudServices);
+        localStorage.setItem("tw_driver_services", JSON.stringify(cloudServices));
+      }
+    });
+    return () => {
+      unsubscribe();
+    };
+  }, []);
+
+  const handleAddDriverService = (driver: DriverService) => {
+    setDriverServicesList((prev) => {
+      const next = [driver, ...prev.filter((d) => d.id !== driver.id)];
+      localStorage.setItem("tw_driver_services", JSON.stringify(next));
+      return next;
+    });
+    window.dispatchEvent(new CustomEvent("tw_driver_services_updated"));
+    saveDriverServiceToFirestore(driver).catch(() => {});
+    saveDriverServiceOnServer(driver).catch(() => {});
+  };
+
+  const handleUpdateDriverService = (driver: DriverService) => {
+    setDriverServicesList((prev) => {
+      const next = prev.map((d) => (d.id === driver.id ? driver : d));
+      localStorage.setItem("tw_driver_services", JSON.stringify(next));
+      return next;
+    });
+    window.dispatchEvent(new CustomEvent("tw_driver_services_updated"));
+    saveDriverServiceToFirestore(driver).catch(() => {});
+    saveDriverServiceOnServer(driver).catch(() => {});
+  };
+
+  const handleDeleteDriverService = (id: string) => {
+    setDriverServicesList((prev) => {
+      const next = prev.filter((d) => d.id !== id);
+      localStorage.setItem("tw_driver_services", JSON.stringify(next));
+      return next;
+    });
+    window.dispatchEvent(new CustomEvent("tw_driver_services_updated"));
+    deleteDriverServiceFromFirestore(id).catch(() => {});
+    deleteDriverServiceOnServer(id).catch(() => {});
+  };
   const [bikeHeaderClicks, setBikeHeaderClicks] = useState<number>(0);
   const lastBikeClickTimeRef = useRef<number>(0);
 
@@ -3263,6 +3356,19 @@ export default function App() {
           return currentLocal;
         });
       }
+
+      // 7. Sync Driver Services from Server
+      if (serverData.driverServices && Array.isArray(serverData.driverServices) && serverData.driverServices.length > 0) {
+        setDriverServicesList((currentLocal) => {
+          const currentIds = new Set(currentLocal.map((d) => d.id));
+          const hasNew = serverData.driverServices!.some((sd) => !currentIds.has(sd.id));
+          if (hasNew || serverData.driverServices!.length !== currentLocal.length) {
+            localStorage.setItem("tw_driver_services", JSON.stringify(serverData.driverServices));
+            return serverData.driverServices!;
+          }
+          return currentLocal;
+        });
+      }
     };
 
     performSync();
@@ -4863,6 +4969,10 @@ export default function App() {
                   onAddDriver={handleAddNewDriver}
                   onUpdateDriver={handleUpdateDriver}
                   onDeleteDriver={handleDeleteDriver}
+                  driverServicesList={driverServicesList}
+                  onAddDriverService={handleAddDriverService}
+                  onUpdateDriverService={handleUpdateDriverService}
+                  onDeleteDriverService={handleDeleteDriverService}
                   onAddStore={handleAddNewStore}
                   onUpdateStore={handleUpdateStore}
                   onDeleteStore={handleDeleteStore}
@@ -5589,6 +5699,138 @@ export default function App() {
                   );
                 })()}
               </div>
+            ) : (selectedCategory === "drivers" || selectedCategory === "driver_services" || selectedCategory === "taxi") ? (
+              <div className="space-y-5">
+                {/* Header Section for Drivers Directory */}
+                <div className="bg-gradient-to-r from-blue-900 via-indigo-950 to-slate-900 text-white rounded-3xl p-5 sm:p-6 border border-blue-500/30 shadow-xl relative overflow-hidden text-right">
+                  <div className="absolute top-0 left-0 w-64 h-64 bg-blue-400/10 rounded-full blur-2xl -ml-20 -mt-20 pointer-events-none" />
+                  <div className="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div className="flex items-center gap-3">
+                      <div className="w-12 h-12 rounded-2xl bg-blue-500/20 border border-blue-400/30 flex items-center justify-center text-blue-300 shadow-inner">
+                        <Car className="w-6 h-6" />
+                      </div>
+                      <div>
+                        <h3 className="text-base sm:text-xl font-black">
+                          دليل وبطاقات خدمات السائقين والتكاسي 🚗
+                        </h3>
+                        <p className="text-xs text-blue-200/90 font-medium mt-0.5">
+                          بطاقات تعريفية مباشرة للتواصل مع سائقي التكاسي، سيارات نقل البضائع والمشاوير الخاصة
+                        </p>
+                      </div>
+                    </div>
+                    <div className="self-start sm:self-center bg-white/10 backdrop-blur-md px-3.5 py-1.5 rounded-xl border border-white/20 text-xs font-black">
+                      {driverServicesList.length + stores.filter(s => s.category === "drivers" || s.isService).length} سائق معتمد
+                    </div>
+                  </div>
+                </div>
+
+                {/* Search & Vehicle Filter Chips */}
+                <div className="space-y-2.5">
+                  <div className="relative">
+                    <input
+                      type="text"
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      placeholder="ابحث باسم السائق، نوع المركبة (تكسي، سوزوكي، سرفيس)، خط السير..."
+                      className="w-full bg-white border border-slate-200 focus:border-blue-500 rounded-2xl py-3 pr-11 pl-4 text-xs sm:text-sm outline-none text-slate-800 transition-all shadow-xs text-right"
+                    />
+                    <Search className="w-4.5 h-4.5 text-slate-400 absolute right-3.5 top-1/2 -translate-y-1/2" />
+                  </div>
+
+                  {/* Vehicle Filter Chips */}
+                  <div className="flex items-center gap-1.5 overflow-x-auto pb-1 text-xs no-scrollbar">
+                    <button
+                      type="button"
+                      onClick={() => setSelectedDriverVehicleFilter("all")}
+                      className={`py-1.5 px-3 rounded-xl font-black whitespace-nowrap transition-all cursor-pointer ${
+                        selectedDriverVehicleFilter === "all"
+                          ? "bg-blue-600 text-white shadow-xs"
+                          : "bg-white text-slate-700 border border-slate-200 hover:bg-slate-100"
+                      }`}
+                    >
+                      كافة السائقين ({driverServicesList.length + stores.filter(s => s.category === "drivers" || s.isService).length})
+                    </button>
+                    {Array.from(new Set(driverServicesList.map((d) => d.vehicle.trim()).filter(Boolean))).map((veh) => (
+                      <button
+                        key={veh}
+                        type="button"
+                        onClick={() => setSelectedDriverVehicleFilter(veh)}
+                        className={`py-1.5 px-3 rounded-xl font-black whitespace-nowrap transition-all cursor-pointer ${
+                          selectedDriverVehicleFilter === veh
+                            ? "bg-blue-600 text-white shadow-xs"
+                            : "bg-white text-slate-700 border border-slate-200 hover:bg-slate-100"
+                        }`}
+                      >
+                        {veh}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Drivers Cards Grid */}
+                {(() => {
+                  // Merge dedicated driverServicesList + any stores marked as drivers/services
+                  const storeDriversAsServices: DriverService[] = stores
+                    .filter((s) => s.category === "drivers" || s.isService)
+                    .map((s) => ({
+                      id: "store_drv_" + s.id,
+                      name: s.name,
+                      vehicle: s.description || "خدمة نقل وسائق خاص",
+                      phone: s.contactPhone || s.ownerPhone || "0951854257",
+                      serviceArea: s.deliveryTime || "داخل البلدة والمحافظات",
+                      workingHours: s.workingHours || "متاح للطلب على مدار اليوم",
+                      notes: s.featuredProduct || s.description || "سائق معتمد موثق بالمنصة",
+                      availability: s.status === "closed" ? "offline" : "available",
+                      rating: s.rating || 5.0,
+                      avatar: s.image
+                    }));
+
+                  const allDriversCombined = [...driverServicesList, ...storeDriversAsServices];
+
+                  const filteredDrivers = allDriversCombined.filter((driver) => {
+                    const searchableDriverText = `${driver.name} ${driver.vehicle} ${driver.phone} ${driver.serviceArea || ""} ${driver.workingHours || ""} ${driver.notes || ""} سائق تكسي كابتن نقل مشوار`;
+                    const matchesSearch = matchesArabicSearch(searchableDriverText, searchQuery);
+                    const matchesVeh = selectedDriverVehicleFilter === "all" || driver.vehicle.trim() === selectedDriverVehicleFilter;
+                    return matchesSearch && matchesVeh;
+                  });
+
+                  if (filteredDrivers.length === 0) {
+                    return (
+                      <div className="bg-white rounded-3xl p-8 sm:p-12 text-center border border-slate-100 shadow-xs space-y-3">
+                        <div className="w-12 h-12 rounded-2xl bg-blue-50 text-blue-600 mx-auto flex items-center justify-center shadow-xs">
+                          <Car className="w-6 h-6" />
+                        </div>
+                        <p className="text-slate-800 font-extrabold text-sm sm:text-base">
+                          لم نجد أي سائق أو خدمة نقل مطابقة للبحث
+                        </p>
+                        <p className="text-slate-400 text-xs">
+                          جرب كتابة كلمة أخرى مثل "تكسي" أو "سوزوكي" أو اختيار تصنيف آخر
+                        </p>
+                        {searchQuery && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setSearchQuery("");
+                              setSelectedDriverVehicleFilter("all");
+                            }}
+                            className="mt-2 text-xs font-black text-blue-600 bg-blue-50 border border-blue-200 px-4 py-2 rounded-xl"
+                          >
+                            عرض كافة السائقين
+                          </button>
+                        )}
+                      </div>
+                    );
+                  }
+
+                  return (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {filteredDrivers.map((driver) => (
+                        <DriverIDCard key={driver.id} driver={driver} />
+                      ))}
+                    </div>
+                  );
+                })()}
+              </div>
             ) : (
               <div className="space-y-5">
                 {/* Search and Header Section */}
@@ -5791,6 +6033,17 @@ export default function App() {
 
                 {/* 3. Matching Drivers & Ride Services Preview */}
                 {searchQuery.trim() && (() => {
+                  const matchingPublicServices = driverServicesList.filter((d) => {
+                    const text = `${d.name} ${d.vehicle} ${d.phone} ${d.serviceArea || ""} ${d.workingHours || ""} ${d.notes || ""} سائق كابتن تكسي توصيل ركاب مشوار سيارة نقل`;
+                    return matchesArabicSearch(text, searchQuery);
+                  }).map(d => ({
+                    id: d.id,
+                    name: d.name,
+                    service: d.vehicle || "سائق وتوصيل ركاب",
+                    phone: d.phone,
+                    rating: d.rating || 5.0
+                  }));
+
                   const matchingFleet = driversList.filter((d) => {
                     const text = `${d.name} ${d.vehicle || ""} ${d.phone || ""} سائق كابتن تكسي توصيل ركاب مشوار سيارة دراجة نقل`;
                     return matchesArabicSearch(text, searchQuery);
@@ -5812,7 +6065,7 @@ export default function App() {
                     rating: s.rating || 5.0
                   }));
 
-                  const allMatchingDrivers = [...matchingFleet, ...matchingStoreServices];
+                  const allMatchingDrivers = [...matchingPublicServices, ...matchingFleet, ...matchingStoreServices];
                   if (allMatchingDrivers.length === 0) return null;
 
                   return (
@@ -5938,7 +6191,10 @@ export default function App() {
                       })
                     : false;
                   const hasMatchingDrivers = searchQuery.trim()
-                    ? driversList.some((d) => {
+                    ? driverServicesList.some((d) => {
+                        const text = `${d.name} ${d.vehicle} ${d.phone} ${d.serviceArea || ""} ${d.workingHours || ""} ${d.notes || ""} سائق كابتن تكسي توصيل ركاب مشوار سيارة نقل`;
+                        return matchesArabicSearch(text, searchQuery);
+                      }) || driversList.some((d) => {
                         const text = `${d.name} ${d.vehicle || ""} ${d.phone || ""} سائق كابتن تكسي توصيل ركاب مشوار سيارة دراجة نقل`;
                         return matchesArabicSearch(text, searchQuery);
                       }) || stores.some((s) => (s.category === "drivers" || s.isService) && matchesArabicSearch(`${s.name} ${s.description || ""} ${s.featuredProduct || ""} ${s.contactPhone || ""}`, searchQuery))
@@ -6231,6 +6487,15 @@ export default function App() {
           isOpen={showCraftsmenModal}
           onClose={() => setShowCraftsmenModal(false)}
           craftsmen={craftsmenList}
+        />
+      )}
+
+      {/* Customer Driver Services Directory Modal */}
+      {showDriverServicesModal && (
+        <DriverServicesDirectoryModal
+          isOpen={showDriverServicesModal}
+          onClose={() => setShowDriverServicesModal(false)}
+          driverServices={driverServicesList}
         />
       )}
 

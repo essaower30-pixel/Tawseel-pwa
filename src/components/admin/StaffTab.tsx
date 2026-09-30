@@ -48,6 +48,7 @@ interface PermissionOption {
 const ALL_PERMISSIONS: PermissionOption[] = [
   { id: "orders", label: "الطلبات النشطة والجدولة", category: "العمليات والتوصيل", emoji: "🕒", desc: "متابعة الطلبات اللحظية، قبولها، وتوجيه الكباتن" },
   { id: "drivers", label: "إدارة الكباتن والمناديب", category: "العمليات والتوصيل", emoji: "🛵", desc: "تعيين الكباتن، إدارة أسطول التوصيل وحساب الأجور" },
+  { id: "driver_services", label: "خدمات السائقين والتكاسي", category: "الخدمات والبيانات", emoji: "🚗", desc: "إضافة وإدارة بطاقات سائقي التكاسي ونقل البضائع والمشاوير العامة للزبائن" },
   { id: "customers", label: "سجل الزبائن والعملاء", category: "العملاء والتواصل", emoji: "👥", desc: "استعراض بيانات الزبائن، العناوين، وسجل الطلبات" },
   { id: "archive_reports", label: "أرشيف الطلبات والتقارير", category: "التقارير والمالية", emoji: "📦", desc: "البحث في تاريخ الطلبات السابقة وتصدير التقارير" },
   { id: "stats", label: "الإحصائيات والأرباح العامة", category: "التقارير والمالية", emoji: "📊", desc: "مخططات المبيعات اليومية والشهرية وإجمالي الأرباح" },
@@ -65,10 +66,10 @@ const ALL_PERMISSIONS: PermissionOption[] = [
 ];
 
 const DEFAULT_ROLE_PERMISSIONS: Record<StaffRole, StaffPermission[]> = {
-  manager: ["stats", "archive_reports", "vault", "customers", "orders", "stores", "products", "coupons", "drivers", "landmarks", "craftsmen", "doctors", "staff", "logs", "settings", "share"],
-  orders_clerk: ["orders", "drivers", "customers", "landmarks", "archive_reports"],
+  manager: ["stats", "archive_reports", "vault", "customers", "orders", "stores", "products", "coupons", "drivers", "driver_services", "landmarks", "craftsmen", "doctors", "staff", "logs", "settings", "share", "platform_features"],
+  orders_clerk: ["orders", "drivers", "driver_services", "customers", "landmarks", "archive_reports"],
   accountant: ["stats", "archive_reports", "logs", "customers"],
-  support: ["customers", "orders", "craftsmen", "doctors", "landmarks", "drivers"],
+  support: ["customers", "orders", "craftsmen", "doctors", "landmarks", "drivers", "driver_services"],
   products_specialist: ["stores", "products", "coupons", "landmarks"],
   custom: ["orders", "customers"]
 };

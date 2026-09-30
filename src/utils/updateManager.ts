@@ -23,17 +23,18 @@ const BROADCAST_CHANNEL_NAME = "tw_app_update_channel";
  * Default update representing the latest comprehensive platform enhancements
  */
 export const DEFAULT_INITIAL_UPDATE: AppUpdateInfo = {
-  id: "update_v3_9_4_precise_search_filter_fix",
-  version: "v3.9.4",
-  title: "معالجة دقة محرك البحث ومنع النتائج العشوائية أو غير المتطابقة 🎯",
-  releaseDate: "29 سبتمبر 2026",
+  id: "update_v3_9_5_driver_services_id_card",
+  version: "v3.9.5",
+  title: "إتاحة قسم وإدارة خدمات السائقين والتكاسي بالبطاقة التعريفية المعتمدة 🚗",
+  releaseDate: "30 سبتمبر 2026",
   features: [
-    "إصلاح خوارزمية تطابق الكلمات: منع ظهور نتائج لا تشترك بأي كلمة مع عبارة البحث المدخلة",
-    "معالجة البحث بالحروف المفردة (مثل: 'وحيد ع'): الحرف المنفصل يطابق بداية الكلمات حصراً ولا يطابق الحروف العشوائية وسط الكلمات",
-    "تنقية نصوص البحث للأطباء والحرفيين: إلغاء الكلمات الدلالية العامة المتداخلة لضمان ظهور صاحب الاختصاص المطلوب حصراً",
-    "ترقية PWA وتطهير الكاش (v69) لضمان العمل الفوري بالدقة الجديدة على جميع الهواتف"
+    "توفير قسم مخصص في لوحة الإدارة لإضافة خدمات السائقين والتكاسي ونقل البضائع والمشاوير",
+    "تفعيل البطاقة التعريفية المعتمدة للسائق (Driver ID Card) مع شارة الكابتن، نوع السيارة، وأزرار الاتصال والواتساب الفورية",
+    "تخصيص شاشة 'خدمات وسائقين' بتصنيفات المركبات وفلترة فورية بدلاً من عرضها كمتجر تسوق",
+    "التكيف التلقائي مع السائقين المضافين سابقاً كأصحاب متاجر وإظهارهم كبطاقات سائقين تعريفية أنيقة",
+    "مزامنة سحابية فورية وترقية PWA (v70) لتعمل الميزة مباشرة على هواتف الزبائن والإدارة"
   ],
-  notes: "تحديث رئيسي يعزز دقة وذكاء محرك البحث ويمنع النتائج غير المرتبطة نهائياً.",
+  notes: "تحديث رئيسي يوفر للمنصة خدمات النقل والتكاسي العامة ببطاقات تعريفية رسمية معتمدة.",
   publishedAt: Date.now(),
   publishedBy: "الإدارة العامة"
 };
@@ -49,7 +50,7 @@ export function getLatestUpdate(): AppUpdateInfo {
       const parsed = JSON.parse(stored);
       if (parsed && parsed.id && parsed.version) {
         // Auto-upgrade if stored version is older than latest system release
-        if (parsed.version === "v3.7.0" || parsed.version === "v3.8.0" || parsed.version === "v3.9.0" || parsed.version < "v3.9.4") {
+        if (parsed.version === "v3.7.0" || parsed.version === "v3.8.0" || parsed.version === "v3.9.0" || parsed.version < "v3.9.5") {
           localStorage.setItem(UPDATE_STORAGE_KEY, JSON.stringify(DEFAULT_INITIAL_UPDATE));
           return DEFAULT_INITIAL_UPDATE;
         }

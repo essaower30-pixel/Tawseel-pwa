@@ -29,7 +29,8 @@ import {
   Sparkles,
   ShoppingBag,
   Bell,
-  Stethoscope
+  Stethoscope,
+  Car
 } from "lucide-react";
 import { StaffMember, StaffPermission } from "../../types";
 import { playOrderAlertSound, isSoundEnabled, setSoundEnabled, requestNotificationPermission, showSystemNotification } from "../../utils/soundNotifications";
@@ -46,6 +47,7 @@ export type AdminTab =
   | "orders" 
   | "staff" 
   | "drivers" 
+  | "driver_services"
   | "landmarks" 
   | "coupons" 
   | "craftsmen" 
@@ -160,6 +162,7 @@ export const AdminHeader: React.FC<AdminHeaderProps> = ({
     { id: "products", label: "إدارة الأصناف والخيارات", icon: Utensils, emoji: "🍽️" },
     { id: "coupons", label: "كوبونات الخصم والترويج", icon: Tag, emoji: "🏷️" },
     { id: "drivers", label: "إدارة الكباتن والمناديب", icon: Bike, emoji: "🛵" },
+    { id: "driver_services", label: "خدمات السائقين والتكاسي", icon: Car, emoji: "🚗" },
     { id: "landmarks", label: "إدارة المعالم الجغرافية", icon: MapPin, emoji: "📍" },
     { id: "craftsmen", label: "دليل الحرفيين وأصحاب المهن", icon: Wrench, emoji: "🛠️" },
     { id: "doctors", label: "دليل وسجل الأطباء والعيادات", icon: Stethoscope, emoji: "🩺" },
@@ -179,6 +182,7 @@ export const AdminHeader: React.FC<AdminHeaderProps> = ({
   // Filter tabs based on assigned permissions
   const visibleTabs = allNavTabs.filter(tab => {
     if (isManager) return true;
+    if (tab.id === "driver_services" && (userPermissions.includes("drivers") || userPermissions.includes("driver_services"))) return true;
     return userPermissions.includes(tab.id as StaffPermission);
   });
 

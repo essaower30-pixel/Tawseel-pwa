@@ -19,14 +19,16 @@ import {
   Edit2,
   Eye,
   EyeOff,
-  Camera
+  Camera,
+  Car
 } from "lucide-react";
-import { DriverMember, Order } from "../../types";
+import { DriverMember, DriverService, Order } from "../../types";
 import { ContactActions } from "../ContactActions";
 import { openWhatsApp } from "../../utils/whatsapp";
 import { getAppUrl } from "../../utils/appUrl";
 import { cleanPhoneNumber, normalizeDigits } from "../../utils/driverAuth";
 import { ImageUploader } from "../ImageUploader";
+import { DriverServicesTab } from "./DriverServicesTab";
 
 interface DriversTabProps {
   driversList: DriverMember[];
@@ -35,6 +37,11 @@ interface DriversTabProps {
   onUpdateDriver: (driver: DriverMember) => void;
   onDeleteDriver: (driverId: string) => void;
   currency: string;
+  driverServicesList?: DriverService[];
+  onAddDriverService?: (driver: DriverService) => void;
+  onUpdateDriverService?: (driver: DriverService) => void;
+  onDeleteDriverService?: (id: string) => void;
+  onNavigateToDriverServices?: () => void;
 }
 
 export const DriversTab: React.FC<DriversTabProps> = ({
@@ -43,8 +50,14 @@ export const DriversTab: React.FC<DriversTabProps> = ({
   onAddDriver,
   onUpdateDriver,
   onDeleteDriver,
-  currency
+  currency,
+  driverServicesList = [],
+  onAddDriverService,
+  onUpdateDriverService,
+  onDeleteDriverService,
+  onNavigateToDriverServices
 }) => {
+  const [activeSubSection, setActiveSubSection] = useState<"fleet" | "public_services">("fleet");
   const [showModal, setShowModal] = useState(false);
   const [editingDriver, setEditingDriver] = useState<DriverMember | null>(null);
   const [name, setName] = useState("");
@@ -157,27 +170,65 @@ export const DriversTab: React.FC<DriversTabProps> = ({
 
   return (
     <div className="space-y-6 text-right font-sans" dir="rtl">
-      {/* Top Banner */}
-      <div className="bg-white p-4 sm:p-5 rounded-3xl border border-slate-200 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h3 className="font-black text-slate-900 text-sm sm:text-base flex items-center gap-2">
-            <Bike className="w-5 h-5 text-orange-500" />
-            <span>إدارة أسطول الكباتن والمناديب 🛵</span>
-          </h3>
-          <p className="text-xs text-slate-400 mt-0.5">
-            تسجيل الكباتن، تعيين اسم المستخدم ورمز المرور (PIN)، وإرسال بيانات الدخول لهم
-          </p>
-        </div>
+      {/* Sub-Section Switcher Tabs */}
+      <div className="bg-slate-100/90 p-1.5 rounded-2xl border border-slate-200/80 flex items-center gap-1.5 max-w-full overflow-x-auto shadow-inner">
+        <button
+          type="button"
+          onClick={() => setActiveSubSection("fleet")}
+          className={`flex-1 py-2.5 px-4 rounded-xl font-black text-xs sm:text-sm flex items-center justify-center gap-2 transition-all cursor-pointer whitespace-nowrap ${
+            activeSubSection === "fleet"
+              ? "bg-white text-orange-600 shadow-sm border border-slate-200/60"
+              : "text-slate-600 hover:text-slate-900"
+          }`}
+        >
+          <Bike className="w-4 h-4 text-orange-500" />
+          <span>كباتن أسطول التوصيل (الداخلي) ({driversList.length})</span>
+        </button>
 
         <button
           type="button"
-          onClick={handleOpenAddModal}
-          className="py-2.5 px-4 bg-orange-500 hover:bg-orange-600 text-white font-black text-xs rounded-xl shadow-md transition-all flex items-center gap-2 cursor-pointer self-start sm:self-auto"
+          onClick={() => setActiveSubSection("public_services")}
+          className={`flex-1 py-2.5 px-4 rounded-xl font-black text-xs sm:text-sm flex items-center justify-center gap-2 transition-all cursor-pointer whitespace-nowrap ${
+            activeSubSection === "public_services"
+              ? "bg-white text-blue-600 shadow-sm border border-slate-200/60"
+              : "text-slate-600 hover:text-slate-900"
+          }`}
         >
-          <Plus className="w-4 h-4" />
-          <span>إضافة كابتن جديد 🛵</span>
+          <Car className="w-4 h-4 text-blue-500" />
+          <span>خدمات السائقين والتكاسي (للزبان مع البطاقة التعريفية) ({driverServicesList.length})</span>
         </button>
       </div>
+
+      {activeSubSection === "public_services" ? (
+        <DriverServicesTab
+          driverServicesList={driverServicesList}
+          onAddDriverService={onAddDriverService || (() => {})}
+          onUpdateDriverService={onUpdateDriverService || (() => {})}
+          onDeleteDriverService={onDeleteDriverService || (() => {})}
+        />
+      ) : (
+        <>
+          {/* Top Banner */}
+          <div className="bg-white p-4 sm:p-5 rounded-3xl border border-slate-200 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div>
+              <h3 className="font-black text-slate-900 text-sm sm:text-base flex items-center gap-2">
+                <Bike className="w-5 h-5 text-orange-500" />
+                <span>إدارة أسطول الكباتن والمناديب 🛵</span>
+              </h3>
+              <p className="text-xs text-slate-400 mt-0.5">
+                تسجيل الكباتن، تعيين اسم المستخدم ورمز المرور (PIN)، وإرسال بيانات الدخول لهم
+              </p>
+            </div>
+
+            <button
+              type="button"
+              onClick={handleOpenAddModal}
+              className="py-2.5 px-4 bg-orange-500 hover:bg-orange-600 text-white font-black text-xs rounded-xl shadow-md transition-all flex items-center gap-2 cursor-pointer self-start sm:self-auto"
+            >
+              <Plus className="w-4 h-4" />
+              <span>إضافة كابتن جديد 🛵</span>
+            </button>
+          </div>
 
       {/* Drivers Cards Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -535,6 +586,8 @@ export const DriversTab: React.FC<DriversTabProps> = ({
             </form>
           </div>
         </div>
+      )}
+      </>
       )}
     </div>
   );

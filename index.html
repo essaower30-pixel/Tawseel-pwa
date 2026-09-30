@@ -53,11 +53,11 @@
         }
       })();
     </script>
-    <!-- Auto-purge stale cache for v69 update -->
+    <!-- Auto-purge stale cache for v70 update -->
     <script>
       (function() {
         try {
-          var PURGE_KEY = 'tw_purged_v69';
+          var PURGE_KEY = 'tw_purged_v70';
           if (localStorage.getItem(PURGE_KEY) !== 'done') {
             localStorage.setItem(PURGE_KEY, 'done');
             try {
@@ -76,14 +76,14 @@
             if ('caches' in window) {
               caches.keys().then(function(names) {
                 names.forEach(function(name) {
-                  if (name.indexOf('v69') === -1) {
+                  if (name.indexOf('v70') === -1) {
                     caches.delete(name);
                   }
                 });
               });
             }
           }
-        } catch(e) {}
+        } catch (e) {}
       })();
     </script>
   </head>

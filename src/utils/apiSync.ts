@@ -1,6 +1,6 @@
-import { Store, Order, Product, Category, DriverMember, Craftsman } from "../types";
+import { Store, Order, Product, Category, DriverMember, Craftsman, DriverService } from "../types";
 import { initialStores, initialProducts, initialCategories, initialMapNodes } from "../data/initialData";
-import { initialOrders, initialDrivers, initialCraftsmen } from "../data/adminInitialData";
+import { initialOrders, initialDrivers, initialCraftsmen, initialDriverServices } from "../data/adminInitialData";
 
 export interface ServerNotification {
   id: string;
@@ -18,6 +18,7 @@ export interface ServerSyncData {
   orders: Order[];
   drivers?: DriverMember[];
   craftsmen?: Craftsman[];
+  driverServices?: DriverService[];
   notifications?: ServerNotification[];
   categories?: Category[];
   lastUpdated: number;
@@ -536,6 +537,36 @@ export async function deleteCraftsmanOnServer(craftsmanId: string): Promise<bool
     return res.ok;
   } catch (err) {
     console.warn("Failed to delete craftsman on server:", err);
+    return false;
+  }
+}
+
+// -------------------------------------------------------------
+// Driver Services API Sync Helpers (Public Taxis & Transport)
+// -------------------------------------------------------------
+export async function saveDriverServiceOnServer(driverService: DriverService): Promise<boolean> {
+  try {
+    const res = await fetch(`${API_BASE}/api/driver-services`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(driverService)
+    });
+    return res.ok;
+  } catch (err) {
+    console.warn("Failed to save driver service on server:", err);
+    return false;
+  }
+}
+
+export async function deleteDriverServiceOnServer(driverServiceId: string): Promise<boolean> {
+  try {
+    const res = await fetch(`${API_BASE}/api/driver-services/${driverServiceId}`, {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" }
+    });
+    return res.ok;
+  } catch (err) {
+    console.warn("Failed to delete driver service on server:", err);
     return false;
   }
 }

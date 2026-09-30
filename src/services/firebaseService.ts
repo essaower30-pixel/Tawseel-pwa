@@ -25,7 +25,8 @@ import {
   AppSettings,
   Category,
   StaffMember,
-  Craftsman
+  Craftsman,
+  DriverService
 } from "../types";
 import {
   initialStores,
@@ -33,7 +34,7 @@ import {
   initialCategories,
   initialMapNodes
 } from "../data/initialData";
-import { initialOrders, initialDrivers, initialCoupons, initialStaff, initialCraftsmen } from "../data/adminInitialData";
+import { initialOrders, initialDrivers, initialCoupons, initialStaff, initialCraftsmen, initialDriverServices } from "../data/adminInitialData";
 
 // Helper to remove undefined values before Firestore writes
 function sanitizeForFirestore<T>(data: T): Record<string, any> {
@@ -1077,4 +1078,87 @@ export function subscribeToSystemStatus(
     return () => {};
   }
 }
+
+// ============================================================================
+// Driver Services (خدمات السائقين والتكاسي ونقل الركاب)
+// ============================================================================
+
+export function subscribeToDriverServices(
+  callback: (driverServices: DriverService[]) => void
+): () => void {
+  try {
+    const q = query(collection(db, "driver_services"));
+    const unsubscribe = onSnapshot(
+      q,
+      (snapshot) => {
+        if (!snapshot.empty) {
+          const list: DriverService[] = [];
+          snapshot.forEach((d) => {
+            const data = d.data();
+            list.push({
+              id: d.id,
+              name: data.name || "",
+              vehicle: data.vehicle || "تكسي أجرة وسياحي",
+              phone: data.phone || "",
+              whatsapp: data.whatsapp || undefined,
+              serviceArea: data.serviceArea || "",
+              workingHours: data.workingHours || "",
+              notes: data.notes || "",
+              availability: data.availability || "available",
+              rating: data.rating !== undefined ? Number(data.rating) : 5.0,
+              avatar: data.avatar || undefined,
+              createdAt: data.createdAt || undefined
+            });
+          });
+          callback(list);
+        } else {
+          // If Firestore collection is empty, seed with initialDriverServices
+          seedInitialDriverServicesToFirestore().catch(() => {});
+          callback(initialDriverServices);
+        }
+      },
+      (error) => {
+        console.warn("Firestore subscribeToDriverServices notice:", error);
+      }
+    );
+    return unsubscribe;
+  } catch (err) {
+    console.warn("Failed to subscribe to driver services:", err);
+    return () => {};
+  }
+}
+
+export async function seedInitialDriverServicesToFirestore(): Promise<void> {
+  try {
+    for (const ds of initialDriverServices) {
+      const docRef = doc(db, "driver_services", ds.id);
+      await setDoc(docRef, sanitizeForFirestore(ds), { merge: true });
+    }
+  } catch (err) {
+    console.warn("Notice: seedInitialDriverServicesToFirestore:", err);
+  }
+}
+
+export async function saveDriverServiceToFirestore(driverService: DriverService): Promise<boolean> {
+  try {
+    const docRef = doc(db, "driver_services", driverService.id);
+    await setDoc(docRef, sanitizeForFirestore(driverService), { merge: true });
+    return true;
+  } catch (err) {
+    console.warn("Error saving driver service to Firestore:", err);
+    return false;
+  }
+}
+
+export async function deleteDriverServiceFromFirestore(driverServiceId: string): Promise<boolean> {
+  try {
+    const docRef = doc(db, "driver_services", driverServiceId);
+    await deleteDoc(docRef);
+    return true;
+  } catch (err) {
+    console.warn("Error deleting driver service from Firestore:", err);
+    return false;
+  }
+}
+
 

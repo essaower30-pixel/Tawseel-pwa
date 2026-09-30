@@ -8,6 +8,7 @@ import {
   Craftsman, 
   Doctor,
   DriverMember, 
+  DriverService,
   MapNode, 
   Order, 
   Product, 
@@ -22,6 +23,7 @@ import {
   initialDrivers, 
   initialCraftsmen, 
   initialDoctors,
+  initialDriverServices,
   initialCoupons, 
   initialAppSettings,
   initialCustomers 
@@ -32,6 +34,7 @@ import { StoresTab } from "./admin/StoresTab";
 import { ProductsTab } from "./admin/ProductsTab";
 import { StaffTab } from "./admin/StaffTab";
 import { DriversTab } from "./admin/DriversTab";
+import { DriverServicesTab } from "./admin/DriverServicesTab";
 import { CraftsmenTab } from "./admin/CraftsmenTab";
 import { DoctorsTab } from "./admin/DoctorsTab";
 import { LandmarksTab } from "./admin/LandmarksTab";
@@ -43,8 +46,8 @@ import { OrdersArchiveReportsTab } from "./admin/OrdersArchiveReportsTab";
 import { PlatformFeaturesTab } from "./admin/PlatformFeaturesTab";
 import { BottomNavigation } from "./BottomNavigation";
 import { AccountSettingsModal } from "./AccountSettingsModal";
-import { saveCraftsmanToFirestore, deleteCraftsmanFromFirestore } from "../services/firebaseService";
-import { saveCraftsmanOnServer, deleteCraftsmanOnServer } from "../utils/apiSync";
+import { saveCraftsmanToFirestore, deleteCraftsmanFromFirestore, saveDriverServiceToFirestore, deleteDriverServiceFromFirestore } from "../services/firebaseService";
+import { saveCraftsmanOnServer, deleteCraftsmanOnServer, saveDriverServiceOnServer, deleteDriverServiceOnServer } from "../utils/apiSync";
 import { saveStaffToFirestore, deleteStaffFromFirestore, subscribeToStaff, saveAppSettingsToFirestore } from "../services/firebaseService";
 
 interface DashboardProps {
@@ -81,6 +84,10 @@ interface DashboardProps {
   onAddDriver?: (driver: DriverMember) => void;
   onUpdateDriver?: (driver: DriverMember) => void;
   onDeleteDriver?: (driverId: string) => void;
+  driverServicesList?: DriverService[];
+  onAddDriverService?: (driver: DriverService) => void;
+  onUpdateDriverService?: (driver: DriverService) => void;
+  onDeleteDriverService?: (driverServiceId: string) => void;
   isEmergencyRush?: boolean;
   onToggleEmergencyRush?: () => void;
   onBackToCustomerView?: () => void;
@@ -121,6 +128,10 @@ export const Dashboard: React.FC<DashboardProps> = ({
   onAddDriver: propOnAddDriver,
   onUpdateDriver: propOnUpdateDriver,
   onDeleteDriver: propOnDeleteDriver,
+  driverServicesList: propDriverServicesList,
+  onAddDriverService: propOnAddDriverService,
+  onUpdateDriverService: propOnUpdateDriverService,
+  onDeleteDriverService: propOnDeleteDriverService,
   isEmergencyRush: propIsEmergencyRush,
   onToggleEmergencyRush: propOnToggleEmergencyRush,
   onBackToCustomerView,
@@ -393,6 +404,71 @@ export const Dashboard: React.FC<DashboardProps> = ({
     window.dispatchEvent(new CustomEvent("tw_craftsmen_updated"));
     deleteCraftsmanFromFirestore(id).catch(() => {});
     deleteCraftsmanOnServer(id).catch(() => {});
+  };
+
+  // Driver Services State (خدمات السائقين والتكاسي العامة للزبائن)
+  const [localDriverServicesList, setLocalDriverServicesList] = useState<DriverService[]>(() => {
+    try {
+      const saved = localStorage.getItem("tw_driver_services");
+      return saved ? JSON.parse(saved) : initialDriverServices;
+    } catch {
+      return initialDriverServices;
+    }
+  });
+
+  const driverServicesList = (propDriverServicesList && propDriverServicesList.length > 0)
+    ? propDriverServicesList
+    : localDriverServicesList;
+
+  useEffect(() => {
+    const handleDriverServicesUpdate = () => {
+      try {
+        const saved = localStorage.getItem("tw_driver_services");
+        if (saved) {
+          setLocalDriverServicesList(JSON.parse(saved));
+        }
+      } catch {}
+    };
+    window.addEventListener("tw_driver_services_updated", handleDriverServicesUpdate);
+    return () => {
+      window.removeEventListener("tw_driver_services_updated", handleDriverServicesUpdate);
+    };
+  }, []);
+
+  const handleAddDriverService = (driver: DriverService) => {
+    if (propOnAddDriverService) {
+      propOnAddDriverService(driver);
+    }
+    const next = [driver, ...localDriverServicesList.filter(d => d.id !== driver.id)];
+    setLocalDriverServicesList(next);
+    localStorage.setItem("tw_driver_services", JSON.stringify(next));
+    window.dispatchEvent(new CustomEvent("tw_driver_services_updated"));
+    saveDriverServiceToFirestore(driver).catch(() => {});
+    saveDriverServiceOnServer(driver).catch(() => {});
+  };
+
+  const handleUpdateDriverService = (driver: DriverService) => {
+    if (propOnUpdateDriverService) {
+      propOnUpdateDriverService(driver);
+    }
+    const next = localDriverServicesList.map(d => d.id === driver.id ? driver : d);
+    setLocalDriverServicesList(next);
+    localStorage.setItem("tw_driver_services", JSON.stringify(next));
+    window.dispatchEvent(new CustomEvent("tw_driver_services_updated"));
+    saveDriverServiceToFirestore(driver).catch(() => {});
+    saveDriverServiceOnServer(driver).catch(() => {});
+  };
+
+  const handleDeleteDriverService = (id: string) => {
+    if (propOnDeleteDriverService) {
+      propOnDeleteDriverService(id);
+    }
+    const next = localDriverServicesList.filter(d => d.id !== id);
+    setLocalDriverServicesList(next);
+    localStorage.setItem("tw_driver_services", JSON.stringify(next));
+    window.dispatchEvent(new CustomEvent("tw_driver_services_updated"));
+    deleteDriverServiceFromFirestore(id).catch(() => {});
+    deleteDriverServiceOnServer(id).catch(() => {});
   };
 
   // Doctors State (سجل ودليل الأطباء المستقل)
@@ -702,6 +778,20 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 onUpdateDriver={handleUpdateDriver}
                 onDeleteDriver={handleDeleteDriver}
                 currency={appSettings.currency || "ل.س"}
+                driverServicesList={driverServicesList}
+                onAddDriverService={handleAddDriverService}
+                onUpdateDriverService={handleUpdateDriverService}
+                onDeleteDriverService={handleDeleteDriverService}
+                onNavigateToDriverServices={() => setActiveTab("driver_services")}
+              />
+            )}
+
+            {activeTab === "driver_services" && (
+              <DriverServicesTab
+                driverServicesList={driverServicesList}
+                onAddDriverService={handleAddDriverService}
+                onUpdateDriverService={handleUpdateDriverService}
+                onDeleteDriverService={handleDeleteDriverService}
               />
             )}
 

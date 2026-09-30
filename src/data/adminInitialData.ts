@@ -1,4 +1,4 @@
-import { Craftsman, Doctor, DriverMember, StaffMember, Coupon, AuditLog, AppSettings, RegisteredCustomer, Order } from "../types";
+import { Craftsman, Doctor, DriverService, DriverMember, StaffMember, Coupon, AuditLog, AppSettings, RegisteredCustomer, Order } from "../types";
 
 export const initialCustomers: RegisteredCustomer[] = [
   { 
@@ -72,7 +72,7 @@ export const initialStaff: StaffMember[] = [
     password: "Admin@Tawseel2026#", 
     pin: "1234", 
     phone: "0991234567", 
-    permissions: ["stats", "archive_reports", "vault", "customers", "orders", "stores", "products", "coupons", "drivers", "landmarks", "craftsmen", "staff", "logs", "settings", "share"],
+    permissions: ["stats", "archive_reports", "vault", "customers", "orders", "stores", "products", "coupons", "drivers", "driver_services", "landmarks", "craftsmen", "doctors", "staff", "logs", "settings", "share", "platform_features"],
     notes: "المدير العام للمنصة - صلاحيات تحكم مركزية كاملة",
     isActive: true, 
     createdAt: "2025-01-01" 
@@ -192,6 +192,42 @@ export const initialDoctors: Doctor[] = [
     clinicAddress: "قرب دوار الساعة - عمارة السلام",
     workingHours: "4:30 عصراً - 8:00 مساءً",
     notes: "علاج الكسور، آلام المفاصل والفقرات، تنظير وجراحة عظام"
+  }
+];
+
+export const initialDriverServices: DriverService[] = [
+  {
+    id: "drv_srv_1",
+    name: "الكابتن حمزة عوير - تكسي القرية",
+    vehicle: "تكسي أجرة سياحي وسرفيس خاص",
+    phone: "0966778899",
+    serviceArea: "داخل البلدة، ريف دمشق، ولكافة المحافظات",
+    workingHours: "متاح على مدار 24 ساعة",
+    notes: "سيارة حديثة ومكيفة، رحلات عائلية، مشاوير مطار ومحافظات، التزام بالمواعيد",
+    availability: "available",
+    rating: 5.0
+  },
+  {
+    id: "drv_srv_2",
+    name: "أبو عبدو لنقل البضائع والأثاث",
+    vehicle: "سوزوكي نقل حمولة وبضائع",
+    phone: "0955112233",
+    serviceArea: "نقل أثاث وبضائع وخضار بين القرى والأسواق المركزية",
+    workingHours: "من 6:00 صباحاً حتى 9:00 مساءً",
+    notes: "صندوق واسع وشادر حماية، حمولة حتى 1.5 طن، أسعار مناسبة وخدمة سريعة",
+    availability: "available",
+    rating: 4.8
+  },
+  {
+    id: "drv_srv_3",
+    name: "الكابتن وائل - مشاوير خاصة",
+    vehicle: "سيارة سياحية خاصة حديثة",
+    phone: "0944889900",
+    serviceArea: "مشاوير طبية عاجلة، نقل جامعات، ودمشق",
+    workingHours: "متاح 24 ساعة للطلبات والحالات الإسعافية",
+    notes: "تكييف ممتاز، رحلات هادئة وآمنة، تلبية فورية للنداءات المستعجلة",
+    availability: "available",
+    rating: 4.9
   }
 ];
 

@@ -195,6 +195,7 @@ export type StaffPermission =
   | "products"
   | "coupons"
   | "drivers"
+  | "driver_services"
   | "landmarks"
   | "craftsmen"
   | "doctors"
@@ -258,6 +259,21 @@ export interface Doctor {
   workingHours?: string;    // أوقات الدوام أو الاستشارة (اختياري)
   notes?: string;           // ملاحظات إضافية (اختياري)
   rating?: number;
+  createdAt?: string;
+}
+
+export interface DriverService {
+  id: string;
+  name: string;             // اسم السائق (مثلاً: الكابتن حمزة - تكسي القرية)
+  vehicle: string;          // نوع المركبة والخدمة (تكسي أجرة / سوزوكي نقل بضائع / سيارة سياحية / فان)
+  phone: string;            // رقم الهاتف للتواصل
+  whatsapp?: string;        // رقم الواتساب (اختياري)
+  serviceArea?: string;     // منطقة العمل أو خط السير (داخل البلدة، ريف دمشق، المحافظات)
+  workingHours?: string;    // أوقات الدوام أو التوافر (24 ساعة / صباحي / مسائي)
+  notes?: string;           // ملاحظات ومميزات (مكيف، نقل عائلات، حمولة واسعة)
+  availability?: "available" | "busy" | "offline";
+  rating?: number;
+  avatar?: string;
   createdAt?: string;
 }
 

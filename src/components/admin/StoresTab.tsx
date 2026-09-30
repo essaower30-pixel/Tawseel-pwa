@@ -954,6 +954,18 @@ export const StoresTab: React.FC<StoresTabProps> = ({
                     </option>
                   </select>
 
+                  {/* Helpful Tip for Drivers category */}
+                  {category === "drivers" && (
+                    <div className="mt-2 p-3 bg-blue-50 border border-blue-200 rounded-2xl text-[11px] text-blue-900 leading-relaxed space-y-1">
+                      <div className="font-black flex items-center gap-1 text-blue-800">
+                        <span>🚗 نصيحة لإظهار السائق بالبطاقة التعريفية المناسبة:</span>
+                      </div>
+                      <p>
+                        يمكنك إضافة السائقين (تكسي، سوزوكي، مشاوير خاصة) من قسم <b>"خدمات السائقين والتكاسي 🚗"</b> ليظهروا للزبائن كبطاقات تعريفية رسمية مع أزرار اتصال وواتساب مباشرة ونوع السيارة بدون الحاجة لإضافة متجر وأصناف.
+                      </p>
+                    </div>
+                  )}
+
                   {/* Inline Quick Category Creator Box */}
                   {showQuickAddCatInStore && (
                     <div className="mt-2 p-3 bg-emerald-50/90 border border-emerald-300 rounded-2xl space-y-2.5 shadow-xs">
