@@ -17,7 +17,10 @@ import {
   MapPin,
   Search,
   ZoomIn,
-  AlertCircle
+  AlertCircle,
+  Pill,
+  FileText,
+  Plus
 } from "lucide-react";
 import { Store, UserProfile } from "../types";
 import { openWhatsApp } from "../utils/whatsapp";
@@ -111,6 +114,109 @@ export const CustomStoreOrderModal: React.FC<CustomStoreOrderModalProps> = ({
   }, [currentLandmark, landmarks, isOpen]);
 
   const selectedStore = stores.find((s) => s.id === selectedStoreId) || stores[0];
+
+  const isPharmacy = Boolean(
+    selectedStore?.category === "pharmacies" ||
+    selectedStore?.name?.includes("صيدل") ||
+    selectedStore?.id?.includes("pharmacy") ||
+    selectedStore?.id === "store_shifa"
+  );
+
+  const isRestaurant = Boolean(
+    selectedStore?.category === "restaurants" ||
+    selectedStore?.category === "food" ||
+    selectedStore?.name?.includes("مطعم") ||
+    selectedStore?.name?.includes("شاورما") ||
+    selectedStore?.name?.includes("سناك") ||
+    selectedStore?.name?.includes("برغر") ||
+    selectedStore?.name?.includes("مشاوي")
+  );
+
+  const isSweetsOrBakery = Boolean(
+    selectedStore?.category === "sweets" ||
+    selectedStore?.name?.includes("حلويات") ||
+    selectedStore?.name?.includes("مخبز") ||
+    selectedStore?.name?.includes("معجنات") ||
+    selectedStore?.name?.includes("باتيسري")
+  );
+
+  const isVegetables = Boolean(
+    selectedStore?.category === "vegetables" ||
+    selectedStore?.name?.includes("خضار") ||
+    selectedStore?.name?.includes("فواكه")
+  );
+
+  // Dynamic placeholder tailored to store type (especially pharmacy)
+  const getPlaceholderText = () => {
+    if (isPharmacy) {
+      return `مثال لطلب أدوية ومستلزمات من الصيدلية:
+1. بنادول إكسترا (أو باراسيتامول 500 ملغ) - علبة واحدة
+2. شراب بروسبان أو كافوسيد للسعال للأطفال
+3. حليب أطفال نان أو بيبلاك رقم 1 (أو حفاضات مقاس 3)
+4. فيتامين سي فوار 1000 ملغ ومكمل زنك
+5. شاش معقم، قطن طبي، كحول طبي ولاصق جروح
+(أو يمكنك تصوير الوصفة الطبية / الروشتة أو كرتونة الدواء أدناه وسيقوم الصيدلي بصرفها بدقة)`;
+    }
+    if (isRestaurant) {
+      return `مثال لطلب وجبات من المطعم:
+1. 2 وجبة شاورما عربي دجاج إكسترا ثوم ومخلل
+2. 1 ساندويش برغر لحم دبل جبنة
+3. وجبة بطاطا مقلية عائلية ومقبلات
+4. 2 عبوة كولا باردة...`;
+    }
+    if (isSweetsOrBakery) {
+      return `مثال لطلب حلويات ومخبوزات:
+1. نصف كيلو بقلاوة مشكلة بالفستق
+2. قالب كيك شوكولا صغير (4-6 أشخاص)
+3. 2 ربطة كعك بسمسم طازج أو معجنات جبنة...`;
+    }
+    if (isVegetables) {
+      return `مثال لطلب خضار وفواكه طازجة:
+1. 2 كيلو بندورة بلدي حمراء
+2. 1 كيلو خيار بلدي
+3. 2 كيلو بطاطا للطبخ
+4. باقة نعناع وبقدونس طازجة...`;
+    }
+    return `مثال لمقاضي ومواد تموينية:
+1. 2 علبة حليب مبستر 1 لتر
+2. كيس سكر 2 كغ وعلبة شاي أحمر
+3. كيس رز تايلندي طويل الحبة 2 كغ
+4. علبة زيت دوار الشمس 1 لتر...`;
+  };
+
+  // Quick suggestions based on store category
+  const pharmacyQuickSuggestions = [
+    { label: "💊 بنادول / مسكن ألم", text: "• بنادول إكسترا (أو باراسيتامول 500 ملغ) - علبة واحدة" },
+    { label: "🩺 شراب سعال وخافض حرارة", text: "• شراب خافض حرارة وسعال للأطفال" },
+    { label: "👶 حليب أطفال رقم 1", text: "• حليب أطفال رقم 1" },
+    { label: "🍼 حفاضات مقاس وسط", text: "• كيس حفاضات أطفال مقاس وسط" },
+    { label: "🍊 فيتامين سي فوار", text: "• فيتامين سي فوار 1000 ملغ" },
+    { label: "🩹 شاش ومعقم ولاصق", text: "• شاش معقم، قطن طبي، معقم كحول ولاصق جروح" },
+    { label: "📋 صرف روشتة مرفقة", text: "• يرجى صرف الأدوية المذكورة في صورة الروشتة المرفقة بدقة" }
+  ];
+
+  const groceryQuickSuggestions = [
+    { label: "🍞 ربطة خبز طازج", text: "• ربطة خبز طازج" },
+    { label: "🥛 حليب ولبن رائب", text: "• علبة حليب ولبن رائب" },
+    { label: "🌻 زيت نباتي 1 لتر", text: "• علبة زيت نباتي 1 لتر" },
+    { label: "☕ سكر وشاي أحمر", text: "• كيلو سكر وعلبة شاي أحمر" }
+  ];
+
+  const restaurantQuickSuggestions = [
+    { label: "🌯 شاورما عربي", text: "• وجبة شاورما عربي دجاج إكسترا ثوم" },
+    { label: "🍔 برغر مع بطاطا", text: "• ساندويش برغر لحم مع بطاطا مقلية" },
+    { label: "🥤 عبوة كولا باردة", text: "• عبوة كولا باردة" }
+  ];
+
+  const handleAddSuggestion = (suggestionText: string) => {
+    setCustomOrderText((prev) => {
+      const trimmed = prev.trim();
+      if (!trimmed) {
+        return suggestionText;
+      }
+      return `${trimmed}\n${suggestionText}`;
+    });
+  };
 
   // Filtered stores for picker
   const filteredStores = stores.filter((s) => {
@@ -243,7 +349,11 @@ export const CustomStoreOrderModal: React.FC<CustomStoreOrderModalProps> = ({
     }
 
     if (!customOrderText.trim() && !customOrderImage) {
-      alert("يرجى كتابة قائمة المنتجات المطلوبة أو إرفاق صورة للأغراض (تصوير أو استديو).");
+      alert(
+        isPharmacy
+          ? "يرجى كتابة أسماء الأدوية المطلوبة أو إرفاق صورة الروشتة الطبية / علبة الدواء (تصوير أو استديو)."
+          : "يرجى كتابة قائمة المنتجات المطلوبة أو إرفاق صورة للأغراض (تصوير أو استديو)."
+      );
       return;
     }
 
@@ -301,15 +411,24 @@ export const CustomStoreOrderModal: React.FC<CustomStoreOrderModalProps> = ({
         {/* Header */}
         <div className="flex items-center justify-between border-b border-slate-100 pb-3">
           <div className="flex items-center gap-2.5">
-            <div className="w-10 h-10 rounded-2xl bg-orange-100 text-orange-600 flex items-center justify-center font-black text-xl shadow-xs">
-              🛍️
+            <div className={`w-10 h-10 rounded-2xl ${isPharmacy ? "bg-emerald-100 text-emerald-700" : "bg-orange-100 text-orange-600"} flex items-center justify-center font-black text-xl shadow-xs transition-colors`}>
+              {isPharmacy ? "💊" : "🛍️"}
             </div>
             <div>
-              <h3 className="font-black text-slate-900 text-base sm:text-lg">
-                طلب خاص / منتجات غير معروضة في القائمة
-              </h3>
+              <div className="flex items-center gap-2">
+                <h3 className="font-black text-slate-900 text-base sm:text-lg">
+                  {isPharmacy ? "طلب خاص من الصيدلية / أدوية وروشتات" : "طلب خاص / منتجات غير معروضة في القائمة"}
+                </h3>
+                {isPharmacy && (
+                  <span className="bg-emerald-100 text-emerald-800 text-[10px] font-black px-2 py-0.5 rounded-full border border-emerald-200">
+                    صيدلية معتمدة 🩺
+                  </span>
+                )}
+              </div>
               <p className="text-slate-400 text-xs font-semibold">
-                اكتب ما تحتاجه أو أرفق صورة وسيقوم المتجر بتجهيزها وإرسالها لك
+                {isPharmacy
+                  ? "اكتب أسماء الأدوية والمستلزمات أو صوّر الروشتة وسيقوم الصيدلي بصرفها بدقة وتجهيزها لك"
+                  : "اكتب ما تحتاجه أو أرفق صورة وسيقوم المتجر بتجهيزها وإرسالها لك"}
               </p>
             </div>
           </div>
@@ -392,49 +511,97 @@ export const CustomStoreOrderModal: React.FC<CustomStoreOrderModalProps> = ({
           </div>
 
           {/* CUSTOM ORDER ITEMS TEXTAREA */}
-          <div>
-            <div className="flex items-center justify-between mb-1">
+          <div className="space-y-2">
+            <div className="flex items-center justify-between mb-0.5">
               <label className="font-extrabold text-slate-800 flex items-center gap-1.5">
-                <Sparkles className="w-3.5 h-3.5 text-orange-500" />
-                <span>قائمة الأغراض والمنتجات المطلوبة: *</span>
+                {isPharmacy ? (
+                  <Pill className="w-3.5 h-3.5 text-emerald-600" />
+                ) : (
+                  <Sparkles className="w-3.5 h-3.5 text-orange-500" />
+                )}
+                <span>
+                  {isPharmacy
+                    ? "قائمة الأدوية والمستلزمات الطبية المطلوبة: *"
+                    : "قائمة الأغراض والمنتجات المطلوبة: *"}
+                </span>
               </label>
-              <span className="text-[10px] text-slate-400 font-semibold">اكتب كل صنف بالكمية</span>
+              <span className="text-[10px] text-slate-400 font-semibold">
+                {isPharmacy ? "اكتب اسم الدواء والعيار أو اختر من الأمثلة" : "اكتب كل صنف بالكمية"}
+              </span>
             </div>
+
+            {/* Quick Suggestion Pills */}
+            <div className="bg-slate-50/90 border border-slate-200/80 rounded-xl p-2 space-y-1.5">
+              <span className="text-[10px] font-black text-slate-500 block">
+                {isPharmacy ? "أمثلة صيدلانية شائعة (انقر للإضافة السريعة ⚡):" : "أمثلة شائعة (انقر للإضافة ⚡):"}
+              </span>
+              <div className="flex items-center gap-1.5 flex-wrap">
+                {(isPharmacy
+                  ? pharmacyQuickSuggestions
+                  : isRestaurant
+                  ? restaurantQuickSuggestions
+                  : groceryQuickSuggestions
+                ).map((chip, idx) => (
+                  <button
+                    key={idx}
+                    type="button"
+                    onClick={() => handleAddSuggestion(chip.text)}
+                    className={`text-[10px] sm:text-[11px] font-bold px-2 py-0.5 rounded-lg border transition-all cursor-pointer active:scale-95 flex items-center gap-1 shadow-2xs ${
+                      isPharmacy
+                        ? "bg-white text-emerald-800 border-emerald-200 hover:bg-emerald-50 hover:border-emerald-300"
+                        : "bg-white text-orange-800 border-orange-200 hover:bg-orange-50 hover:border-orange-300"
+                    }`}
+                  >
+                    <Plus className="w-2.5 h-2.5 shrink-0" />
+                    <span>{chip.label}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
             <textarea
-              rows={3}
+              rows={4}
               required={!customOrderImage}
               value={customOrderText}
               onChange={(e) => setCustomOrderText(e.target.value)}
-              placeholder="مثال:
-1. كيلو بندورة بلدي حمراء
-2. ربطة خبز تنور طازج
-3. علبة زيت دوار الشمس 1 لتر
-4. قالب جبنة حلوم أو عكاوي..."
-              className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 font-semibold text-slate-800 outline-none focus:border-orange-500 leading-relaxed text-xs placeholder:text-slate-400"
+              placeholder={getPlaceholderText()}
+              className={`w-full bg-slate-50 border border-slate-200 rounded-xl p-3 font-semibold text-slate-800 outline-none leading-relaxed text-xs placeholder:text-slate-400 transition-all ${
+                isPharmacy ? "focus:border-emerald-500" : "focus:border-orange-500"
+              }`}
             />
           </div>
 
           {/* IMAGE UPLOADER CARD (Camera + Studio / Gallery) */}
-          <div className="bg-orange-50/50 border-2 border-dashed border-orange-200 rounded-2xl p-3.5 space-y-2.5">
+          <div className={`${isPharmacy ? "bg-emerald-50/50 border-emerald-200" : "bg-orange-50/50 border-orange-200"} border-2 border-dashed rounded-2xl p-3.5 space-y-2.5 transition-colors`}>
             <div className="flex items-center justify-between">
               <label className="font-extrabold text-slate-800 flex items-center gap-1.5 text-xs">
-                <Camera className="w-4 h-4 text-orange-600" />
-                <span>إرفاق صورة للطلب (ورقة مكتوبة أو صورة منتج)</span>
+                {isPharmacy ? (
+                  <FileText className="w-4 h-4 text-emerald-600" />
+                ) : (
+                  <Camera className="w-4 h-4 text-orange-600" />
+                )}
+                <span>
+                  {isPharmacy
+                    ? "إرفاق صورة الوصفة الطبية (الروشتة) 📑 أو علبة الدواء 💊"
+                    : "إرفاق صورة للطلب (ورقة مكتوبة أو صورة منتج)"}
+                </span>
               </label>
               {fileSizeKb !== null && customOrderImage && (
                 <span className="text-[10px] font-bold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-full border border-emerald-300 flex items-center gap-1">
                   <CheckCircle2 className="w-3 h-3 text-emerald-600" />
-                  <span>تم التقاط الصورة: {fileSizeKb} KB</span>
+                  <span>
+                    {isPharmacy ? `تم التقاط صورة الروشتة: ${fileSizeKb} KB` : `تم التقاط الصورة: ${fileSizeKb} KB`}
+                  </span>
                 </span>
               )}
             </div>
 
             {customOrderImage ? (
               /* Image Preview Box */
-              <div className="relative group rounded-xl overflow-hidden bg-slate-900 border border-orange-300 shadow-sm">
+              <div className={`relative group rounded-xl overflow-hidden bg-slate-900 border ${isPharmacy ? "border-emerald-300" : "border-orange-300"} shadow-sm`}>
                 <img
                   src={customOrderImage}
-                  alt="معاينة صورة الطلب الخاص"
+                  alt={isPharmacy ? "معاينة صورة الروشتة الطبية" : "معاينة صورة الطلب الخاص"}
                   className="w-full h-36 sm:h-44 object-contain bg-slate-950/80"
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent flex items-end justify-between p-2.5">
@@ -444,7 +611,7 @@ export const CustomStoreOrderModal: React.FC<CustomStoreOrderModalProps> = ({
                     className="text-white text-[11px] font-bold flex items-center gap-1 bg-black/50 hover:bg-black/70 px-2 py-1 rounded-lg backdrop-blur-xs cursor-pointer"
                   >
                     <ZoomIn className="w-3.5 h-3.5" />
-                    <span>تكبير الصورة</span>
+                    <span>{isPharmacy ? "تكبير وقراءة الروشتة" : "تكبير الصورة"}</span>
                   </button>
                   <div className="flex items-center gap-1.5">
                     <button
@@ -452,7 +619,7 @@ export const CustomStoreOrderModal: React.FC<CustomStoreOrderModalProps> = ({
                       onClick={() => cameraInputRef.current?.click()}
                       className="p-1.5 bg-white/90 hover:bg-white text-slate-800 rounded-lg font-bold text-[10px] shadow-sm transition-all flex items-center gap-1 cursor-pointer active:scale-95"
                     >
-                      <Camera className="w-3 h-3 text-orange-600" />
+                      <Camera className={`w-3 h-3 ${isPharmacy ? "text-emerald-600" : "text-orange-600"}`} />
                       <span>إعادة تصوير</span>
                     </button>
                     <button
@@ -470,26 +637,42 @@ export const CustomStoreOrderModal: React.FC<CustomStoreOrderModalProps> = ({
               /* Camera & Studio Buttons */
               <div className="space-y-2">
                 <p className="text-slate-600 text-[11px] font-medium leading-relaxed">
-                  يمكنك تصوير ورقة مكتوب فيها طلباتك باليد، أو تصوير منتج معين تريده ليحضره لك المتجر بدقة.
+                  {isPharmacy
+                    ? "يمكنك تصوير الوصفة الطبية (الروشتة) المكتوبة بخط الطبيب بالكاميرا فوراً، أو تصوير علبة الدواء المطلوبة، وسيقوم الصيدلاني بقراءتها وتأمينها فوراً."
+                    : "يمكنك تصوير ورقة مكتوب فيها طلباتك باليد، أو تصوير منتج معين تريده ليحضره لك المتجر بدقة."}
                 </p>
                 <div className="grid grid-cols-2 gap-2">
                   <button
                     type="button"
                     onClick={() => cameraInputRef.current?.click()}
                     disabled={isCompressing}
-                    className="py-2.5 px-3 rounded-xl bg-orange-600 hover:bg-orange-700 text-white font-black text-xs transition-all shadow-xs flex items-center justify-center gap-1.5 cursor-pointer active:scale-95 disabled:opacity-50"
+                    className={`py-2.5 px-3 rounded-xl ${
+                      isPharmacy
+                        ? "bg-emerald-600 hover:bg-emerald-700 text-white"
+                        : "bg-orange-600 hover:bg-orange-700 text-white"
+                    } font-black text-xs transition-all shadow-xs flex items-center justify-center gap-1.5 cursor-pointer active:scale-95 disabled:opacity-50`}
                   >
                     <Camera className="w-4 h-4 shrink-0" />
-                    <span>{isCompressing ? "جاري المعالجة..." : "التقاط بالكاميرا 📸"}</span>
+                    <span>
+                      {isCompressing
+                        ? "جاري المعالجة..."
+                        : isPharmacy
+                        ? "تصوير الروشتة بالكاميرا 📸"
+                        : "التقاط بالكاميرا 📸"}
+                    </span>
                   </button>
 
                   <button
                     type="button"
                     onClick={() => galleryInputRef.current?.click()}
                     disabled={isCompressing}
-                    className="py-2.5 px-3 rounded-xl bg-white hover:bg-orange-50 border border-orange-200 text-orange-900 font-black text-xs transition-all shadow-xs flex items-center justify-center gap-1.5 cursor-pointer active:scale-95 disabled:opacity-50"
+                    className={`py-2.5 px-3 rounded-xl bg-white ${
+                      isPharmacy
+                        ? "hover:bg-emerald-50 border-emerald-300 text-emerald-900"
+                        : "hover:bg-orange-50 border-orange-200 text-orange-900"
+                    } border font-black text-xs transition-all shadow-xs flex items-center justify-center gap-1.5 cursor-pointer active:scale-95 disabled:opacity-50`}
                   >
-                    <ImageIcon className="w-4 h-4 text-orange-600 shrink-0" />
+                    <ImageIcon className={`w-4 h-4 ${isPharmacy ? "text-emerald-600" : "text-orange-600"} shrink-0`} />
                     <span>{isCompressing ? "جاري المعالجة..." : "استيراد من الاستديو 🖼️"}</span>
                   </button>
                 </div>
@@ -523,14 +706,20 @@ export const CustomStoreOrderModal: React.FC<CustomStoreOrderModalProps> = ({
 
             <div>
               <label className="font-extrabold text-slate-700 block mb-1">
-                ملاحظات إضافية للمتجر والكابتن (اختياري):
+                {isPharmacy ? "ملاحظات إضافية للصيدلي والكابتن (اختياري):" : "ملاحظات إضافية للمتجر والكابتن (اختياري):"}
               </label>
               <input
                 type="text"
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
-                placeholder="مثال: الاتصال قبل الشراء للتأكيد على الأسعار..."
-                className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 font-bold outline-none focus:border-orange-500"
+                placeholder={
+                  isPharmacy
+                    ? "مثال: تأمين بديل مناسب من شركة موثوقة في حال عدم توفر نفس الشركة..."
+                    : "مثال: الاتصال قبل الشراء للتأكيد على الأسعار..."
+                }
+                className={`w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 font-bold outline-none ${
+                  isPharmacy ? "focus:border-emerald-500" : "focus:border-orange-500"
+                }`}
               />
             </div>
           </div>
@@ -610,7 +799,9 @@ export const CustomStoreOrderModal: React.FC<CustomStoreOrderModalProps> = ({
                   onClick={() =>
                     openWhatsApp({
                       phone: selectedStore.contactPhone || selectedStore.ownerPhone || "0944111222",
-                      message: `السلام عليكم، أنا ${customerName || "الزبون"}، أود إرسال طلب خاص لمتجر (${selectedStore.name}):\n${customOrderText}`,
+                      message: isPharmacy
+                        ? `السلام عليكم دكتور، أنا ${customerName || "الزبون"}، أود إرسال طلب أدوية/روشتة طبية لصيدلية (${selectedStore.name}):\n${customOrderText || "(مرفق صورة الروشتة/الدواء)"}`
+                        : `السلام عليكم، أنا ${customerName || "الزبون"}، أود إرسال طلب خاص لمتجر (${selectedStore.name}):\n${customOrderText}`,
                       type: "regular"
                     })
                   }
@@ -624,7 +815,9 @@ export const CustomStoreOrderModal: React.FC<CustomStoreOrderModalProps> = ({
                   onClick={() =>
                     openWhatsApp({
                       phone: selectedStore.contactPhone || selectedStore.ownerPhone || "0944111222",
-                      message: `السلام عليكم، أنا ${customerName || "الزبون"}، أود إرسال طلب خاص لمتجر (${selectedStore.name}):\n${customOrderText}`,
+                      message: isPharmacy
+                        ? `السلام عليكم دكتور، أنا ${customerName || "الزبون"}، أود إرسال طلب أدوية/روشتة طبية لصيدلية (${selectedStore.name}):\n${customOrderText || "(مرفق صورة الروشتة/الدواء)"}`
+                        : `السلام عليكم، أنا ${customerName || "الزبون"}، أود إرسال طلب خاص لمتجر (${selectedStore.name}):\n${customOrderText}`,
                       type: "business"
                     })
                   }
@@ -645,6 +838,8 @@ export const CustomStoreOrderModal: React.FC<CustomStoreOrderModalProps> = ({
               className={`w-full font-black text-sm py-3.5 rounded-2xl shadow-lg transition-all flex items-center justify-center gap-2 ${
                 isEmergencyRush
                   ? "bg-red-600/90 text-white cursor-not-allowed shadow-red-500/20 border border-red-700"
+                  : isPharmacy
+                  ? "bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-600/25 cursor-pointer active:scale-98 disabled:opacity-50"
                   : "bg-orange-600 hover:bg-orange-700 text-white shadow-orange-600/25 cursor-pointer active:scale-98 disabled:opacity-50"
               }`}
             >
@@ -652,6 +847,8 @@ export const CustomStoreOrderModal: React.FC<CustomStoreOrderModalProps> = ({
               <span>
                 {isEmergencyRush
                   ? "🚨 استقبال الطلبات مجمّد حالياً (وضع الضغط)"
+                  : isPharmacy
+                  ? "إرسال طلب الأدوية والروشتة للصيدلية فوراً 💊"
                   : "إرسال الطلب الخاص للمتجر فوراً 🛍️"}
               </span>
             </button>

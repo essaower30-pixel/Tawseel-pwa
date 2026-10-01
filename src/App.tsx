@@ -53,21 +53,6 @@ import { AuthModal } from "./components/AuthModal";
 import { StoreDetails } from "./components/StoreDetails";
 import { CartCheckout } from "./components/CartCheckout";
 import { OrderTracker } from "./components/OrderTracker";
-const Dashboard = React.lazy(() => import("./components/Dashboards").then((m) => ({ default: m.Dashboard })));
-const DriverPortal = React.lazy(() => import("./components/DriverPortal").then((m) => ({ default: m.DriverPortal })));
-const StoreOwnerPortal = React.lazy(() => import("./components/StoreOwnerPortal").then((m) => ({ default: m.StoreOwnerPortal })));
-
-// Pre-warm lazy components in the background so they are instantly ready offline
-if (typeof window !== "undefined") {
-  window.addEventListener("load", () => {
-    setTimeout(() => {
-      import("./components/Dashboards").catch(() => {});
-      import("./components/DriverPortal").catch(() => {});
-      import("./components/StoreOwnerPortal").catch(() => {});
-    }, 2000);
-  });
-}
-
 import { CustomerOrdersArchiveModal } from "./components/CustomerOrdersArchiveModal";
 import { DoctorsDirectoryModal } from "./components/DoctorsDirectoryModal";
 import { CraftsmenDirectoryModal } from "./components/CraftsmenDirectoryModal";
@@ -84,6 +69,7 @@ import { ToastNotification, ToastItem } from "./components/ToastNotification";
 import { OfflineBanner, useOnlineStatus } from "./components/OfflineBanner";
 import { NotificationPermissionBanner } from "./components/NotificationPermissionBanner";
 import { ManagerSecretAuthModal } from "./components/ManagerSecretAuthModal";
+
 import {
   subscribeToPushNotifications,
   isPushSupported,
@@ -188,6 +174,21 @@ import { CategoryIcon } from "./components/CategoryIcon";
 import { getAppUrl, getShareTemplates } from "./utils/appUrl";
 
 export { getAppUrl };
+
+const Dashboard = React.lazy(() => import("./components/Dashboards").then((m) => ({ default: m.Dashboard })));
+const DriverPortal = React.lazy(() => import("./components/DriverPortal").then((m) => ({ default: m.DriverPortal })));
+const StoreOwnerPortal = React.lazy(() => import("./components/StoreOwnerPortal").then((m) => ({ default: m.StoreOwnerPortal })));
+
+// Pre-warm lazy components in the background so they are instantly ready offline
+if (typeof window !== "undefined") {
+  window.addEventListener("load", () => {
+    setTimeout(() => {
+      import("./components/Dashboards").catch(() => {});
+      import("./components/DriverPortal").catch(() => {});
+      import("./components/StoreOwnerPortal").catch(() => {});
+    }, 2000);
+  });
+}
 
 const cleanPhone = (p?: string) => {
   if (!p) return "";

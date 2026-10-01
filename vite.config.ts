@@ -48,9 +48,16 @@ function generatePrecacheManifestPlugin(): Plugin {
 export default defineConfig({
   base: './',
   plugins: [react(), tailwindcss(), generatePrecacheManifestPlugin()],
+  resolve: {
+    dedupe: ['react', 'react-dom', 'react-is'],
+  },
+  optimizeDeps: {
+    include: ['react', 'react-dom', 'react/jsx-runtime', 'react/jsx-dev-runtime'],
+  },
   server: {
     port: 3000,
     host: '0.0.0.0',
+    hmr: false,
   },
   build: {
     chunkSizeWarningLimit: 1200,

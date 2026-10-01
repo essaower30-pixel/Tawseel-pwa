@@ -705,23 +705,37 @@ export const StoreDetails: React.FC<StoreDetailsProps> = ({
                 </div>
               )}
 
-              {/* CUSTOM STORE ORDER BANNER (For standard stores) */}
-              <div className="bg-gradient-to-r from-orange-500/15 via-amber-500/10 to-orange-500/10 border-2 border-orange-400/80 hover:border-orange-500 rounded-3xl p-4 sm:p-5 flex flex-col sm:flex-row items-center justify-between gap-3.5 text-right shadow-sm hover:shadow-md transition-all">
+              {/* CUSTOM STORE ORDER BANNER (Dynamic for pharmacy vs standard stores) */}
+              <div className={`${
+                isPharmacy
+                  ? "bg-gradient-to-r from-emerald-500/15 via-teal-500/10 to-emerald-500/10 border-2 border-emerald-400/80 hover:border-emerald-500"
+                  : "bg-gradient-to-r from-orange-500/15 via-amber-500/10 to-orange-500/10 border-2 border-orange-400/80 hover:border-orange-500"
+              } rounded-3xl p-4 sm:p-5 flex flex-col sm:flex-row items-center justify-between gap-3.5 text-right shadow-sm hover:shadow-md transition-all`}>
                 <div className="flex items-center gap-3.5 w-full sm:w-auto">
-                  <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-orange-500 to-amber-500 text-white flex items-center justify-center font-black text-2xl shrink-0 shadow-md shadow-orange-500/25">
-                    🛍️
+                  <div className={`w-12 h-12 rounded-2xl ${
+                    isPharmacy
+                      ? "bg-gradient-to-tr from-emerald-600 to-teal-600 text-white shadow-emerald-500/25"
+                      : "bg-gradient-to-tr from-orange-500 to-amber-500 text-white shadow-orange-500/25"
+                  } flex items-center justify-center font-black text-2xl shrink-0 shadow-md`}>
+                    {isPharmacy ? "💊" : "🛍️"}
                   </div>
                   <div>
                     <div className="flex items-center gap-2">
-                      <span className="bg-orange-500 text-white font-black text-[9px] sm:text-[10px] px-2.5 py-0.5 rounded-full uppercase">
-                        طلب حر ✍️
+                      <span className={`${
+                        isPharmacy ? "bg-emerald-600" : "bg-orange-500"
+                      } text-white font-black text-[9px] sm:text-[10px] px-2.5 py-0.5 rounded-full uppercase`}>
+                        {isPharmacy ? "طلب دواء أو روشتة 🩺" : "طلب حر ✍️"}
                       </span>
                       <h4 className="font-black text-slate-900 text-xs sm:text-sm">
-                        لم تجد طلبك في القائمة؟ طلب خاص من ({store.name})
+                        {isPharmacy
+                          ? `لم تجد دواءك في القائمة؟ طلب خاص من (${store.name})`
+                          : `لم تجد طلبك في القائمة؟ طلب خاص من (${store.name})`}
                       </h4>
                     </div>
                     <p className="text-slate-600 text-[11px] sm:text-xs font-semibold mt-1">
-                      اكتب قائمة مقاضيك أو صوّر ورقة الطلبات بالكاميرا وسيحضرها لك المتجر والكابتن فوراً!
+                      {isPharmacy
+                        ? "اكتب اسم الدواء والعيار أو صوّر الروشتة/علبة الدواء وسيقوم الصيدلي بتجهيزها وصرفها فوراً!"
+                        : "اكتب قائمة مقاضيك أو صوّر ورقة الطلبات بالكاميرا وسيحضرها لك المتجر والكابتن فوراً!"}
                     </p>
                   </div>
                 </div>
@@ -737,15 +751,30 @@ export const StoreDetails: React.FC<StoreDetailsProps> = ({
                   className={`w-full sm:w-auto text-white font-black text-xs py-3 px-5 rounded-2xl shadow-md transition-all cursor-pointer whitespace-nowrap flex items-center justify-center gap-2 active:scale-95 shrink-0 ${
                     isEmergencyRush
                       ? "bg-red-600/90 hover:bg-red-700"
+                      : isPharmacy
+                      ? "bg-emerald-600 hover:bg-emerald-700 shadow-emerald-600/25"
                       : "bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 shadow-orange-500/25"
                   }`}
                 >
-                  <Edit3 className="w-4 h-4" />
-                  <span>
-                    {isEmergencyRush
-                      ? "🚨 استقبال الطلبات مجمّد حالياً"
-                      : "اطلب منتج غير معروض الآن 🚀"}
-                  </span>
+                  {isPharmacy ? (
+                    <>
+                      <Pill className="w-4 h-4" />
+                      <span>
+                        {isEmergencyRush
+                          ? "🚨 استقبال الطلبات مجمّد حالياً"
+                          : "طلب دواء أو روشتة خاصة 💊"}
+                      </span>
+                    </>
+                  ) : (
+                    <>
+                      <Edit3 className="w-4 h-4" />
+                      <span>
+                        {isEmergencyRush
+                          ? "🚨 استقبال الطلبات مجمّد حالياً"
+                          : "اطلب منتج غير معروض الآن 🚀"}
+                      </span>
+                    </>
+                  )}
                 </button>
               </div>
 

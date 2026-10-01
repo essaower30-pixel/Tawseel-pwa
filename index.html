@@ -113,14 +113,33 @@
         window.dispatchEvent(new CustomEvent('pwaInstallPromptReady'));
       });
 
-      // Register Service Worker on production, PWA standalone, and live domains
+      // Service Worker handling: active only in true production PWA, disabled and cleaned in development
       if ('serviceWorker' in navigator) {
-        const isLocalDev = window.location.hostname === 'localhost' || window.location.port === '5173';
-        const isIframePreview = window.self !== window.top && !window.location.search.includes('enable_sw');
+        const isDevEnv =
+          window.location.hostname === 'localhost' ||
+          window.location.hostname.includes('ais-dev') ||
+          window.location.hostname.includes('.run.app') ||
+          window.location.port === '3000' ||
+          window.location.port === '5173' ||
+          window.self !== window.top;
 
-        if (!isLocalDev && !isIframePreview) {
+        if (isDevEnv) {
+          // In development/iframe, completely unregister service workers and purge caches to prevent stale React modules
+          navigator.serviceWorker.getRegistrations().then(function(registrations) {
+            for (let reg of registrations) {
+              reg.unregister();
+            }
+          });
+          if ('caches' in window) {
+            caches.keys().then(function(names) {
+              for (let name of names) {
+                caches.delete(name);
+              }
+            });
+          }
+        } else {
           // Guard against multiple automatic reloads (prevents Android system UI flickering)
-          let hadPreviousController = !!navigator.serviceWorker.controller;
+          let hadPreviousController = !navigator.serviceWorker.controller;
           let isReloading = false;
 
           navigator.serviceWorker.addEventListener('controllerchange', () => {
