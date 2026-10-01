@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useCallback } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { 
   ArrowRight, ShoppingCart, Plus, Minus, Star, Clock, Check, X, Shield, Phone, 
@@ -159,25 +159,48 @@ export const StoreDetails: React.FC<StoreDetailsProps> = ({
 
   const minStorePrice = useMemo(() => {
     if (allStoreProducts.length === 0) return 0;
-    return Math.min(...allStoreProducts.map((p) => p.price));
+    const prices = allStoreProducts.map((p) => Number(p.price) || 0);
+    return Math.min(...prices);
   }, [allStoreProducts]);
 
   const maxStorePrice = useMemo(() => {
-    if (allStoreProducts.length === 0) return 10000;
-    return Math.max(...allStoreProducts.map((p) => p.price));
+    if (allStoreProducts.length === 0) return 1000;
+    const prices = allStoreProducts.map((p) => Number(p.price) || 0);
+    return Math.max(...prices);
   }, [allStoreProducts]);
 
   // Current slider value (if null, equals maxStorePrice)
-  const currentMaxPrice = maxPriceFilter !== null ? maxPriceFilter : maxStorePrice;
+  const currentMaxPrice = useMemo(() => {
+    if (maxPriceFilter === null) return maxStorePrice;
+    return Math.min(maxStorePrice, Math.max(minStorePrice, maxPriceFilter));
+  }, [maxPriceFilter, minStorePrice, maxStorePrice]);
 
-  // Step for smooth slider adjustments
+  // Step for smooth slider adjustments (fine-grained for all price scales)
   const sliderStep = useMemo(() => {
     const diff = maxStorePrice - minStorePrice;
-    if (diff <= 2000) return 100;
-    if (diff <= 10000) return 500;
-    if (diff <= 50000) return 1000;
-    return 2500;
+    if (diff <= 0) return 1;
+    if (diff <= 100) return 1;
+    if (diff <= 500) return 5;
+    if (diff <= 2000) return 10;
+    if (diff <= 10000) return 50;
+    if (diff <= 50000) return 250;
+    return 500;
   }, [minStorePrice, maxStorePrice]);
+
+  // Helper to snap values to valid slider step grid
+  const snapToStep = useCallback((val: number) => {
+    const clamped = Math.min(maxStorePrice, Math.max(minStorePrice, val));
+    const stepCount = Math.round((clamped - minStorePrice) / sliderStep);
+    return minStorePrice + stepCount * sliderStep;
+  }, [minStorePrice, maxStorePrice, sliderStep]);
+
+  const economicPrice = useMemo(() => {
+    return snapToStep(minStorePrice + (maxStorePrice - minStorePrice) * 0.33);
+  }, [minStorePrice, maxStorePrice, snapToStep]);
+
+  const mediumPrice = useMemo(() => {
+    return snapToStep(minStorePrice + (maxStorePrice - minStorePrice) * 0.66);
+  }, [minStorePrice, maxStorePrice, snapToStep]);
 
   const isPriceFiltered = maxPriceFilter !== null && maxPriceFilter < maxStorePrice;
 
@@ -194,13 +217,16 @@ export const StoreDetails: React.FC<StoreDetailsProps> = ({
       .filter((p) => {
         const prodText = `${p.name} ${p.description || ""} ${p.category || ""}`;
         const matchesSearch = matchesArabicSearch(prodText, searchQuery);
-        const matchesPrice = maxPriceFilter === null ? true : p.price <= maxPriceFilter;
+        const itemPrice = Number(p.price) || 0;
+        const matchesPrice = maxPriceFilter === null ? true : itemPrice <= maxPriceFilter;
         const matchesOffers = onlyOffers ? !!p.isOffer : true;
         return matchesSearch && matchesPrice && matchesOffers;
       })
       .sort((a, b) => {
-        if (sortBy === "price_asc") return a.price - b.price;
-        if (sortBy === "price_desc") return b.price - a.price;
+        const priceA = Number(a.price) || 0;
+        const priceB = Number(b.price) || 0;
+        if (sortBy === "price_asc") return priceA - priceB;
+        if (sortBy === "price_desc") return priceB - priceA;
         return 0;
       });
   }, [allStoreProducts, searchQuery, maxPriceFilter, onlyOffers, sortBy]);
@@ -900,46 +926,72 @@ export const StoreDetails: React.FC<StoreDetailsProps> = ({
                 </div>
 
                 {/* Floating Visual Price Indicator & Track */}
-                <div className="relative pt-6 pb-2 px-1 select-none">
-                  {/* Floating Dynamic Label Indicator (Follows thumb smoothly) */}
-                  <div
-                    className="absolute top-0 -translate-x-1/2 transition-all duration-75 pointer-events-none z-10"
-                    style={{ left: `${pricePercentage}%` }}
-                  >
-                    <div className="relative flex flex-col items-center">
-                      <div className="bg-slate-900 text-white text-[10px] sm:text-xs font-black py-1 px-2.5 rounded-xl shadow-lg shadow-slate-900/30 whitespace-nowrap flex items-center gap-1 border border-slate-700">
-                        <span>حتى</span>
-                        <span className="text-amber-400 font-extrabold text-xs sm:text-sm">
-                          {currentMaxPrice.toLocaleString()}
-                        </span>
-                        <span className="text-[9px] text-slate-300">ل.س</span>
+                <div className="relative pt-2 pb-1 select-none">
+                  {/* Range Track & Input with [-] and [+] step buttons */}
+                  <div className="flex items-center gap-2 sm:gap-3" dir="ltr">
+                    <button
+                      type="button"
+                      onClick={() => setMaxPriceFilter(Math.max(minStorePrice, currentMaxPrice - sliderStep))}
+                      disabled={currentMaxPrice <= minStorePrice}
+                      className="w-8 h-8 rounded-xl bg-white hover:bg-orange-100 text-slate-800 hover:text-orange-700 border border-orange-200/90 flex items-center justify-center font-black text-lg shrink-0 transition-all active:scale-90 disabled:opacity-40 disabled:cursor-not-allowed shadow-xs cursor-pointer select-none"
+                      title="تقليل السقف السعري"
+                      aria-label="تقليل السعر"
+                    >
+                      −
+                    </button>
+
+                    <div className="relative flex-1 pt-6 pb-1">
+                      {/* Floating Dynamic Label Indicator (Directly aligned with input track) */}
+                      <div
+                        className="absolute top-0 -translate-x-1/2 transition-all duration-75 pointer-events-none z-10"
+                        style={{ left: `${pricePercentage}%` }}
+                      >
+                        <div className="relative flex flex-col items-center">
+                          <div className="bg-slate-900 text-white text-[10px] sm:text-xs font-black py-1 px-2.5 rounded-xl shadow-lg shadow-slate-900/30 whitespace-nowrap flex items-center gap-1 border border-slate-700">
+                            <span>حتى</span>
+                            <span className="text-amber-400 font-extrabold text-xs sm:text-sm font-mono">
+                              {currentMaxPrice.toLocaleString()}
+                            </span>
+                            <span className="text-[9px] text-slate-300">ل.س</span>
+                          </div>
+                          {/* Downward triangle pointer */}
+                          <div className="w-0 h-0 border-x-4 border-x-transparent border-t-[5px] border-t-slate-900 -mt-[1px]" />
+                        </div>
                       </div>
-                      {/* Downward triangle pointer */}
-                      <div className="w-0 h-0 border-x-4 border-x-transparent border-t-[5px] border-t-slate-900 -mt-[1px]" />
+
+                      <input
+                        type="range"
+                        min={minStorePrice}
+                        max={maxStorePrice}
+                        step={sliderStep}
+                        value={currentMaxPrice}
+                        onChange={(e) => setMaxPriceFilter(Number(e.target.value))}
+                        onInput={(e) => setMaxPriceFilter(Number((e.target as HTMLInputElement).value))}
+                        className="w-full h-3.5 bg-slate-200/90 rounded-full appearance-none cursor-pointer accent-orange-500 hover:accent-orange-600 focus:outline-none transition-all touch-pan-y"
+                        style={{ touchAction: "pan-y" }}
+                      />
+
+                      {/* Min / Max Range Markers inside the input width */}
+                      <div className="flex justify-between items-center text-[10px] sm:text-[11px] font-black text-slate-500 pt-1.5" dir="ltr">
+                        <span className="bg-white/80 px-2 py-0.5 rounded-lg border border-orange-200/60 shadow-xs">
+                          {minStorePrice.toLocaleString()} ل.س
+                        </span>
+                        <span className="bg-white/80 px-2 py-0.5 rounded-lg border border-orange-200/60 shadow-xs">
+                          {maxStorePrice.toLocaleString()} ل.س
+                        </span>
+                      </div>
                     </div>
-                  </div>
 
-                  {/* Range Track & Input */}
-                  <div className="relative flex items-center">
-                    <input
-                      type="range"
-                      min={minStorePrice}
-                      max={maxStorePrice}
-                      step={sliderStep}
-                      value={currentMaxPrice}
-                      onChange={(e) => setMaxPriceFilter(Number(e.target.value))}
-                      className="w-full h-3 bg-slate-200/90 rounded-full appearance-none cursor-pointer accent-orange-500 hover:accent-orange-600 focus:outline-none transition-all touch-none"
-                    />
-                  </div>
-
-                  {/* Min / Max Range Markers */}
-                  <div className="flex justify-between items-center text-[10px] sm:text-[11px] font-black text-slate-500 px-1 pt-2">
-                    <span className="bg-white/80 px-2 py-0.5 rounded-lg border border-orange-200/60 shadow-xs">
-                      الحد الأدنى: {minStorePrice.toLocaleString()} ل.س
-                    </span>
-                    <span className="bg-white/80 px-2 py-0.5 rounded-lg border border-orange-200/60 shadow-xs">
-                      الحد الأقصى: {maxStorePrice.toLocaleString()} ل.س
-                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setMaxPriceFilter(Math.min(maxStorePrice, currentMaxPrice + sliderStep))}
+                      disabled={currentMaxPrice >= maxStorePrice}
+                      className="w-8 h-8 rounded-xl bg-white hover:bg-orange-100 text-slate-800 hover:text-orange-700 border border-orange-200/90 flex items-center justify-center font-black text-lg shrink-0 transition-all active:scale-90 disabled:opacity-40 disabled:cursor-not-allowed shadow-xs cursor-pointer select-none"
+                      title="زيادة السقف السعري"
+                      aria-label="زيادة السعر"
+                    >
+                      +
+                    </button>
                   </div>
                 </div>
 
@@ -961,25 +1013,25 @@ export const StoreDetails: React.FC<StoreDetailsProps> = ({
                     <>
                       <button
                         type="button"
-                        onClick={() => setMaxPriceFilter(Math.round(minStorePrice + (maxStorePrice - minStorePrice) * 0.33))}
+                        onClick={() => setMaxPriceFilter(economicPrice)}
                         className={`text-[10px] sm:text-[11px] font-black px-2.5 sm:px-3 py-1.5 rounded-xl transition-all cursor-pointer border active:scale-95 ${
-                          maxPriceFilter === Math.round(minStorePrice + (maxStorePrice - minStorePrice) * 0.33)
+                          maxPriceFilter === economicPrice
                             ? "bg-orange-600 text-white border-orange-600 shadow-xs"
                             : "bg-white text-slate-700 border-slate-200 hover:bg-orange-50"
                         }`}
                       >
-                        اقتصادي ({Math.round(minStorePrice + (maxStorePrice - minStorePrice) * 0.33).toLocaleString()} ل.س)
+                        اقتصادي ({economicPrice.toLocaleString()} ل.س)
                       </button>
                       <button
                         type="button"
-                        onClick={() => setMaxPriceFilter(Math.round(minStorePrice + (maxStorePrice - minStorePrice) * 0.66))}
+                        onClick={() => setMaxPriceFilter(mediumPrice)}
                         className={`text-[10px] sm:text-[11px] font-black px-2.5 sm:px-3 py-1.5 rounded-xl transition-all cursor-pointer border active:scale-95 ${
-                          maxPriceFilter === Math.round(minStorePrice + (maxStorePrice - minStorePrice) * 0.66)
+                          maxPriceFilter === mediumPrice
                             ? "bg-orange-600 text-white border-orange-600 shadow-xs"
                             : "bg-white text-slate-700 border-slate-200 hover:bg-orange-50"
                         }`}
                       >
-                        متوسط ({Math.round(minStorePrice + (maxStorePrice - minStorePrice) * 0.66).toLocaleString()} ل.س)
+                        متوسط ({mediumPrice.toLocaleString()} ل.س)
                       </button>
                     </>
                   )}
