@@ -5,7 +5,7 @@ import {
   Sparkles, Send, MessageSquare, Pill, Stethoscope, ShoppingBag, Edit3, 
   SlidersHorizontal, RotateCcw, Search, Tag, ArrowUpDown, ThumbsUp, Award, 
   Heart, MessageCircle, Copy, PhoneCall, CheckCircle2, Car, Wrench, ShieldCheck,
-  MapPin, CheckCircle
+  MapPin, CheckCircle, Info, Truck, Utensils, Shirt, Beef, Leaf, CakeSlice, Store as StoreIcon
 } from "lucide-react";
 import { CartItem, Order, Product, Store, StoreAddition, StoreReview, StoreSize, UserProfile } from "../types";
 import { ContactActions } from "./ContactActions";
@@ -157,17 +157,45 @@ export const StoreDetails: React.FC<StoreDetailsProps> = ({
     );
   }, [products, store.id]);
 
-  const minStorePrice = useMemo(() => {
-    if (allStoreProducts.length === 0) return 0;
-    const prices = allStoreProducts.map((p) => Number(p.price) || 0);
-    return Math.min(...prices);
-  }, [allStoreProducts]);
+  // Safe item price parser (handles numbers, strings with commas or non-digits)
+  const parseItemPrice = useCallback((price: any): number => {
+    if (typeof price === "number") return isNaN(price) ? 0 : price;
+    if (typeof price === "string") {
+      const cleaned = price.replace(/[^0-9.]/g, "");
+      const val = parseFloat(cleaned);
+      return isNaN(val) ? 0 : val;
+    }
+    return 0;
+  }, []);
 
-  const maxStorePrice = useMemo(() => {
-    if (allStoreProducts.length === 0) return 1000;
-    const prices = allStoreProducts.map((p) => Number(p.price) || 0);
-    return Math.max(...prices);
-  }, [allStoreProducts]);
+  // Compute safe non-locking price range across all products & their sizes
+  const storePriceRange = useMemo(() => {
+    if (allStoreProducts.length === 0) return { min: 0, max: 10000 };
+    const allPrices: number[] = [];
+    allStoreProducts.forEach((p) => {
+      const base = parseItemPrice(p.price);
+      if (base > 0) allPrices.push(base);
+      if (p.sizes && p.sizes.length > 0) {
+        p.sizes.forEach((s) => {
+          const sPrice = parseItemPrice(s.price);
+          if (sPrice > 0) allPrices.push(sPrice);
+        });
+      }
+    });
+
+    if (allPrices.length === 0) return { min: 0, max: 10000 };
+    const minVal = Math.min(...allPrices);
+    const maxVal = Math.max(...allPrices);
+
+    // If min and max are identical (e.g., 1 product or all uniform), provide a workable range so slider never locks
+    const safeMin = minVal === maxVal ? 0 : minVal;
+    const safeMax = minVal === maxVal ? Math.max(minVal + 1000, Math.ceil(minVal * 1.5)) : maxVal;
+
+    return { min: safeMin, max: safeMax };
+  }, [allStoreProducts, parseItemPrice]);
+
+  const minStorePrice = storePriceRange.min;
+  const maxStorePrice = storePriceRange.max;
 
   // Current slider value (if null, equals maxStorePrice)
   const currentMaxPrice = useMemo(() => {
@@ -178,13 +206,12 @@ export const StoreDetails: React.FC<StoreDetailsProps> = ({
   // Step for smooth slider adjustments (fine-grained for all price scales)
   const sliderStep = useMemo(() => {
     const diff = maxStorePrice - minStorePrice;
-    if (diff <= 0) return 1;
     if (diff <= 100) return 1;
-    if (diff <= 500) return 5;
-    if (diff <= 2000) return 10;
-    if (diff <= 10000) return 50;
-    if (diff <= 50000) return 250;
-    return 500;
+    if (diff <= 1000) return 5;
+    if (diff <= 5000) return 25;
+    if (diff <= 20000) return 100;
+    if (diff <= 100000) return 500;
+    return 1000;
   }, [minStorePrice, maxStorePrice]);
 
   // Helper to snap values to valid slider step grid
@@ -204,32 +231,39 @@ export const StoreDetails: React.FC<StoreDetailsProps> = ({
 
   const isPriceFiltered = maxPriceFilter !== null && maxPriceFilter < maxStorePrice;
 
-  // Percentage for floating visual label badge
+  // Percentage for floating visual label badge and track progress fill
   const pricePercentage = useMemo(() => {
     if (maxStorePrice <= minStorePrice) return 100;
     const pct = ((currentMaxPrice - minStorePrice) / (maxStorePrice - minStorePrice)) * 100;
     return Math.min(100, Math.max(0, pct));
   }, [currentMaxPrice, minStorePrice, maxStorePrice]);
 
-  // Filtered & Sorted products
+  // Filtered & Sorted products (accurate matching on product price and options)
   const storeProducts = useMemo(() => {
     return allStoreProducts
       .filter((p) => {
         const prodText = `${p.name} ${p.description || ""} ${p.category || ""}`;
         const matchesSearch = matchesArabicSearch(prodText, searchQuery);
-        const itemPrice = Number(p.price) || 0;
-        const matchesPrice = maxPriceFilter === null ? true : itemPrice <= maxPriceFilter;
+
+        // Price check: considers base price or cheapest size option
+        const basePrice = parseItemPrice(p.price);
+        const minSizePrice = p.sizes && p.sizes.length > 0
+          ? Math.min(...p.sizes.map((s) => parseItemPrice(s.price)))
+          : basePrice;
+        const effectiveItemPrice = Math.min(basePrice, minSizePrice);
+        const matchesPrice = maxPriceFilter === null ? true : effectiveItemPrice <= maxPriceFilter;
+
         const matchesOffers = onlyOffers ? !!p.isOffer : true;
         return matchesSearch && matchesPrice && matchesOffers;
       })
       .sort((a, b) => {
-        const priceA = Number(a.price) || 0;
-        const priceB = Number(b.price) || 0;
+        const priceA = parseItemPrice(a.price);
+        const priceB = parseItemPrice(b.price);
         if (sortBy === "price_asc") return priceA - priceB;
         if (sortBy === "price_desc") return priceB - priceA;
         return 0;
       });
-  }, [allStoreProducts, searchQuery, maxPriceFilter, onlyOffers, sortBy]);
+  }, [allStoreProducts, searchQuery, maxPriceFilter, onlyOffers, sortBy, parseItemPrice]);
 
   const getProductCountInCart = (productId: string) => {
     return cartItems
@@ -327,6 +361,38 @@ export const StoreDetails: React.FC<StoreDetailsProps> = ({
     (store.isService && !isPharmacy && !isDoctor && !isDriver);
   const isDriverOrCraft = isDriver || isCraftsman;
 
+  // Activity type info helper (for unified banner across stores and all similar activities)
+  const activityInfo = useMemo(() => {
+    if (isDoctor) {
+      return { label: "عيادات وأطباء واستشارات صحية", icon: Stethoscope, badgeColor: "text-cyan-400 bg-cyan-500/20 border-cyan-500/30" };
+    }
+    if (isPharmacy) {
+      return { label: "صيدليات ورعاية صحية وأدوية", icon: Pill, badgeColor: "text-emerald-400 bg-emerald-500/20 border-emerald-500/30" };
+    }
+    if (isDriver) {
+      return { label: "سائقين وتكاسي وخدمات توصيل", icon: Car, badgeColor: "text-amber-400 bg-amber-500/20 border-amber-500/30" };
+    }
+    if (isCraftsman) {
+      return { label: "مهن وحرف وصيانة منزلية", icon: Wrench, badgeColor: "text-blue-400 bg-blue-500/20 border-blue-500/30" };
+    }
+    switch (store.category) {
+      case "restaurants":
+        return { label: "مطاعم ومأكولات سريعة", icon: Utensils, badgeColor: "text-orange-400 bg-orange-500/20 border-orange-500/30" };
+      case "supermarkets":
+        return { label: "سوبرماركت ومواد غذائية وبقالة", icon: ShoppingBag, badgeColor: "text-emerald-400 bg-emerald-500/20 border-emerald-500/30" };
+      case "clothes":
+        return { label: "ملابس وأزياء ومستلزمات", icon: Shirt, badgeColor: "text-purple-400 bg-purple-500/20 border-purple-500/30" };
+      case "butcher":
+        return { label: "لحوم وملاحم طازجة", icon: Beef, badgeColor: "text-rose-400 bg-rose-500/20 border-rose-500/30" };
+      case "vegetables":
+        return { label: "خضار وفواكه طازجة", icon: Leaf, badgeColor: "text-lime-400 bg-lime-500/20 border-lime-500/30" };
+      case "sweets":
+        return { label: "حلويات شرقية ومعجنات", icon: CakeSlice, badgeColor: "text-amber-400 bg-amber-500/20 border-amber-500/30" };
+      default:
+        return { label: "متجر محلي معتمد", icon: StoreIcon, badgeColor: "text-orange-400 bg-orange-500/20 border-orange-500/30" };
+    }
+  }, [isDoctor, isPharmacy, isDriver, isCraftsman, store.category]);
+
   const contactPhone = store.contactPhone || store.ownerPhone || "0966778899";
   const [copiedPhone, setCopiedPhone] = useState(false);
 
@@ -339,98 +405,68 @@ export const StoreDetails: React.FC<StoreDetailsProps> = ({
   };
 
   return (
-    <div className="space-y-6 max-w-5xl mx-auto px-4 sm:px-6 pt-3 pb-36" dir="rtl">
-      {/* Top Controls Bar */}
-      <div className="flex items-center justify-between gap-3">
-        <button
-          type="button"
-          onClick={onBack}
-          className="flex items-center gap-1.5 text-xs font-black text-slate-700 bg-white hover:bg-slate-50 py-2.5 px-4 rounded-xl border border-slate-200 shadow-xs cursor-pointer transition-all active:scale-95"
-        >
-          <ArrowRight className="w-4 h-4 text-orange-500" />
-          <span>
-            {isCraftsman ? "الرجوع للمهن والخدمات" : isDriver ? "الرجوع لخدمات التوصيل" : "الرجوع للمتاجر"}
-          </span>
-        </button>
-
-        {totalCartCount > 0 && (
+    <div className="space-y-4 max-w-5xl mx-auto px-4 sm:px-6 pt-2 pb-36" dir="rtl">
+      {/* Top Header & Compact Identification Banner (Raised to top, containing ONLY store name & activity type) */}
+      <div className="space-y-2.5">
+        <div className="flex items-center justify-between gap-3">
           <button
             type="button"
-            onClick={onViewCart}
-            className="flex items-center gap-2 text-xs font-black text-white bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 py-2.5 px-4 rounded-xl shadow-lg shadow-orange-500/25 cursor-pointer active:scale-95"
+            onClick={onBack}
+            className="flex items-center gap-1.5 text-xs font-black text-slate-700 bg-white hover:bg-slate-50 py-2 px-3.5 rounded-xl border border-slate-200 shadow-xs cursor-pointer transition-all active:scale-95"
           >
-            <ShoppingCart className="w-4 h-4" />
-            <span>عرض السلة ({totalCartCount} سلع)</span>
+            <ArrowRight className="w-4 h-4 text-orange-500" />
+            <span>
+              {isCraftsman ? "الرجوع للمهن والخدمات" : isDriver ? "الرجوع لخدمات التوصيل" : "الرجوع للمتاجر"}
+            </span>
           </button>
-        )}
-      </div>
 
-      {/* Store Header Banner (Only shown for standard stores, hidden for craftsmen & direct contact services to eliminate duplication) */}
-      {!isDriverOrCraft && (
-        <div className="bg-slate-900 text-white rounded-3xl p-6 sm:p-8 border border-slate-800 shadow-xl relative overflow-hidden text-right">
+          {totalCartCount > 0 && (
+            <button
+              type="button"
+              onClick={onViewCart}
+              className="flex items-center gap-2 text-xs font-black text-white bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 py-2 px-3.5 rounded-xl shadow-md shadow-orange-500/25 cursor-pointer active:scale-95"
+            >
+              <ShoppingCart className="w-4 h-4" />
+              <span>عرض السلة ({totalCartCount} سلع)</span>
+            </button>
+          )}
+        </div>
+
+        {/* Elevated Compact Identification Banner: Name + Activity Type ONLY */}
+        <div className="bg-gradient-to-r from-slate-950 via-slate-900 to-slate-950 text-white rounded-2xl sm:rounded-3xl p-4 sm:p-5 border border-slate-800 shadow-lg relative overflow-hidden text-right">
           <div
-            className="absolute inset-0 bg-cover bg-center opacity-20"
+            className="absolute inset-0 bg-cover bg-center opacity-15 pointer-events-none"
             style={{ backgroundImage: `url('${store.image}')` }}
           />
-          <div className="relative z-10 space-y-3">
-            <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-orange-500/20 text-orange-400 border border-orange-500/30 rounded-full text-[11px] font-black">
-              <Sparkles className="w-3.5 h-3.5" />
-              <span>متجر محلي موثوق ومفعل</span>
-            </div>
+          <div className="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="space-y-1.5">
+              <h2 className="text-xl sm:text-2xl md:text-3xl font-black text-white tracking-tight flex items-center gap-2">
+                <span>{store.name}</span>
+              </h2>
 
-            <h2 className="text-2xl sm:text-3xl font-black">{store.name}</h2>
-            <p className="text-slate-300 text-xs sm:text-sm max-w-xl font-medium">
-              {store.description && !store.description.includes("بانتظار اعتماد") && !store.description.includes("بانتظار الاعتماد")
-                ? store.description
-                : (store.isApproved !== false ? "أفضل وأجود المنتجات والخدمات المحلية مع تواصل فوري وسريع." : "متجر محلي مسجل قيد مراجعة واعتماد الإدارة.")}
-            </p>
-
-            <div className="flex flex-wrap items-center gap-3 text-xs pt-2">
-              <button
-                type="button"
-                onClick={() => setActiveMainTab("reviews")}
-                className="flex items-center gap-1.5 bg-slate-800/90 hover:bg-slate-800 hover:border-amber-400/60 px-3.5 py-1.5 rounded-xl border border-slate-700 transition-all cursor-pointer group select-none active:scale-95"
-                title="انقر لعرض آراء وتقييمات الزبائن"
-              >
-                <Star className="w-3.5 h-3.5 text-amber-400 fill-amber-400 group-hover:scale-115 transition-transform" />
-                <span className="font-black text-amber-300">{ratingStats.average === 0 ? "0 (جديد)" : ratingStats.average}</span>
-                <span className="text-slate-400 text-[11px]">
-                  ({ratingStats.totalCount > 0 ? `${ratingStats.totalCount} تقييم` : (ratingStats.average === 0 ? "بدون تقييم" : "تقييم أولي")})
+              <div className="flex flex-wrap items-center gap-2">
+                <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black border ${activityInfo.badgeColor}`}>
+                  <activityInfo.icon className="w-3.5 h-3.5" />
+                  <span>{activityInfo.label}</span>
                 </span>
-              </button>
 
-              <div className="flex items-center gap-1 bg-slate-800/80 px-3 py-1.5 rounded-xl border border-slate-700">
-                <Clock className="w-3.5 h-3.5 text-slate-400" />
-                <span>{store.deliveryTime || "تواصل مباشر"}</span>
-              </div>
-
-              <div className="flex items-center gap-1 bg-slate-800/80 px-3 py-1.5 rounded-xl border border-slate-700">
-                <span className="text-orange-400 font-bold">
-                  أجور التوصيل: {store.deliveryFee === 0 || store.deliveryFee === undefined ? "مجاناً (0)" : `${store.deliveryFee.toLocaleString()} ل.س`}
+                <span className="bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 text-[11px] font-black px-2.5 py-0.5 rounded-full flex items-center gap-1">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                  <span>{store.status === "closed" ? "مغلق حالياً" : "مفتوح ومتاح الآن"}</span>
                 </span>
               </div>
-
-              {store.workingHours && (
-                <div className="flex items-center gap-1 bg-slate-800/80 px-3 py-1.5 rounded-xl border border-slate-700 text-slate-300">
-                  <MapPin className="w-3.5 h-3.5 text-amber-400" />
-                  <span>الدوام: {store.workingHours}</span>
-                </div>
-              )}
-
-              {contactPhone && (
-                <div className="flex items-center gap-2">
-                  <ContactActions
-                    phone={contactPhone}
-                    name={store.name}
-                    defaultMessage={`مرحباً أستاذ (${store.name})، أود الاستفسار عن منتجاتكم وخدماتكم.`}
-                    variant="pills"
-                  />
-                </div>
-              )}
             </div>
+
+            <a
+              href="#store-full-details"
+              className="self-start sm:self-center text-[11px] font-bold text-slate-300 hover:text-white bg-slate-800/90 hover:bg-slate-800 px-3.5 py-2 rounded-xl border border-slate-700 flex items-center gap-1.5 transition-all shadow-xs cursor-pointer select-none active:scale-95"
+            >
+              <Info className="w-3.5 h-3.5 text-orange-400" />
+              <span>تفاصيل ومعلومات النشاط بالأسفل ⬇️</span>
+            </a>
           </div>
         </div>
-      )}
+      </div>
 
       {/* Emergency Rush Freeze Notice Banner */}
       {isEmergencyRush && (
@@ -843,7 +879,9 @@ export const StoreDetails: React.FC<StoreDetailsProps> = ({
               }`}
             >
               <SlidersHorizontal className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
-              <span className="truncate">نطاق السعر</span>
+              <span className="truncate">
+                {isPriceFiltered ? `مؤشر: حتى ${currentMaxPrice.toLocaleString()} ل.س` : "مؤشر الأسعار 💰"}
+              </span>
               {isPriceFiltered && (
                 <span className="w-2 h-2 rounded-full bg-white animate-pulse shrink-0" />
               )}
@@ -888,24 +926,28 @@ export const StoreDetails: React.FC<StoreDetailsProps> = ({
               exit={{ opacity: 0, height: 0 }}
               className="overflow-hidden pt-1"
             >
-              <div className="bg-gradient-to-br from-orange-50/90 via-amber-50/70 to-orange-100/40 p-3.5 sm:p-4 rounded-3xl border border-orange-200/90 shadow-sm space-y-4">
+              <div className="bg-gradient-to-br from-orange-50/95 via-amber-50/80 to-orange-100/50 p-4 sm:p-5 rounded-3xl border border-orange-200 shadow-sm space-y-4">
                 {/* Header of the Slider Card */}
                 <div className="flex items-center justify-between gap-2">
-                  <div className="flex items-center gap-2">
-                    <span className="w-8 h-8 rounded-2xl bg-orange-500 text-white flex items-center justify-center font-bold text-xs shadow-md shadow-orange-500/20">
+                  <div className="flex items-center gap-2.5">
+                    <span className="w-9 h-9 rounded-2xl bg-gradient-to-tr from-orange-500 to-amber-500 text-white flex items-center justify-center font-bold text-sm shadow-md shadow-orange-500/25 shrink-0">
                       💰
                     </span>
                     <div>
                       <h5 className="font-black text-slate-900 text-xs sm:text-sm flex items-center gap-1.5">
-                        <span>تصفية الأصناف حسب الميزانية</span>
-                        {isPriceFiltered && (
-                          <span className="text-[10px] bg-orange-200/80 text-orange-900 font-extrabold px-2 py-0.5 rounded-full">
-                            مفلتر
+                        <span>مؤشر وتصفية الأسعار</span>
+                        {isPriceFiltered ? (
+                          <span className="text-[10px] bg-orange-600 text-white font-extrabold px-2 py-0.5 rounded-full shadow-xs">
+                            نشط (حتى {currentMaxPrice.toLocaleString()} ل.س)
+                          </span>
+                        ) : (
+                          <span className="text-[10px] bg-slate-200/80 text-slate-700 font-extrabold px-2 py-0.5 rounded-full">
+                            عرض الكل
                           </span>
                         )}
                       </h5>
-                      <p className="text-[10px] sm:text-[11px] text-slate-500 font-semibold leading-tight">
-                        اسحب المؤشر لتحديد سقف السعر الأقصى
+                      <p className="text-[10px] sm:text-[11px] text-slate-500 font-semibold leading-tight mt-0.5">
+                        اسحب المؤشر أو اضغط [+] و [−] لتحديد سقف السعر الأقصى للأصناف المعروضة
                       </p>
                     </div>
                   </div>
@@ -915,78 +957,108 @@ export const StoreDetails: React.FC<StoreDetailsProps> = ({
                       <button
                         type="button"
                         onClick={() => setMaxPriceFilter(null)}
-                        className="text-[10px] sm:text-[11px] text-slate-600 hover:text-red-600 bg-white hover:bg-red-50 border border-slate-200 hover:border-red-200 py-1.5 px-2.5 rounded-xl flex items-center gap-1 font-bold cursor-pointer transition-all active:scale-95 shadow-xs"
+                        className="text-[10px] sm:text-[11px] text-slate-700 hover:text-red-600 bg-white hover:bg-red-50 border border-slate-200 hover:border-red-200 py-1.5 px-3 rounded-xl flex items-center gap-1 font-bold cursor-pointer transition-all active:scale-95 shadow-xs"
                         title="إلغاء تصفية السعر"
                       >
                         <RotateCcw className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
                         <span>إعادة ضبط</span>
                       </button>
                     )}
+                    <button
+                      type="button"
+                      onClick={() => setShowPriceSlider(false)}
+                      className="text-slate-400 hover:text-slate-700 bg-white/80 hover:bg-white p-1.5 rounded-xl border border-slate-200 transition-all cursor-pointer"
+                      title="إخفاء لوحة المؤشر"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
                   </div>
                 </div>
 
                 {/* Floating Visual Price Indicator & Track */}
-                <div className="relative pt-2 pb-1 select-none">
-                  {/* Range Track & Input with [-] and [+] step buttons */}
+                <div className="relative pt-7 pb-2 select-none">
+                  {/* Stepper Buttons and Slider Track */}
                   <div className="flex items-center gap-2 sm:gap-3" dir="ltr">
                     <button
                       type="button"
-                      onClick={() => setMaxPriceFilter(Math.max(minStorePrice, currentMaxPrice - sliderStep))}
+                      onClick={() => {
+                        const nextVal = Math.max(minStorePrice, currentMaxPrice - sliderStep);
+                        setMaxPriceFilter(nextVal);
+                      }}
                       disabled={currentMaxPrice <= minStorePrice}
-                      className="w-8 h-8 rounded-xl bg-white hover:bg-orange-100 text-slate-800 hover:text-orange-700 border border-orange-200/90 flex items-center justify-center font-black text-lg shrink-0 transition-all active:scale-90 disabled:opacity-40 disabled:cursor-not-allowed shadow-xs cursor-pointer select-none"
+                      className="w-9 h-9 rounded-xl bg-white hover:bg-orange-100 text-slate-800 hover:text-orange-700 border border-orange-200 flex items-center justify-center font-black text-xl shrink-0 transition-all active:scale-90 disabled:opacity-35 disabled:cursor-not-allowed shadow-xs cursor-pointer select-none"
                       title="تقليل السقف السعري"
                       aria-label="تقليل السعر"
                     >
                       −
                     </button>
 
-                    <div className="relative flex-1 pt-6 pb-1">
-                      {/* Floating Dynamic Label Indicator (Directly aligned with input track) */}
+                    <div className="relative flex-1 py-2">
+                      {/* Floating Dynamic Label Indicator */}
                       <div
-                        className="absolute top-0 -translate-x-1/2 transition-all duration-75 pointer-events-none z-10"
-                        style={{ left: `${pricePercentage}%` }}
+                        className="absolute -top-7 -translate-x-1/2 transition-all duration-75 pointer-events-none z-20"
+                        style={{
+                          left: `${Math.min(92, Math.max(8, pricePercentage))}%`
+                        }}
                       >
                         <div className="relative flex flex-col items-center">
                           <div className="bg-slate-900 text-white text-[10px] sm:text-xs font-black py-1 px-2.5 rounded-xl shadow-lg shadow-slate-900/30 whitespace-nowrap flex items-center gap-1 border border-slate-700">
-                            <span>حتى</span>
+                            <span>سقف السعر:</span>
                             <span className="text-amber-400 font-extrabold text-xs sm:text-sm font-mono">
                               {currentMaxPrice.toLocaleString()}
                             </span>
                             <span className="text-[9px] text-slate-300">ل.س</span>
                           </div>
-                          {/* Downward triangle pointer */}
                           <div className="w-0 h-0 border-x-4 border-x-transparent border-t-[5px] border-t-slate-900 -mt-[1px]" />
                         </div>
                       </div>
 
+                      {/* Interactive Range Input with Dynamic Colored Gradient Fill */}
                       <input
                         type="range"
+                        dir="ltr"
                         min={minStorePrice}
                         max={maxStorePrice}
                         step={sliderStep}
                         value={currentMaxPrice}
-                        onChange={(e) => setMaxPriceFilter(Number(e.target.value))}
-                        onInput={(e) => setMaxPriceFilter(Number((e.target as HTMLInputElement).value))}
-                        className="w-full h-3.5 bg-slate-200/90 rounded-full appearance-none cursor-pointer accent-orange-500 hover:accent-orange-600 focus:outline-none transition-all touch-pan-y"
-                        style={{ touchAction: "pan-y" }}
+                        onChange={(e) => {
+                          const val = Number(e.target.value);
+                          setMaxPriceFilter(val);
+                        }}
+                        onInput={(e) => {
+                          const val = Number((e.target as HTMLInputElement).value);
+                          setMaxPriceFilter(val);
+                        }}
+                        className="w-full h-4 rounded-full appearance-none cursor-pointer accent-orange-600 focus:outline-none transition-all shadow-inner border border-orange-200/80"
+                        style={{
+                          background: `linear-gradient(to right, #ea580c 0%, #ea580c ${pricePercentage}%, #e2e8f0 ${pricePercentage}%, #e2e8f0 100%)`,
+                          WebkitAppearance: "none",
+                          touchAction: "pan-y"
+                        }}
                       />
 
-                      {/* Min / Max Range Markers inside the input width */}
-                      <div className="flex justify-between items-center text-[10px] sm:text-[11px] font-black text-slate-500 pt-1.5" dir="ltr">
-                        <span className="bg-white/80 px-2 py-0.5 rounded-lg border border-orange-200/60 shadow-xs">
-                          {minStorePrice.toLocaleString()} ل.س
+                      {/* Min / Max Range Markers */}
+                      <div className="flex justify-between items-center text-[10px] sm:text-[11px] font-black text-slate-500 pt-2" dir="ltr">
+                        <span className="bg-white/90 px-2 py-0.5 rounded-lg border border-orange-200/70 shadow-xs">
+                          الأدنى: {minStorePrice.toLocaleString()} ل.س
                         </span>
-                        <span className="bg-white/80 px-2 py-0.5 rounded-lg border border-orange-200/60 shadow-xs">
-                          {maxStorePrice.toLocaleString()} ل.س
+                        <span className="text-orange-700 font-bold text-[10px]">
+                          {storeProducts.length} صنف متاح بهذا السعر
+                        </span>
+                        <span className="bg-white/90 px-2 py-0.5 rounded-lg border border-orange-200/70 shadow-xs">
+                          الأعلى: {maxStorePrice.toLocaleString()} ل.س
                         </span>
                       </div>
                     </div>
 
                     <button
                       type="button"
-                      onClick={() => setMaxPriceFilter(Math.min(maxStorePrice, currentMaxPrice + sliderStep))}
+                      onClick={() => {
+                        const nextVal = Math.min(maxStorePrice, currentMaxPrice + sliderStep);
+                        setMaxPriceFilter(nextVal);
+                      }}
                       disabled={currentMaxPrice >= maxStorePrice}
-                      className="w-8 h-8 rounded-xl bg-white hover:bg-orange-100 text-slate-800 hover:text-orange-700 border border-orange-200/90 flex items-center justify-center font-black text-lg shrink-0 transition-all active:scale-90 disabled:opacity-40 disabled:cursor-not-allowed shadow-xs cursor-pointer select-none"
+                      className="w-9 h-9 rounded-xl bg-white hover:bg-orange-100 text-slate-800 hover:text-orange-700 border border-orange-200 flex items-center justify-center font-black text-xl shrink-0 transition-all active:scale-90 disabled:opacity-35 disabled:cursor-not-allowed shadow-xs cursor-pointer select-none"
                       title="زيادة السقف السعري"
                       aria-label="زيادة السعر"
                     >
@@ -995,9 +1067,9 @@ export const StoreDetails: React.FC<StoreDetailsProps> = ({
                   </div>
                 </div>
 
-                {/* Quick Budget Presets Chips (Optimized for mobile touch) */}
+                {/* Quick Budget Presets Chips */}
                 <div className="flex flex-wrap items-center gap-1.5 pt-2 border-t border-orange-200/70">
-                  <span className="text-[10px] font-black text-slate-600 ml-1">ميزانيات جاهزة:</span>
+                  <span className="text-[10px] font-black text-slate-600 ml-1">ميزانيات مقترحة:</span>
                   <button
                     type="button"
                     onClick={() => setMaxPriceFilter(null)}
@@ -1007,7 +1079,7 @@ export const StoreDetails: React.FC<StoreDetailsProps> = ({
                         : "bg-white text-slate-700 border-slate-200 hover:bg-orange-50"
                     }`}
                   >
-                    عرض كل الأسعار
+                    عرض كل الأصناف
                   </button>
                   {maxStorePrice > minStorePrice && (
                     <>
@@ -1257,6 +1329,127 @@ export const StoreDetails: React.FC<StoreDetailsProps> = ({
               </div>
             );
           })
+        )}
+      </div>
+
+      {/* Full Details & Store Info Card at the Bottom of the Page (Placed at the end of products display) */}
+      <div id="store-full-details" className="mt-8 bg-slate-900 text-white rounded-3xl p-6 sm:p-8 border border-slate-800 shadow-xl relative overflow-hidden text-right space-y-6">
+        <div
+          className="absolute inset-0 bg-cover bg-center opacity-10 pointer-events-none"
+          style={{ backgroundImage: `url('${store.image}')` }}
+        />
+        
+        {/* Top Header: Badge, Name, Description & Reviews Button */}
+        <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-4 pb-5 border-b border-slate-800">
+          <div className="space-y-2">
+            <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-orange-500/20 text-orange-400 border border-orange-500/30 rounded-full text-xs font-black">
+              <Sparkles className="w-3.5 h-3.5" />
+              <span>معلومات وتفاصيل النشاط الرسمية المعتمدة</span>
+            </div>
+            <h3 className="text-xl sm:text-2xl font-black text-white">{store.name}</h3>
+            <p className="text-slate-300 text-xs sm:text-sm max-w-2xl leading-relaxed font-medium">
+              {store.description && !store.description.includes("بانتظار اعتماد") && !store.description.includes("بانتظار الاعتماد")
+                ? store.description
+                : (store.isApproved !== false ? "أفضل وأجود المنتجات والخدمات المحلية مع تواصل فوري وسريع." : "متجر محلي مسجل قيد مراجعة واعتماد الإدارة.")}
+            </p>
+          </div>
+
+          {/* Rating Summary Card */}
+          <button
+            type="button"
+            onClick={() => {
+              setActiveMainTab("reviews");
+              window.scrollTo({ top: 150, behavior: "smooth" });
+            }}
+            className="bg-slate-800/90 hover:bg-slate-800 hover:border-amber-400/60 p-4 rounded-2xl border border-slate-700 transition-all cursor-pointer group text-right space-y-1.5 shrink-0 active:scale-95 shadow-md"
+            title="انقر لعرض آراء وتقييمات الزبائن"
+          >
+            <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1">
+                <Star className="w-4 h-4 text-amber-400 fill-amber-400 group-hover:scale-110 transition-transform" />
+                <span className="font-black text-amber-300 text-base">
+                  {ratingStats.average === 0 ? "0 (جديد)" : ratingStats.average}
+                </span>
+              </div>
+              <span className="text-[11px] text-slate-400">
+                ({ratingStats.totalCount > 0 ? `${ratingStats.totalCount} تقييم` : "بدون تقييم"})
+              </span>
+            </div>
+            <span className="text-[11px] font-bold text-orange-400 group-hover:underline flex items-center gap-1">
+              <span>عرض كافة الآراء والتقييمات</span>
+              <ArrowRight className="w-3 h-3 rotate-180" />
+            </span>
+          </button>
+        </div>
+
+        {/* Key Info Cards Grid */}
+        <div className="relative z-10 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3.5 text-xs">
+          {/* Delivery Time */}
+          <div className="bg-slate-800/80 p-4 rounded-2xl border border-slate-700/80 flex items-center gap-3.5">
+            <div className="w-10 h-10 rounded-xl bg-slate-700 text-orange-400 flex items-center justify-center shrink-0">
+              <Clock className="w-5 h-5" />
+            </div>
+            <div>
+              <span className="text-slate-400 text-[11px] font-bold block">مدة التوصيل التقديرية</span>
+              <span className="text-white font-black text-sm">{store.deliveryTime || "تواصل وتوصيل مباشر"}</span>
+            </div>
+          </div>
+
+          {/* Delivery Fee */}
+          <div className="bg-slate-800/80 p-4 rounded-2xl border border-slate-700/80 flex items-center gap-3.5">
+            <div className="w-10 h-10 rounded-xl bg-slate-700 text-emerald-400 flex items-center justify-center shrink-0">
+              <Truck className="w-5 h-5" />
+            </div>
+            <div>
+              <span className="text-slate-400 text-[11px] font-bold block">أجور التوصيل للقرية</span>
+              <span className="text-white font-black text-sm">
+                {store.deliveryFee === 0 || store.deliveryFee === undefined ? "مجاناً (0 ل.س)" : `${store.deliveryFee.toLocaleString()} ل.س`}
+              </span>
+            </div>
+          </div>
+
+          {/* Working Hours */}
+          <div className="bg-slate-800/80 p-4 rounded-2xl border border-slate-700/80 flex items-center gap-3.5">
+            <div className="w-10 h-10 rounded-xl bg-slate-700 text-amber-400 flex items-center justify-center shrink-0">
+              <MapPin className="w-5 h-5" />
+            </div>
+            <div>
+              <span className="text-slate-400 text-[11px] font-bold block">أوقات وساعات الدوام</span>
+              <span className="text-white font-black text-sm">{store.workingHours || "يومياً طوال فترة الدوام"}</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Contact & Direct Actions Box */}
+        {contactPhone && (
+          <div className="relative z-10 bg-slate-950/80 p-4 sm:p-5 rounded-2xl border border-slate-800 flex flex-col md:flex-row items-center justify-between gap-4">
+            <div className="space-y-1 text-center md:text-right">
+              <span className="text-orange-400 text-xs font-bold flex items-center justify-center md:justify-start gap-1.5">
+                <Phone className="w-3.5 h-3.5" />
+                <span>للتواصل المباشر مع إدارة المتجر أو الاستفسار:</span>
+              </span>
+              <div className="text-xl font-black text-white font-mono" dir="ltr">
+                {contactPhone}
+              </div>
+            </div>
+
+            <div className="flex flex-wrap items-center justify-center gap-2">
+              <ContactActions
+                phone={contactPhone}
+                name={store.name}
+                defaultMessage={`مرحباً أستاذ (${store.name})، أود الاستفسار عن منتجاتكم وخدماتكم المتاحة.`}
+                variant="pills"
+              />
+              <button
+                type="button"
+                onClick={() => handleCopyPhone(contactPhone)}
+                className="text-xs font-bold text-slate-300 hover:text-white bg-slate-800 hover:bg-slate-700 py-2.5 px-3.5 rounded-xl border border-slate-700 transition-all cursor-pointer flex items-center gap-1.5 active:scale-95"
+              >
+                {copiedPhone ? <CheckCircle2 className="w-4 h-4 text-emerald-400" /> : <Copy className="w-4 h-4 text-slate-400" />}
+                <span>{copiedPhone ? "تم النسخ!" : "نسخ الرقم"}</span>
+              </button>
+            </div>
+          </div>
         )}
       </div>
             </>
