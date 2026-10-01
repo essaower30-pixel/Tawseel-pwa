@@ -726,120 +726,8 @@ export const StoreDetails: React.FC<StoreDetailsProps> = ({
               </div>
             </div>
           ) : (
-            /* Regular Stores Content: Prescriptions + Custom Order Banner + Search/Filters + Products Grid */
+            /* Regular Stores Content: Search/Filters + Products Grid + Custom Order at Bottom */
             <>
-              {/* Special Quick Action Buttons for Pharmacy or Doctors */}
-              {isPharmacy && (
-                <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-4 flex flex-col sm:flex-row items-center justify-between gap-3 text-right">
-                  <div>
-                    <h4 className="font-black text-emerald-900 text-sm">💊 خدمة طلب واستشارة الوصفات والراشيتات الطبية</h4>
-                    <p className="text-emerald-700 text-xs font-semibold mt-0.5">
-                      يمكنك تصوير الراشيتة بالكاميرا فوراً أو استيرادها من الاستديو ليقوم الصيدلاني بتجهيزها وصرفها لك.
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => setShowPrescriptionModal(true)}
-                    className="w-full sm:w-auto bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs py-2.5 px-5 rounded-xl shadow-sm transition-all cursor-pointer whitespace-nowrap flex items-center justify-center gap-1.5"
-                  >
-                    <Pill className="w-4 h-4" />
-                    <span>طلب أدوية وراشيتة طبية 📋</span>
-                  </button>
-                </div>
-              )}
-
-              {isDoctor && (
-                <div className="bg-cyan-50 border border-cyan-200 rounded-2xl p-4 flex flex-col sm:flex-row items-center justify-between gap-3 text-right">
-                  <div>
-                    <h4 className="font-black text-cyan-950 text-sm">🩺 استشارة طبية وطلب فحص / راشيتة أدوية</h4>
-                    <p className="text-cyan-800 text-xs font-semibold mt-0.5">
-                      يمكنك إرفاق صورة الراشيتة الطبية (كاميرا أو استديو) واستشارة الطبيب مباشرة وتحديد الموعد.
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => setShowPrescriptionModal(true)}
-                    className="w-full sm:w-auto bg-cyan-700 hover:bg-cyan-800 text-white font-black text-xs py-2.5 px-5 rounded-xl shadow-sm transition-all cursor-pointer whitespace-nowrap flex items-center justify-center gap-1.5"
-                  >
-                    <Stethoscope className="w-4 h-4" />
-                    <span>إرسال راشيتة / استشارة للطبيب 📋</span>
-                  </button>
-                </div>
-              )}
-
-              {/* CUSTOM STORE ORDER BANNER (Dynamic for pharmacy vs standard stores) */}
-              <div className={`${
-                isPharmacy
-                  ? "bg-gradient-to-r from-emerald-500/15 via-teal-500/10 to-emerald-500/10 border-2 border-emerald-400/80 hover:border-emerald-500"
-                  : "bg-gradient-to-r from-orange-500/15 via-amber-500/10 to-orange-500/10 border-2 border-orange-400/80 hover:border-orange-500"
-              } rounded-3xl p-4 sm:p-5 flex flex-col sm:flex-row items-center justify-between gap-3.5 text-right shadow-sm hover:shadow-md transition-all`}>
-                <div className="flex items-center gap-3.5 w-full sm:w-auto">
-                  <div className={`w-12 h-12 rounded-2xl ${
-                    isPharmacy
-                      ? "bg-gradient-to-tr from-emerald-600 to-teal-600 text-white shadow-emerald-500/25"
-                      : "bg-gradient-to-tr from-orange-500 to-amber-500 text-white shadow-orange-500/25"
-                  } flex items-center justify-center font-black text-2xl shrink-0 shadow-md`}>
-                    {isPharmacy ? "💊" : "🛍️"}
-                  </div>
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <span className={`${
-                        isPharmacy ? "bg-emerald-600" : "bg-orange-500"
-                      } text-white font-black text-[9px] sm:text-[10px] px-2.5 py-0.5 rounded-full uppercase`}>
-                        {isPharmacy ? "طلب دواء أو روشتة 🩺" : "طلب حر ✍️"}
-                      </span>
-                      <h4 className="font-black text-slate-900 text-xs sm:text-sm">
-                        {isPharmacy
-                          ? `لم تجد دواءك في القائمة؟ طلب خاص من (${store.name})`
-                          : `لم تجد طلبك في القائمة؟ طلب خاص من (${store.name})`}
-                      </h4>
-                    </div>
-                    <p className="text-slate-600 text-[11px] sm:text-xs font-semibold mt-1">
-                      {isPharmacy
-                        ? "اكتب اسم الدواء والعيار أو صوّر الروشتة/علبة الدواء وسيقوم الصيدلي بتجهيزها وصرفها فوراً!"
-                        : "اكتب قائمة مقاضيك أو صوّر ورقة الطلبات بالكاميرا وسيحضرها لك المتجر والكابتن فوراً!"}
-                    </p>
-                  </div>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (isEmergencyRush) {
-                      alert("عذراً، تم تجميد استقبال الطلبات مؤقتاً بسبب ضغط العمل العالي لدى المحلات وأسطول التوصيل. يرجى المحاولة لاحقاً بعد انتهاء الضغط.");
-                      return;
-                    }
-                    setShowCustomOrderModal(true);
-                  }}
-                  className={`w-full sm:w-auto text-white font-black text-xs py-3 px-5 rounded-2xl shadow-md transition-all cursor-pointer whitespace-nowrap flex items-center justify-center gap-2 active:scale-95 shrink-0 ${
-                    isEmergencyRush
-                      ? "bg-red-600/90 hover:bg-red-700"
-                      : isPharmacy
-                      ? "bg-emerald-600 hover:bg-emerald-700 shadow-emerald-600/25"
-                      : "bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 shadow-orange-500/25"
-                  }`}
-                >
-                  {isPharmacy ? (
-                    <>
-                      <Pill className="w-4 h-4" />
-                      <span>
-                        {isEmergencyRush
-                          ? "🚨 استقبال الطلبات مجمّد حالياً"
-                          : "طلب دواء أو روشتة خاصة 💊"}
-                      </span>
-                    </>
-                  ) : (
-                    <>
-                      <Edit3 className="w-4 h-4" />
-                      <span>
-                        {isEmergencyRush
-                          ? "🚨 استقبال الطلبات مجمّد حالياً"
-                          : "اطلب منتج غير معروض الآن 🚀"}
-                      </span>
-                    </>
-                  )}
-                </button>
-              </div>
-
       {/* Search & Price Filter Controls */}
       <div className="bg-white p-4 rounded-3xl border border-slate-200/80 shadow-xs space-y-3">
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5">
@@ -1151,10 +1039,10 @@ export const StoreDetails: React.FC<StoreDetailsProps> = ({
         )}
       </div>
 
-      {/* Products Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+      {/* Products Grid (2 columns on mobile side-by-side, smaller image, compact cards) */}
+      <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2 sm:gap-3.5">
         {storeProducts.length === 0 ? (
-          <div className="col-span-full bg-white rounded-3xl p-8 sm:p-10 text-center border border-slate-200/80 space-y-4">
+          <div className="col-span-full bg-white rounded-3xl p-6 sm:p-10 text-center border border-slate-200/80 space-y-4">
             <p className="text-4xl">🔍</p>
             <div className="space-y-1">
               <h4 className="font-extrabold text-slate-800 text-sm sm:text-base">
@@ -1204,32 +1092,32 @@ export const StoreDetails: React.FC<StoreDetailsProps> = ({
             return (
               <div
                 key={product.id}
-                className={`bg-white rounded-3xl p-4 border shadow-sm hover:shadow-md transition-all flex flex-col justify-between space-y-3 relative text-right ${
+                className={`bg-white rounded-2xl sm:rounded-3xl p-2 sm:p-3.5 border shadow-xs hover:shadow-md transition-all flex flex-col justify-between space-y-2 relative text-right ${
                   isOutOfStock ? "border-slate-200 bg-slate-50/70 opacity-90" : "border-slate-200/80"
                 }`}
               >
                 {/* Badges */}
-                <div className="absolute top-3 left-3 flex flex-col gap-1 z-10">
+                <div className="absolute top-2 left-2 flex flex-col gap-1 z-10">
                   {isOutOfStock && (
-                    <span className="bg-red-600 text-white text-[10px] font-black px-2.5 py-1 rounded-full shadow-xs">
+                    <span className="bg-red-600 text-white text-[8px] sm:text-[10px] font-black px-1.5 sm:px-2 py-0.5 rounded-full shadow-xs">
                       نفذت الكمية ❌
                     </span>
                   )}
                   {!isOutOfStock && product.isOffer && (
-                    <span className="bg-red-500 text-white text-[10px] font-black px-2.5 py-1 rounded-full shadow-xs">
+                    <span className="bg-red-500 text-white text-[8px] sm:text-[10px] font-black px-1.5 sm:px-2 py-0.5 rounded-full shadow-xs">
                       {product.offerLabel || "عرض خاص"}
                     </span>
                   )}
                 </div>
 
-                <div className="space-y-2">
-                  <div className="h-36 rounded-2xl overflow-hidden bg-slate-100 relative group">
+                <div className="space-y-1.5">
+                  {/* Smaller compact image */}
+                  <div className="h-24 sm:h-32 rounded-xl sm:rounded-2xl overflow-hidden bg-slate-100 relative group">
                     <img
                       src={product.image}
                       alt={product.name}
                       referrerPolicy="no-referrer"
                       onError={(e) => {
-                        // High quality fallback on image load error
                         const target = e.currentTarget;
                         target.onerror = null;
                         target.src = "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=500&auto=format&fit=crop&q=80";
@@ -1239,7 +1127,7 @@ export const StoreDetails: React.FC<StoreDetailsProps> = ({
                       }`}
                     />
                     {product.stock !== undefined && (
-                      <span className={`absolute bottom-2 right-2 text-[10px] font-black px-2 py-0.5 rounded-lg shadow-xs ${
+                      <span className={`absolute bottom-1.5 right-1.5 text-[8px] sm:text-[10px] font-black px-1.5 py-0.5 rounded-md shadow-xs ${
                         isOutOfStock 
                           ? "bg-red-600 text-white" 
                           : product.stock <= 5 
@@ -1250,35 +1138,40 @@ export const StoreDetails: React.FC<StoreDetailsProps> = ({
                       </span>
                     )}
                   </div>
+
                   <div>
                     <div className="flex items-center justify-between gap-1">
-                      <h3 className="font-black text-slate-800 text-sm">{product.name}</h3>
+                      <h3 className="font-black text-slate-800 text-xs sm:text-sm line-clamp-1">{product.name}</h3>
                       {product.soldCount && product.soldCount > 0 ? (
-                        <span className="text-[9px] font-bold text-orange-600 bg-orange-50 px-1.5 py-0.5 rounded-md shrink-0">
-                          🔥 بِيع {product.soldCount}
+                        <span className="text-[8px] sm:text-[9px] font-bold text-orange-600 bg-orange-50 px-1 py-0.5 rounded shrink-0">
+                          🔥 {product.soldCount}
                         </span>
                       ) : null}
                     </div>
-                    <p className="text-slate-500 text-xs leading-relaxed line-clamp-2 mt-0.5">{product.description}</p>
+                    <p className="text-slate-500 text-[10px] sm:text-xs leading-relaxed line-clamp-1 sm:line-clamp-2 mt-0.5">{product.description}</p>
                   </div>
                 </div>
 
-                <div className="pt-2 border-t border-slate-100 flex items-center justify-between">
-                  <div>
-                    <div className="flex items-baseline gap-1.5">
-                      <span className="text-base font-black text-slate-900">{product.price.toLocaleString()} ل.س</span>
-                      {product.originalPrice && (
-                        <span className="text-xs text-slate-400 line-through">{product.originalPrice.toLocaleString()} ل.س</span>
-                      )}
+                <div className="pt-1.5 border-t border-slate-100 flex flex-col xs:flex-row items-start xs:items-center justify-between gap-1.5">
+                  <div className="min-w-0">
+                    <div className="flex items-baseline gap-1">
+                      <span className="text-xs sm:text-sm md:text-base font-black text-slate-900">
+                        {product.price.toLocaleString()} <span className="text-[9px] sm:text-[10px] text-slate-500 font-bold">ل.س</span>
+                      </span>
                     </div>
-                    {product.unit && <span className="text-[10px] text-slate-400 font-bold block">{product.unit}</span>}
+                    {product.originalPrice && (
+                      <span className="text-[9px] sm:text-[10px] text-slate-400 line-through block">
+                        {product.originalPrice.toLocaleString()} ل.س
+                      </span>
+                    )}
+                    {product.unit && <span className="text-[9px] sm:text-[10px] text-slate-400 font-bold block">{product.unit}</span>}
                   </div>
 
                   {isOutOfStock ? (
                     <button
                       type="button"
                       disabled
-                      className="bg-slate-100 text-slate-400 border border-slate-200 font-black text-xs py-2 px-3 rounded-xl cursor-not-allowed flex items-center gap-1 opacity-70"
+                      className="w-full xs:w-auto bg-slate-100 text-slate-400 border border-slate-200 font-black text-[10px] sm:text-xs py-1.5 px-2.5 rounded-xl cursor-not-allowed flex items-center justify-center gap-1 opacity-70"
                     >
                       <span>غير متوفر</span>
                     </button>
@@ -1286,43 +1179,43 @@ export const StoreDetails: React.FC<StoreDetailsProps> = ({
                     <button
                       type="button"
                       onClick={() => handleOpenCustomization(product)}
-                      className="bg-orange-50 hover:bg-orange-100 text-orange-600 border border-orange-200 font-black text-xs py-2 px-3 rounded-xl transition-all cursor-pointer flex items-center gap-1 active:scale-95"
+                      className="w-full xs:w-auto bg-orange-50 hover:bg-orange-100 text-orange-600 border border-orange-200 font-black text-[10px] sm:text-xs py-1.5 px-2.5 sm:px-3 rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1 active:scale-95 shrink-0"
                     >
-                      <Plus className="w-3.5 h-3.5" />
-                      <span>تخصيص وإضافة</span>
+                      <Plus className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
+                      <span>تخصيص</span>
                     </button>
                   ) : count > 0 ? (
-                    <div className="flex items-center gap-2 bg-slate-100 p-1 rounded-xl">
+                    <div className="flex items-center gap-1 sm:gap-1.5 bg-slate-100 p-0.5 sm:p-1 rounded-xl shrink-0 self-end xs:self-auto">
                       <button
                         type="button"
                         onClick={() => onRemoveFromCart(product)}
-                        className="w-7 h-7 bg-white hover:bg-red-50 text-slate-700 hover:text-red-600 rounded-lg flex items-center justify-center shadow-xs font-bold transition-all"
+                        className="w-6 h-6 sm:w-7 sm:h-7 bg-white hover:bg-red-50 text-slate-700 hover:text-red-600 rounded-lg flex items-center justify-center shadow-xs font-bold transition-all text-xs"
                       >
-                        <Minus className="w-3.5 h-3.5" />
+                        <Minus className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
                       </button>
-                      <span className="text-xs font-black text-slate-800 min-w-4 text-center">{count}</span>
+                      <span className="text-[11px] sm:text-xs font-black text-slate-800 min-w-3 text-center">{count}</span>
                       <button
                         type="button"
                         disabled={product.stock !== undefined && count >= product.stock}
                         onClick={() => onAddToCart(product)}
-                        className={`w-7 h-7 rounded-lg flex items-center justify-center shadow-xs font-bold transition-all ${
+                        className={`w-6 h-6 sm:w-7 sm:h-7 rounded-lg flex items-center justify-center shadow-xs font-bold transition-all text-xs ${
                           product.stock !== undefined && count >= product.stock
                             ? "bg-slate-200 text-slate-400 cursor-not-allowed"
                             : "bg-orange-500 hover:bg-orange-600 text-white"
                         }`}
                         title={product.stock !== undefined && count >= product.stock ? "وصلت للحد الأقصى المتوفر بالمخزون" : "إضافة قطعة"}
                       >
-                        <Plus className="w-3.5 h-3.5" />
+                        <Plus className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
                       </button>
                     </div>
                   ) : (
                     <button
                       type="button"
                       onClick={() => onAddToCart(product)}
-                      className="bg-orange-500 hover:bg-orange-600 text-white font-black text-xs py-2 px-3 rounded-xl transition-all shadow-xs cursor-pointer flex items-center gap-1 active:scale-95"
+                      className="w-full xs:w-auto bg-orange-500 hover:bg-orange-600 text-white font-black text-[11px] sm:text-xs py-1.5 px-2.5 sm:py-2 sm:px-3 rounded-xl transition-all shadow-xs cursor-pointer flex items-center justify-center gap-1 active:scale-95 shrink-0"
                     >
-                      <Plus className="w-3.5 h-3.5" />
-                      <span>إضافة للسلة</span>
+                      <Plus className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
+                      <span>إضافة</span>
                     </button>
                   )}
                 </div>
@@ -1330,6 +1223,118 @@ export const StoreDetails: React.FC<StoreDetailsProps> = ({
             );
           })
         )}
+      </div>
+
+      {/* Special Quick Action Buttons for Pharmacy or Doctors (Moved to bottom below products) */}
+      {isPharmacy && (
+        <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-4 flex flex-col sm:flex-row items-center justify-between gap-3 text-right">
+          <div>
+            <h4 className="font-black text-emerald-900 text-sm">💊 خدمة طلب واستشارة الوصفات والراشيتات الطبية</h4>
+            <p className="text-emerald-700 text-xs font-semibold mt-0.5">
+              يمكنك تصوير الراشيتة بالكاميرا فوراً أو استيرادها من الاستديو ليقوم الصيدلاني بتجهيزها وصرفها لك.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => setShowPrescriptionModal(true)}
+            className="w-full sm:w-auto bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs py-2.5 px-5 rounded-xl shadow-sm transition-all cursor-pointer whitespace-nowrap flex items-center justify-center gap-1.5"
+          >
+            <Pill className="w-4 h-4" />
+            <span>طلب أدوية وراشيتة طبية 📋</span>
+          </button>
+        </div>
+      )}
+
+      {isDoctor && (
+        <div className="bg-cyan-50 border border-cyan-200 rounded-2xl p-4 flex flex-col sm:flex-row items-center justify-between gap-3 text-right">
+          <div>
+            <h4 className="font-black text-cyan-950 text-sm">🩺 استشارة طبية وطلب فحص / راشيتة أدوية</h4>
+            <p className="text-cyan-800 text-xs font-semibold mt-0.5">
+              يمكنك إرفاق صورة الراشيتة الطبية (كاميرا أو استديو) واستشارة الطبيب مباشرة وتحديد الموعد.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => setShowPrescriptionModal(true)}
+            className="w-full sm:w-auto bg-cyan-700 hover:bg-cyan-800 text-white font-black text-xs py-2.5 px-5 rounded-xl shadow-sm transition-all cursor-pointer whitespace-nowrap flex items-center justify-center gap-1.5"
+          >
+            <Stethoscope className="w-4 h-4" />
+            <span>إرسال راشيتة / استشارة للطبيب 📋</span>
+          </button>
+        </div>
+      )}
+
+      {/* CUSTOM STORE ORDER BANNER (Moved to bottom below products display) */}
+      <div className={`${
+        isPharmacy
+          ? "bg-gradient-to-r from-emerald-500/15 via-teal-500/10 to-emerald-500/10 border-2 border-emerald-400/80 hover:border-emerald-500"
+          : "bg-gradient-to-r from-orange-500/15 via-amber-500/10 to-orange-500/10 border-2 border-orange-400/80 hover:border-orange-500"
+      } rounded-3xl p-4 sm:p-5 flex flex-col sm:flex-row items-center justify-between gap-3.5 text-right shadow-sm hover:shadow-md transition-all`}>
+        <div className="flex items-center gap-3.5 w-full sm:w-auto">
+          <div className={`w-12 h-12 rounded-2xl ${
+            isPharmacy
+              ? "bg-gradient-to-tr from-emerald-600 to-teal-600 text-white shadow-emerald-500/25"
+              : "bg-gradient-to-tr from-orange-500 to-amber-500 text-white shadow-orange-500/25"
+          } flex items-center justify-center font-black text-2xl shrink-0 shadow-md`}>
+            {isPharmacy ? "💊" : "🛍️"}
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <span className={`${
+                isPharmacy ? "bg-emerald-600" : "bg-orange-500"
+              } text-white font-black text-[9px] sm:text-[10px] px-2.5 py-0.5 rounded-full uppercase`}>
+                {isPharmacy ? "طلب دواء أو روشتة 🩺" : "طلب حر ✍️"}
+              </span>
+              <h4 className="font-black text-slate-900 text-xs sm:text-sm">
+                {isPharmacy
+                  ? `لم تجد دواءك في القائمة؟ طلب خاص من (${store.name})`
+                  : `لم تجد طلبك في القائمة؟ طلب خاص من (${store.name})`}
+              </h4>
+            </div>
+            <p className="text-slate-600 text-[11px] sm:text-xs font-semibold mt-1">
+              {isPharmacy
+                ? "اكتب اسم الدواء والعيار أو صوّر الروشتة/علبة الدواء وسيقوم الصيدلي بتجهيزها وصرفها فوراً!"
+                : "اكتب قائمة مقاضيك أو صوّر ورقة الطلبات بالكاميرا وسيحضرها لك المتجر والكابتن فوراً!"}
+            </p>
+          </div>
+        </div>
+        <button
+          type="button"
+          onClick={() => {
+            if (isEmergencyRush) {
+              alert("عذراً، تم تجميد استقبال الطلبات مؤقتاً بسبب ضغط العمل العالي لدى المحلات وأسطول التوصيل. يرجى المحاولة لاحقاً بعد انتهاء الضغط.");
+              return;
+            }
+            setShowCustomOrderModal(true);
+          }}
+          className={`w-full sm:w-auto text-white font-black text-xs py-3 px-5 rounded-2xl shadow-md transition-all cursor-pointer whitespace-nowrap flex items-center justify-center gap-2 active:scale-95 shrink-0 ${
+            isEmergencyRush
+              ? "bg-red-600/90 hover:bg-red-700"
+              : isPharmacy
+              ? "bg-emerald-600 hover:bg-emerald-700 shadow-emerald-600/25"
+              : "bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 shadow-orange-500/25"
+          }`}
+        >
+          {isPharmacy ? (
+            <>
+              <Pill className="w-4 h-4" />
+              <span>
+                {isEmergencyRush
+                  ? "🚨 استقبال الطلبات مجمّد حالياً"
+                  : "طلب دواء أو روشتة خاصة 💊"}
+              </span>
+            </>
+          ) : (
+            <>
+              <Edit3 className="w-4 h-4" />
+              <span>
+                {isEmergencyRush
+                  ? "🚨 استقبال الطلبات مجمّد حالياً"
+                  : "اطلب منتج غير معروض الآن 🚀"}
+              </span>
+            </>
+          )}
+        </button>
       </div>
 
       {/* Full Details & Store Info Card at the Bottom of the Page (Placed at the end of products display) */}
