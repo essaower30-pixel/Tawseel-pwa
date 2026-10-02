@@ -5219,10 +5219,10 @@ export default function App() {
                     <Sparkles className="w-3.5 h-3.5 animate-spin-slow shrink-0" />
                     <span>توصيل المحافظة والقرى المجاورة ⚡</span>
                   </div>
-                  <h2 className="text-sm sm:text-lg font-black tracking-tight leading-snug">
+                  <h2 className="text-sm sm:text-lg font-black tracking-tight leading-snug text-white drop-shadow-md">
                     اطلب ما تحتاجه وسنصلك فوراً!
                   </h2>
-                  <p className="text-slate-300 text-[11px] sm:text-xs leading-relaxed truncate">
+                  <p className="text-white/90 text-[11px] sm:text-xs leading-relaxed truncate font-medium">
                     مأكولات، تموين، صيدليات، خضار فريش بأسرع خدمة وتوصيل.
                   </p>
                 </div>

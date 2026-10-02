@@ -32,9 +32,8 @@
     min-height: 100vh;
   }
 
-  /* High contrast glossy deep-black typography */
+  /* High contrast typography while preserving explicit color classes */
   h1, h2, h3, h4, h5, h6 {
-    color: #000000;
     font-weight: 800;
     -webkit-font-smoothing: antialiased;
   }
