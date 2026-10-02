@@ -416,19 +416,19 @@ export const CustomStoreOrderModal: React.FC<CustomStoreOrderModalProps> = ({
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h3 className="font-black text-slate-900 text-base sm:text-lg">
+                <h3 className="font-black text-slate-950 text-base sm:text-lg">
                   {isPharmacy ? "طلب خاص من الصيدلية / أدوية وروشتات" : "طلب خاص / منتجات غير معروضة في القائمة"}
                 </h3>
                 {isPharmacy && (
-                  <span className="bg-emerald-100 text-emerald-800 text-[10px] font-black px-2 py-0.5 rounded-full border border-emerald-200">
+                  <span className="bg-emerald-100 text-emerald-950 text-[10px] font-black px-2 py-0.5 rounded-full border border-emerald-300">
                     صيدلية معتمدة 🩺
                   </span>
                 )}
               </div>
-              <p className="text-slate-400 text-xs font-semibold">
+              <p className="text-slate-950 text-xs font-bold mt-0.5">
                 {isPharmacy
-                  ? "اكتب أسماء الأدوية والمستلزمات أو صوّر الروشتة وسيقوم الصيدلي بصرفها بدقة وتجهيزها لك"
-                  : "اكتب ما تحتاجه أو أرفق صورة وسيقوم المتجر بتجهيزها وإرسالها لك"}
+                  ? "اكتب أسماء الأدوية والمستلزمات أو صوّر الروشتة وسيقوم الصيدلي بصرفها بدقة وتجهيزها لك فوراً"
+                  : "اكتب ما تحتاجه أو أرفق صورة وسيقوم المتجر بتجهيزها وإرسالها لك فوراً"}
               </p>
             </div>
           </div>

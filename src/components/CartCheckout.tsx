@@ -257,62 +257,73 @@ export const CartCheckout: React.FC<CartCheckoutProps> = ({
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           {/* Items List */}
           <div className="md:col-span-2 space-y-4">
-            <div className="bg-white rounded-3xl p-5 border border-slate-200/80 shadow-xs space-y-4 text-right">
-              <div className="flex items-center justify-between border-b pb-3">
-                <h3 className="font-black text-slate-800 text-sm">
+            <div className="bg-white rounded-3xl p-5 border border-slate-200/90 shadow-sm space-y-4 text-right">
+              <div className="flex items-center justify-between border-b border-slate-200 pb-3">
+                <h3 className="font-black text-slate-950 text-sm sm:text-base">
                   محتويات السلة من ({currentStore?.name || "المتجر"})
                 </h3>
-                <span className="text-xs font-bold text-slate-400">{cartItems.length} أصناف</span>
+                <span className="text-xs font-black text-slate-800 bg-slate-100 px-2.5 py-1 rounded-full border border-slate-200">
+                  {cartItems.length} {cartItems.length === 1 ? "صنف" : "أصناف"}
+                </span>
               </div>
 
               <div className="divide-y divide-slate-100">
                 {cartItems.map((item, idx) => (
-                  <div key={idx} className="py-3 flex items-center justify-between gap-3">
-                    <div className="flex items-center gap-3">
+                  <div key={idx} className="py-3.5 flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-3.5 flex-1 min-w-0">
                       <img
                         src={item.product.image}
                         alt={item.product.name}
                         referrerPolicy="no-referrer"
-                        className="w-14 h-14 rounded-2xl object-cover bg-slate-100"
+                        className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl object-cover bg-slate-100 shrink-0 border border-slate-200/90 shadow-xs"
                       />
-                      <div>
-                        <h4 className="font-black text-black text-xs sm:text-sm break-words">{item.product.name}</h4>
+                      <div className="flex-1 min-w-0 space-y-1">
+                        <h4 className="font-black text-slate-950 text-sm sm:text-base leading-snug break-words">
+                          {item.product.name}
+                        </h4>
                         {item.selectedSize && (
-                          <span className="text-[10px] sm:text-xs text-orange-600 font-black block">
+                          <span className="text-xs text-orange-700 font-black block">
                             الحجم: {item.selectedSize.name}
                           </span>
                         )}
                         {item.selectedAdditions && item.selectedAdditions.length > 0 && (
-                          <span className="text-[10px] sm:text-xs text-slate-800 font-bold block">
+                          <span className="text-xs text-slate-900 font-extrabold block">
                             إضافات: {item.selectedAdditions.map((a) => a.name).join("، ")}
                           </span>
                         )}
                         {item.product.stock !== undefined && (
-                          <span className="text-[9px] sm:text-[10px] text-slate-900 font-extrabold block">
-                            المتوفر: {item.product.stock} {item.product.unit || "قطعة"}
+                          <span className="text-[11px] text-slate-900 font-black block">
+                            المتوفر بالمخزون: {item.product.stock} {item.product.unit || "قطعة"}
                           </span>
                         )}
-                        <span className="text-xs sm:text-sm font-black text-black mt-1 block">
-                          {(item.totalItemPrice * item.quantity).toLocaleString()} ل.س
-                        </span>
+                        <div className="flex items-baseline gap-2 pt-0.5">
+                          <span className="text-xs text-slate-800 font-extrabold">
+                            ({item.quantity} × {item.totalItemPrice.toLocaleString()} ل.س)
+                          </span>
+                          <span className="text-sm sm:text-base font-black text-slate-950">
+                            = {(item.totalItemPrice * item.quantity).toLocaleString()} ل.س
+                          </span>
+                        </div>
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-1.5">
-                      <div className="flex items-center gap-2 bg-slate-100 p-1 rounded-xl">
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <div className="flex items-center gap-2 bg-slate-100 p-1 rounded-xl border border-slate-200/80">
                         <button
                           type="button"
                           onClick={() => onRemoveFromCart(item.product, item.selectedSize, item.selectedAdditions)}
-                          className="w-6 h-6 bg-white text-slate-700 hover:text-red-600 rounded-lg flex items-center justify-center shadow-xs font-bold transition-colors cursor-pointer"
+                          className="w-7 h-7 bg-white text-slate-900 hover:text-red-600 rounded-lg flex items-center justify-center shadow-xs font-black transition-colors cursor-pointer"
                           title={item.quantity === 1 ? "حذف الصنف من السلة" : "تقليل الكمية"}
                         >
                           {item.quantity === 1 ? (
-                            <Trash2 className="w-3 h-3 text-red-500" />
+                            <Trash2 className="w-3.5 h-3.5 text-red-500" />
                           ) : (
-                            <Minus className="w-3 h-3" />
+                            <Minus className="w-3.5 h-3.5" />
                           )}
                         </button>
-                        <span className="text-xs font-black text-slate-800 min-w-4 text-center">{item.quantity}</span>
+                        <span className="text-xs sm:text-sm font-black text-slate-950 min-w-4 text-center">
+                          {item.quantity}
+                        </span>
                         <button
                           type="button"
                           disabled={item.product.stock !== undefined && item.quantity >= item.product.stock}
@@ -320,14 +331,14 @@ export const CartCheckout: React.FC<CartCheckoutProps> = ({
                             if (item.product.stock !== undefined && item.quantity >= item.product.stock) return;
                             onAddToCart(item.product, item.selectedSize, item.selectedAdditions);
                           }}
-                          className={`w-6 h-6 rounded-lg flex items-center justify-center shadow-xs font-bold ${
+                          className={`w-7 h-7 rounded-lg flex items-center justify-center shadow-xs font-black ${
                             item.product.stock !== undefined && item.quantity >= item.product.stock
                               ? "bg-slate-200 text-slate-400 cursor-not-allowed"
-                              : "bg-orange-500 text-white cursor-pointer"
+                              : "bg-orange-500 hover:bg-orange-600 text-white cursor-pointer"
                           }`}
                           title={item.product.stock !== undefined && item.quantity >= item.product.stock ? "وصلت للحد الأقصى المتوفر بالمخزون" : "زيادة الكمية"}
                         >
-                          <Plus className="w-3 h-3" />
+                          <Plus className="w-3.5 h-3.5" />
                         </button>
                       </div>
 
@@ -339,10 +350,10 @@ export const CartCheckout: React.FC<CartCheckoutProps> = ({
                               onRemoveFromCart(item.product, item.selectedSize, item.selectedAdditions);
                             }
                           }}
-                          className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all cursor-pointer"
+                          className="p-1.5 text-slate-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all cursor-pointer"
                           title="حذف هذا الصنف بالكامل من السلة"
                         >
-                          <Trash2 className="w-3.5 h-3.5" />
+                          <Trash2 className="w-4 h-4" />
                         </button>
                       )}
                     </div>
@@ -352,45 +363,45 @@ export const CartCheckout: React.FC<CartCheckoutProps> = ({
             </div>
 
             {/* Delivery Address & Customer Details Form */}
-            <form id="checkout-form" onSubmit={handleConfirmOrder} className="bg-white rounded-3xl p-5 border border-slate-200/80 shadow-xs space-y-4 text-right">
-              <h3 className="font-black text-slate-800 text-sm flex items-center gap-1.5">
-                <MapPin className="w-4 h-4 text-orange-500" />
+            <form id="checkout-form" onSubmit={handleConfirmOrder} className="bg-white rounded-3xl p-5 border border-slate-200/90 shadow-sm space-y-4 text-right">
+              <h3 className="font-black text-slate-950 text-sm sm:text-base flex items-center gap-1.5">
+                <MapPin className="w-4 h-4 text-orange-600" />
                 <span>بيانات التوصيل والعنوان</span>
               </h3>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
                 <div>
-                  <label className="font-extrabold text-slate-700 block mb-1">الاسم الكريم:</label>
+                  <label className="font-black text-slate-950 block mb-1">الاسم الكريم:</label>
                   <input
                     type="text"
                     required
                     value={customerName}
                     onChange={(e) => setCustomerName(e.target.value)}
                     placeholder="الاسم الكامل"
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 font-bold outline-none"
+                    className="w-full bg-slate-50 border border-slate-300 rounded-xl p-2.5 font-black text-slate-950 outline-none focus:border-orange-500"
                   />
                 </div>
 
                 <div>
-                  <label className="font-extrabold text-slate-700 block mb-1">رقم الموبايل:</label>
+                  <label className="font-black text-slate-950 block mb-1">رقم الموبايل:</label>
                   <input
                     type="tel"
                     required
                     value={customerPhone}
                     onChange={(e) => setCustomerPhone(e.target.value)}
                     placeholder="09xxxxxxxx"
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 font-bold outline-none text-left"
+                    className="w-full bg-slate-50 border border-slate-300 rounded-xl p-2.5 font-black text-slate-950 outline-none focus:border-orange-500 text-left"
                     dir="ltr"
                   />
                 </div>
               </div>
 
               <div className="text-xs">
-                <label className="font-extrabold text-slate-700 block mb-1">المعلم أو المنطقة الأقرب لك:</label>
+                <label className="font-black text-slate-950 block mb-1">المعلم أو المنطقة الأقرب لك:</label>
                 <select
                   value={selectedLandmark}
                   onChange={(e) => onSelectLandmark(e.target.value)}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 font-bold outline-none text-slate-800"
+                  className="w-full bg-slate-50 border border-slate-300 rounded-xl p-2.5 font-black text-slate-950 outline-none focus:border-orange-500"
                 >
                   {mapNodes.map((node) => {
                     const label = node.arabicName || node.name;
@@ -404,24 +415,24 @@ export const CartCheckout: React.FC<CartCheckoutProps> = ({
               </div>
 
               <div className="text-xs">
-                <label className="font-extrabold text-slate-700 block mb-1">تفاصيل العنوان أو الشارع:</label>
+                <label className="font-black text-slate-950 block mb-1">تفاصيل العنوان أو الشارع:</label>
                 <input
                   type="text"
                   value={addressDetails}
                   onChange={(e) => setAddressDetails(e.target.value)}
                   placeholder="مثال: بجانب الصيدلية، الطابق الثاني، قرب الجامع..."
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 font-bold outline-none"
+                  className="w-full bg-slate-50 border border-slate-300 rounded-xl p-2.5 font-black text-slate-950 outline-none focus:border-orange-500"
                 />
               </div>
 
               <div className="text-xs">
-                <label className="font-extrabold text-slate-700 block mb-1">ملاحظات خاصة للمندوب أو المتجر:</label>
+                <label className="font-black text-slate-950 block mb-1">ملاحظات خاصة للمندوب أو المتجر:</label>
                 <input
                   type="text"
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
                   placeholder="مثال: زيادة الثوم، بدون مخلل، الاتصال عند الوصول..."
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 font-bold outline-none"
+                  className="w-full bg-slate-50 border border-slate-300 rounded-xl p-2.5 font-black text-slate-950 outline-none focus:border-orange-500"
                 />
               </div>
             </form>
@@ -429,10 +440,10 @@ export const CartCheckout: React.FC<CartCheckoutProps> = ({
 
           {/* Order Summary & Payment */}
           <div className="space-y-4">
-            <div className="bg-white rounded-3xl p-5 border border-slate-200/80 shadow-xs space-y-4 text-right">
+            <div className="bg-white rounded-3xl p-5 border border-slate-200/90 shadow-sm space-y-4 text-right">
               <div className="flex items-center justify-between">
-                <h3 className="font-black text-slate-800 text-sm">ملخص الفاتورة</h3>
-                <span className="text-[10px] bg-orange-100 text-orange-800 font-extrabold px-2 py-0.5 rounded-full flex items-center gap-1">
+                <h3 className="font-black text-slate-950 text-sm sm:text-base">ملخص الفاتورة</h3>
+                <span className="text-[10px] bg-orange-100 text-orange-950 font-black px-2 py-0.5 rounded-full flex items-center gap-1">
                   <Gift className="w-3 h-3 text-orange-600" />
                   <span>عروض وتخفيضات</span>
                 </span>
@@ -526,19 +537,19 @@ export const CartCheckout: React.FC<CartCheckoutProps> = ({
               </form>
 
               {/* Price Breakdown */}
-              <div className="space-y-2 text-xs pt-2 border-t border-slate-100">
-                <div className="flex justify-between text-slate-600 font-bold">
+              <div className="space-y-2 text-xs pt-2 border-t border-slate-200">
+                <div className="flex justify-between text-slate-950 font-black">
                   <span>قيمة المنتجات:</span>
                   <span>{subtotal.toLocaleString()} ل.س</span>
                 </div>
-                <div className="flex justify-between text-slate-600 font-bold">
+                <div className="flex justify-between text-slate-950 font-black">
                   <span>أجور التوصيل:</span>
-                  <span className={deliveryFee === 0 ? "text-emerald-600 font-black" : ""}>
+                  <span className={deliveryFee === 0 ? "text-emerald-700 font-black" : "text-slate-950 font-black"}>
                     {deliveryFee === 0 ? "توصيل مجاني (0 ل.س)" : `${deliveryFee.toLocaleString()} ل.س`}
                   </span>
                 </div>
                 {discountAmount > 0 && (
-                  <div className="flex justify-between text-emerald-600 font-black bg-emerald-50/80 p-1.5 rounded-xl border border-emerald-100">
+                  <div className="flex justify-between text-emerald-800 font-black bg-emerald-50 p-2 rounded-xl border border-emerald-200">
                     <span className="flex items-center gap-1">
                       <Tag className="w-3.5 h-3.5" />
                       <span>خصم الكوبون ({appliedCoupon?.code}):</span>
@@ -546,23 +557,23 @@ export const CartCheckout: React.FC<CartCheckoutProps> = ({
                     <span>-{discountAmount.toLocaleString()} ل.س</span>
                   </div>
                 )}
-                <div className="flex justify-between text-slate-900 font-black text-base pt-2 border-t border-slate-100">
+                <div className="flex justify-between text-slate-950 font-black text-base sm:text-lg pt-2 border-t-2 border-slate-200">
                   <span>المجموع النهائي:</span>
-                  <span className="text-orange-600 font-mono text-lg">{total.toLocaleString()} ل.س</span>
+                  <span className="text-orange-600 font-black text-lg sm:text-xl">{total.toLocaleString()} ل.س</span>
                 </div>
               </div>
 
               {/* Payment Option */}
-              <div className="pt-2 border-t border-slate-100 space-y-2">
-                <label className="text-xs font-extrabold text-slate-700 block">طريقة الدفع:</label>
+              <div className="pt-2 border-t border-slate-200 space-y-2">
+                <label className="text-xs font-black text-slate-950 block">طريقة الدفع:</label>
                 <div className="grid grid-cols-2 gap-2 text-xs">
                   <button
                     type="button"
                     onClick={() => setPaymentMethod("cash")}
-                    className={`py-2 px-3 rounded-xl border font-black transition-all cursor-pointer ${
+                    className={`py-2.5 px-3 rounded-xl border font-black transition-all cursor-pointer ${
                       paymentMethod === "cash"
-                        ? "bg-orange-50 border-orange-500 text-orange-700"
-                        : "border-slate-200 text-slate-600"
+                        ? "bg-orange-50 border-orange-500 text-orange-800 shadow-xs"
+                        : "border-slate-300 text-slate-900 bg-white hover:bg-slate-50"
                     }`}
                   >
                     💵 نقداً عند الاستلام
@@ -570,10 +581,10 @@ export const CartCheckout: React.FC<CartCheckoutProps> = ({
                   <button
                     type="button"
                     onClick={() => setPaymentMethod("electronic")}
-                    className={`py-2 px-3 rounded-xl border font-black transition-all cursor-pointer ${
+                    className={`py-2.5 px-3 rounded-xl border font-black transition-all cursor-pointer ${
                       paymentMethod === "electronic"
-                        ? "bg-orange-50 border-orange-500 text-orange-700"
-                        : "border-slate-200 text-slate-600"
+                        ? "bg-orange-50 border-orange-500 text-orange-800 shadow-xs"
+                        : "border-slate-300 text-slate-900 bg-white hover:bg-slate-50"
                     }`}
                   >
                     💳 سيريتل كاش / هرم

@@ -17,11 +17,11 @@
 
   body {
     font-family: 'Cairo', 'Tajawal', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-    color: #000000;
+    color: #020617;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     text-rendering: optimizeLegibility;
-    font-weight: 500;
+    font-weight: 600;
     -webkit-tap-highlight-color: transparent;
     overflow-x: hidden !important;
     width: 100% !important;
@@ -32,15 +32,26 @@
     min-height: 100vh;
   }
 
-  /* High contrast typography while preserving explicit color classes */
+  /* High contrast glossy black typography */
   h1, h2, h3, h4, h5, h6 {
-    font-weight: 800;
+    font-weight: 900;
+    color: #020617;
     -webkit-font-smoothing: antialiased;
+    letter-spacing: -0.01em;
   }
 
   p, span, label, div {
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+  }
+
+  /* Universal background scroll lock for any open modal or dialog */
+  body.modal-open,
+  body:has(.fixed.inset-0.z-50),
+  body:has(.modal-overlay-wrapper) {
+    overflow: hidden !important;
+    overscroll-behavior: none !important;
+    touch-action: none !important;
   }
 
   /* Prevent automatic iOS zoom on inputs while keeping text sharp */

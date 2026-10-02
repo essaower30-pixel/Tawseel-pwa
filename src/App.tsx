@@ -871,6 +871,9 @@ export default function App() {
 
   useEffect(() => {
     localStorage.setItem("tw_viewing_cart", String(isViewingCart));
+    if (isViewingCart) {
+      window.scrollTo({ top: 0, behavior: "instant" });
+    }
   }, [isViewingCart]);
 
   useEffect(() => {
@@ -1383,6 +1386,50 @@ export default function App() {
     const unsubscribe = subscribeToUpdates(checkUpdates);
     return () => unsubscribe();
   }, []);
+
+  // Universal background scroll-lock: ensures background screen stays completely motionless whenever any modal/dialog is open
+  useEffect(() => {
+    const isAnyModalOpen = Boolean(
+      showAuthModal ||
+      showCustomerArchiveModal ||
+      showDoctorsModal ||
+      showCraftsmenModal ||
+      showManagerSecretModal ||
+      showDriverServicesModal ||
+      showAccountModal ||
+      showAdminPinModal ||
+      showSoundModal ||
+      showUpdateModal ||
+      showHomeCustomOrderModal ||
+      storeConflictModal
+    );
+
+    if (isAnyModalOpen) {
+      document.body.classList.add("modal-open");
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.classList.remove("modal-open");
+      document.body.style.overflow = "";
+    }
+
+    return () => {
+      document.body.classList.remove("modal-open");
+      document.body.style.overflow = "";
+    };
+  }, [
+    showAuthModal,
+    showCustomerArchiveModal,
+    showDoctorsModal,
+    showCraftsmenModal,
+    showManagerSecretModal,
+    showDriverServicesModal,
+    showAccountModal,
+    showAdminPinModal,
+    showSoundModal,
+    showUpdateModal,
+    showHomeCustomOrderModal,
+    storeConflictModal
+  ]);
 
   const handleApplyUpdate = async () => {
     acknowledgeUpdate(currentAppUpdate.id);
@@ -5202,33 +5249,34 @@ export default function App() {
               </div>
             )}
 
-            {/* 2. Main Hero Banner Card - Compact & Elevated */}
-            <div className="bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 text-white rounded-2xl p-3.5 sm:p-5 border border-slate-700/80 shadow-md relative overflow-hidden select-none -mt-3">
+            {/* 2. Main Hero Banner Card - Vibrant, Radiant & Ultra Legible */}
+            <div className="bg-gradient-to-r from-orange-600 via-amber-600 to-orange-500 text-white rounded-3xl p-4 sm:p-5 border-2 border-orange-400/80 shadow-xl relative overflow-hidden select-none -mt-3">
               <div
-                className="absolute inset-0 bg-cover bg-center opacity-10"
+                className="absolute inset-0 bg-cover bg-center opacity-15 mix-blend-overlay pointer-events-none"
                 style={{
                   backgroundImage:
                     "url('https://images.unsplash.com/photo-1578916171728-46686eac8d58?w=800')"
                 }}
               />
-              <div className="absolute -top-6 -right-6 w-36 h-36 bg-orange-500/15 rounded-full blur-2xl pointer-events-none" />
+              <div className="absolute -top-10 -right-10 w-44 h-44 bg-white/15 rounded-full blur-2xl pointer-events-none" />
+              <div className="absolute -bottom-10 -left-10 w-44 h-44 bg-amber-400/20 rounded-full blur-2xl pointer-events-none" />
 
               <div className="relative flex items-center justify-between gap-3 text-right" dir="rtl">
-                <div className="space-y-0.5 sm:space-y-1 min-w-0">
-                  <div className="flex items-center gap-1.5 text-orange-400 font-extrabold text-[10px] sm:text-xs">
-                    <Sparkles className="w-3.5 h-3.5 animate-spin-slow shrink-0" />
-                    <span>توصيل المحافظة والقرى المجاورة ⚡</span>
+                <div className="space-y-1 min-w-0">
+                  <div className="inline-flex items-center gap-1.5 bg-black/20 text-amber-200 border border-white/20 px-2.5 py-0.5 rounded-full font-black text-[10px] sm:text-xs shadow-xs">
+                    <Sparkles className="w-3.5 h-3.5 text-amber-300 animate-spin-slow shrink-0" />
+                    <span className="!text-amber-100">توصيل المحافظة وكافة القرى المجاورة ⚡</span>
                   </div>
-                  <h2 className="text-sm sm:text-lg font-black tracking-tight leading-snug text-white drop-shadow-md">
-                    اطلب ما تحتاجه وسنصلك فوراً!
+                  <h2 className="text-base sm:text-xl font-black tracking-tight leading-snug !text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.5)]">
+                    اكتب أو اطلب ما تحتاجه وسنصلك فوراً! 🛍️🚀
                   </h2>
-                  <p className="text-white/90 text-[11px] sm:text-xs leading-relaxed truncate font-medium">
-                    مأكولات، تموين، صيدليات، خضار فريش بأسرع خدمة وتوصيل.
+                  <p className="!text-amber-50 text-xs sm:text-sm font-bold leading-relaxed drop-shadow-xs">
+                    مأكولات، تموينات، صيدليات، خضار فريش بأسرع كباتن وتوصيل مباشر لباب منزلك.
                   </p>
                 </div>
 
-                <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-orange-500/20 border border-orange-500/30 flex items-center justify-center shrink-0 text-orange-400 shadow-inner">
-                  <ShoppingBag className="w-5 h-5 sm:w-6 sm:h-6" />
+                <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-white/25 border-2 border-white/40 flex items-center justify-center shrink-0 text-white shadow-lg backdrop-blur-xs">
+                  <ShoppingBag className="w-6 h-6 sm:w-7 sm:h-7 text-white drop-shadow-sm" />
                 </div>
               </div>
             </div>
@@ -5475,7 +5523,7 @@ export default function App() {
                                           />
                                           <div className="min-w-0">
                                             <div className="flex items-center gap-1.5">
-                                              <span className="font-black text-xs sm:text-sm text-black break-words">
+                                              <span className="font-black text-xs sm:text-sm text-slate-950 break-words">
                                                 {offer.name}
                                               </span>
                                               {offer.offerLabel && (
@@ -5485,8 +5533,8 @@ export default function App() {
                                               )}
                                             </div>
                                             <div className="flex items-baseline gap-1.5 mt-0.5">
-                                              <span className="text-xs sm:text-sm font-black text-black">
-                                                {offer.price.toLocaleString()} <span className="text-[9px] text-black font-black">ل.س</span>
+                                              <span className="text-xs sm:text-sm font-black text-slate-950">
+                                                {offer.price.toLocaleString()} <span className="text-[9px] text-slate-950 font-black">ل.س</span>
                                               </span>
                                               {offer.originalPrice && (
                                                 <span className="text-[10px] text-slate-500 font-bold line-through">
@@ -5619,11 +5667,11 @@ export default function App() {
                                   </span>
                                 ) : null}
                               </div>
-                              <h4 className="font-black text-black text-sm sm:text-base leading-snug break-words">
+                              <h4 className="font-black text-slate-950 text-sm sm:text-base leading-snug break-words">
                                 {offer.name}
                               </h4>
                               {offer.description && (
-                                <p className="text-black font-bold text-xs leading-relaxed mt-1 break-words">
+                                <p className="text-slate-900 font-bold text-xs leading-relaxed mt-1 break-words">
                                   {offer.description}
                                 </p>
                               )}

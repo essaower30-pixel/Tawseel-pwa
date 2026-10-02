@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useCallback } from "react";
+import React, { useState, useMemo, useCallback, useEffect } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { 
   ArrowRight, ShoppingCart, Plus, Minus, Star, Clock, Check, X, Shield, Phone, 
@@ -67,6 +67,29 @@ export const StoreDetails: React.FC<StoreDetailsProps> = ({
   const [showPrescriptionModal, setShowPrescriptionModal] = useState(false);
   const [showCustomOrderModal, setShowCustomOrderModal] = useState(false);
   const [isReviewModalOpen, setIsReviewModalOpen] = useState(false);
+
+  // Background scroll lock for StoreDetails modals
+  useEffect(() => {
+    const isModalOpen = Boolean(
+      selectedProduct ||
+      showCustomOrderModal ||
+      showPrescriptionModal ||
+      isReviewModalOpen
+    );
+
+    if (isModalOpen) {
+      document.body.classList.add("modal-open");
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.classList.remove("modal-open");
+      document.body.style.overflow = "";
+    }
+
+    return () => {
+      document.body.classList.remove("modal-open");
+      document.body.style.overflow = "";
+    };
+  }, [selectedProduct, showCustomOrderModal, showPrescriptionModal, isReviewModalOpen]);
 
   // Main Tabs: "products" (menu) vs "reviews" (ratings & feedback)
   const [activeMainTab, setActiveMainTab] = useState<"products" | "reviews">("products");
@@ -1143,7 +1166,7 @@ export const StoreDetails: React.FC<StoreDetailsProps> = ({
 
                   <div>
                     <div className="flex items-start justify-between gap-1">
-                      <h3 className="font-black text-black text-xs sm:text-sm leading-snug break-words">{product.name}</h3>
+                      <h3 className="font-black text-slate-950 text-xs sm:text-sm leading-snug break-words">{product.name}</h3>
                       {product.soldCount && product.soldCount > 0 ? (
                         <span className="text-[8px] sm:text-[9px] font-black text-orange-600 bg-orange-50 px-1 py-0.5 rounded shrink-0">
                           🔥 {product.soldCount}
@@ -1151,7 +1174,7 @@ export const StoreDetails: React.FC<StoreDetailsProps> = ({
                       ) : null}
                     </div>
                     {product.description && (
-                      <p className="text-black font-bold text-[11px] sm:text-xs leading-relaxed mt-1 break-words">
+                      <p className="text-slate-900 font-bold text-[11px] sm:text-xs leading-relaxed mt-1 break-words">
                         {product.description}
                       </p>
                     )}
@@ -1161,8 +1184,8 @@ export const StoreDetails: React.FC<StoreDetailsProps> = ({
                 <div className="pt-2 border-t border-slate-200 flex flex-col xs:flex-row items-start xs:items-center justify-between gap-1.5">
                   <div className="min-w-0">
                     <div className="flex items-baseline gap-1">
-                      <span className="text-xs sm:text-sm md:text-base font-black text-black">
-                        {product.price.toLocaleString()} <span className="text-[9px] sm:text-[10px] text-black font-black">ل.س</span>
+                      <span className="text-xs sm:text-sm md:text-base font-black text-slate-950">
+                        {product.price.toLocaleString()} <span className="text-[9px] sm:text-[10px] text-slate-950 font-black">ل.س</span>
                       </span>
                     </div>
                     {product.originalPrice && (
@@ -1170,7 +1193,7 @@ export const StoreDetails: React.FC<StoreDetailsProps> = ({
                         {product.originalPrice.toLocaleString()} ل.س
                       </span>
                     )}
-                    {product.unit && <span className="text-[9px] sm:text-[10px] text-black font-black block mt-0.5">{product.unit}</span>}
+                    {product.unit && <span className="text-[9px] sm:text-[10px] text-slate-900 font-black block mt-0.5">{product.unit}</span>}
                   </div>
 
                   {isOutOfStock ? (
@@ -1291,13 +1314,13 @@ export const StoreDetails: React.FC<StoreDetailsProps> = ({
               } text-white font-black text-[9px] sm:text-[10px] px-2.5 py-0.5 rounded-full uppercase`}>
                 {isPharmacy ? "طلب دواء أو روشتة 🩺" : "طلب حر ✍️"}
               </span>
-              <h4 className="font-black text-black text-xs sm:text-sm">
+              <h4 className="font-black text-slate-950 text-xs sm:text-sm">
                 {isPharmacy
                   ? `لم تجد دواءك في القائمة؟ طلب خاص من (${store.name})`
                   : `لم تجد طلبك في القائمة؟ طلب خاص من (${store.name})`}
               </h4>
             </div>
-            <p className="text-black text-xs font-bold mt-1 leading-relaxed">
+            <p className="text-slate-950 text-xs font-black mt-1 leading-relaxed">
               {isPharmacy
                 ? "اكتب اسم الدواء والعيار أو صوّر الروشتة/علبة الدواء وسيقوم الصيدلي بتجهيزها وصرفها فوراً!"
                 : "اكتب قائمة مقاضيك أو صوّر ورقة الطلبات بالكاميرا وسيحضرها لك المتجر والكابتن فوراً!"}
