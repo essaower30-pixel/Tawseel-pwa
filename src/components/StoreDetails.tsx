@@ -31,6 +31,7 @@ interface StoreDetailsProps {
   onAddReview?: (review: Omit<StoreReview, "id" | "createdAt">) => void;
   userOrders?: Order[];
   isEmergencyRush?: boolean;
+  initialOnlyOffers?: boolean;
 }
 
 export const StoreDetails: React.FC<StoreDetailsProps> = ({
@@ -48,7 +49,8 @@ export const StoreDetails: React.FC<StoreDetailsProps> = ({
   reviews = [],
   onAddReview,
   userOrders = [],
-  isEmergencyRush
+  isEmergencyRush,
+  initialOnlyOffers = false
 }) => {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
@@ -57,7 +59,7 @@ export const StoreDetails: React.FC<StoreDetailsProps> = ({
 
   // Price & Budget Slider State
   const [maxPriceFilter, setMaxPriceFilter] = useState<number | null>(null);
-  const [onlyOffers, setOnlyOffers] = useState<boolean>(false);
+  const [onlyOffers, setOnlyOffers] = useState<boolean>(initialOnlyOffers);
   const [sortBy, setSortBy] = useState<"default" | "price_asc" | "price_desc">("default");
   const [showPriceSlider, setShowPriceSlider] = useState<boolean>(false);
 
