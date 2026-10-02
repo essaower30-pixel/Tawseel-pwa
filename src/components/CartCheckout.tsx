@@ -189,7 +189,7 @@ export const CartCheckout: React.FC<CartCheckoutProps> = ({
   };
 
   return (
-    <div className="max-w-3xl mx-auto px-4 sm:px-6 py-4 space-y-6" dir="rtl">
+    <div className="w-full max-w-3xl mx-auto px-2 sm:px-6 py-4 space-y-6" dir="rtl">
       {/* Top Header */}
       <div className="flex items-center justify-between">
         <button
@@ -254,10 +254,10 @@ export const CartCheckout: React.FC<CartCheckoutProps> = ({
           </button>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="w-full grid grid-cols-1 md:grid-cols-3 gap-6">
           {/* Items List */}
-          <div className="md:col-span-2 space-y-4">
-            <div className="bg-white rounded-3xl p-5 border border-slate-200/90 shadow-sm space-y-4 text-right">
+          <div className="w-full md:col-span-2 space-y-4">
+            <div className="w-full bg-white rounded-3xl p-4 sm:p-5 border border-slate-200/90 shadow-sm space-y-4 text-right">
               <div className="flex items-center justify-between border-b border-slate-200 pb-3">
                 <h3 className="font-black text-slate-950 text-sm sm:text-base">
                   محتويات السلة من ({currentStore?.name || "المتجر"})
@@ -269,16 +269,17 @@ export const CartCheckout: React.FC<CartCheckoutProps> = ({
 
               <div className="divide-y divide-slate-100">
                 {cartItems.map((item, idx) => (
-                  <div key={idx} className="py-3.5 flex items-center justify-between gap-3">
-                    <div className="flex items-center gap-3.5 flex-1 min-w-0">
+                  <div key={idx} className="py-4 border-b border-slate-100/90 last:border-0 w-full space-y-3">
+                    {/* Top Row: Product image and full product title & specifications */}
+                    <div className="flex items-start gap-3.5 w-full">
                       <img
                         src={item.product.image}
                         alt={item.product.name}
                         referrerPolicy="no-referrer"
                         className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl object-cover bg-slate-100 shrink-0 border border-slate-200/90 shadow-xs"
                       />
-                      <div className="flex-1 min-w-0 space-y-1">
-                        <h4 className="font-black text-slate-950 text-sm sm:text-base leading-snug break-words">
+                      <div className="flex-1 min-w-0 space-y-1 text-right">
+                        <h4 className="font-black text-slate-950 text-sm sm:text-base leading-snug break-normal">
                           {item.product.name}
                         </h4>
                         {item.selectedSize && (
@@ -296,66 +297,71 @@ export const CartCheckout: React.FC<CartCheckoutProps> = ({
                             المتوفر بالمخزون: {item.product.stock} {item.product.unit || "قطعة"}
                           </span>
                         )}
-                        <div className="flex items-baseline gap-2 pt-0.5">
-                          <span className="text-xs text-slate-800 font-extrabold">
-                            ({item.quantity} × {item.totalItemPrice.toLocaleString()} ل.س)
-                          </span>
-                          <span className="text-sm sm:text-base font-black text-slate-950">
-                            = {(item.totalItemPrice * item.quantity).toLocaleString()} ل.س
-                          </span>
+                        <div className="text-xs font-black text-slate-800 pt-0.5">
+                          سعر القطعة: {item.totalItemPrice.toLocaleString()} ل.س
                         </div>
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-1.5 shrink-0">
-                      <div className="flex items-center gap-2 bg-slate-100 p-1 rounded-xl border border-slate-200/80">
-                        <button
-                          type="button"
-                          onClick={() => onRemoveFromCart(item.product, item.selectedSize, item.selectedAdditions)}
-                          className="w-7 h-7 bg-white text-slate-900 hover:text-red-600 rounded-lg flex items-center justify-center shadow-xs font-black transition-colors cursor-pointer"
-                          title={item.quantity === 1 ? "حذف الصنف من السلة" : "تقليل الكمية"}
-                        >
-                          {item.quantity === 1 ? (
-                            <Trash2 className="w-3.5 h-3.5 text-red-500" />
-                          ) : (
-                            <Minus className="w-3.5 h-3.5" />
-                          )}
-                        </button>
-                        <span className="text-xs sm:text-sm font-black text-slate-950 min-w-4 text-center">
-                          {item.quantity}
-                        </span>
-                        <button
-                          type="button"
-                          disabled={item.product.stock !== undefined && item.quantity >= item.product.stock}
-                          onClick={() => {
-                            if (item.product.stock !== undefined && item.quantity >= item.product.stock) return;
-                            onAddToCart(item.product, item.selectedSize, item.selectedAdditions);
-                          }}
-                          className={`w-7 h-7 rounded-lg flex items-center justify-center shadow-xs font-black ${
-                            item.product.stock !== undefined && item.quantity >= item.product.stock
-                              ? "bg-slate-200 text-slate-400 cursor-not-allowed"
-                              : "bg-orange-500 hover:bg-orange-600 text-white cursor-pointer"
-                          }`}
-                          title={item.product.stock !== undefined && item.quantity >= item.product.stock ? "وصلت للحد الأقصى المتوفر بالمخزون" : "زيادة الكمية"}
-                        >
-                          <Plus className="w-3.5 h-3.5" />
-                        </button>
+                    {/* Bottom Row: Quantity Controls & Subtotal */}
+                    <div className="flex items-center justify-between gap-3 bg-slate-50 p-2 sm:p-2.5 rounded-2xl border border-slate-200/80 w-full">
+                      <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 bg-white px-2 py-1 rounded-xl border border-slate-200 shadow-xs">
+                          <button
+                            type="button"
+                            onClick={() => onRemoveFromCart(item.product, item.selectedSize, item.selectedAdditions)}
+                            className="w-7 h-7 bg-slate-100 hover:bg-red-50 text-slate-900 hover:text-red-600 rounded-lg flex items-center justify-center font-black transition-colors cursor-pointer"
+                            title={item.quantity === 1 ? "حذف الصنف من السلة" : "تقليل الكمية"}
+                          >
+                            {item.quantity === 1 ? (
+                              <Trash2 className="w-3.5 h-3.5 text-red-500" />
+                            ) : (
+                              <Minus className="w-3.5 h-3.5" />
+                            )}
+                          </button>
+                          <span className="text-xs sm:text-sm font-black text-slate-950 min-w-5 text-center">
+                            {item.quantity}
+                          </span>
+                          <button
+                            type="button"
+                            disabled={item.product.stock !== undefined && item.quantity >= item.product.stock}
+                            onClick={() => {
+                              if (item.product.stock !== undefined && item.quantity >= item.product.stock) return;
+                              onAddToCart(item.product, item.selectedSize, item.selectedAdditions);
+                            }}
+                            className={`w-7 h-7 rounded-lg flex items-center justify-center font-black transition-colors ${
+                              item.product.stock !== undefined && item.quantity >= item.product.stock
+                                ? "bg-slate-200 text-slate-400 cursor-not-allowed"
+                                : "bg-orange-500 hover:bg-orange-600 text-white cursor-pointer shadow-xs"
+                            }`}
+                            title={item.product.stock !== undefined && item.quantity >= item.product.stock ? "وصلت للحد الأقصى المتوفر بالمخزون" : "زيادة الكمية"}
+                          >
+                            <Plus className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+
+                        {item.quantity > 1 && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              for (let i = 0; i < item.quantity; i++) {
+                                onRemoveFromCart(item.product, item.selectedSize, item.selectedAdditions);
+                              }
+                            }}
+                            className="p-1.5 text-slate-500 hover:text-red-600 hover:bg-red-50 rounded-xl transition-all cursor-pointer"
+                            title="حذف هذا الصنف بالكامل من السلة"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        )}
                       </div>
 
-                      {item.quantity > 1 && (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            for (let i = 0; i < item.quantity; i++) {
-                              onRemoveFromCart(item.product, item.selectedSize, item.selectedAdditions);
-                            }
-                          }}
-                          className="p-1.5 text-slate-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all cursor-pointer"
-                          title="حذف هذا الصنف بالكامل من السلة"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      )}
+                      <div className="text-left font-black text-slate-950">
+                        <span className="text-[11px] text-slate-600 font-bold ml-1">الإجمالي:</span>
+                        <span className="text-sm sm:text-base font-black text-slate-950">
+                          {(item.totalItemPrice * item.quantity).toLocaleString()} ل.س
+                        </span>
+                      </div>
                     </div>
                   </div>
                 ))}

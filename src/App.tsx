@@ -5155,6 +5155,7 @@ export default function App() {
           ) : isViewingCart ? (
             <motion.div
               key="cart_checkout"
+              className="w-full"
               initial={{ opacity: 0, y: 8 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -8 }}
