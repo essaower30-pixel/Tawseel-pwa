@@ -276,24 +276,24 @@ export const CartCheckout: React.FC<CartCheckoutProps> = ({
                         className="w-14 h-14 rounded-2xl object-cover bg-slate-100"
                       />
                       <div>
-                        <h4 className="font-extrabold text-slate-800 text-xs">{item.product.name}</h4>
+                        <h4 className="font-black text-black text-xs sm:text-sm break-words">{item.product.name}</h4>
                         {item.selectedSize && (
-                          <span className="text-[10px] text-orange-600 font-bold block">
+                          <span className="text-[10px] sm:text-xs text-orange-600 font-black block">
                             الحجم: {item.selectedSize.name}
                           </span>
                         )}
                         {item.selectedAdditions && item.selectedAdditions.length > 0 && (
-                          <span className="text-[10px] text-slate-400 font-bold block">
+                          <span className="text-[10px] sm:text-xs text-slate-800 font-bold block">
                             إضافات: {item.selectedAdditions.map((a) => a.name).join("، ")}
                           </span>
                         )}
                         {item.product.stock !== undefined && (
-                          <span className="text-[9px] text-slate-400 font-bold block">
+                          <span className="text-[9px] sm:text-[10px] text-slate-900 font-extrabold block">
                             المتوفر: {item.product.stock} {item.product.unit || "قطعة"}
                           </span>
                         )}
-                        <span className="text-xs font-black text-slate-900 mt-1 block">
-                          {item.totalItemPrice * item.quantity} ل.س
+                        <span className="text-xs sm:text-sm font-black text-black mt-1 block">
+                          {(item.totalItemPrice * item.quantity).toLocaleString()} ل.س
                         </span>
                       </div>
                     </div>

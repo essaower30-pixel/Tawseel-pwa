@@ -16,7 +16,12 @@
   }
 
   body {
-    font-family: 'Tajawal', 'Cairo', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+    font-family: 'Cairo', 'Tajawal', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+    color: #000000;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+    font-weight: 500;
     -webkit-tap-highlight-color: transparent;
     overflow-x: hidden !important;
     width: 100% !important;
@@ -25,6 +30,18 @@
     padding: 0 !important;
     position: relative;
     min-height: 100vh;
+  }
+
+  /* High contrast glossy deep-black typography */
+  h1, h2, h3, h4, h5, h6 {
+    color: #000000;
+    font-weight: 800;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  p, span, label, div {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
   }
 
   /* Prevent automatic iOS zoom on inputs while keeping text sharp */

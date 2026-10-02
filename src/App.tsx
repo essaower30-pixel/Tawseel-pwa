@@ -5475,7 +5475,7 @@ export default function App() {
                                           />
                                           <div className="min-w-0">
                                             <div className="flex items-center gap-1.5">
-                                              <span className="font-black text-xs text-slate-900 truncate">
+                                              <span className="font-black text-xs sm:text-sm text-black break-words">
                                                 {offer.name}
                                               </span>
                                               {offer.offerLabel && (
@@ -5485,11 +5485,11 @@ export default function App() {
                                               )}
                                             </div>
                                             <div className="flex items-baseline gap-1.5 mt-0.5">
-                                              <span className="text-xs font-black text-orange-600">
-                                                {offer.price.toLocaleString()} ل.س
+                                              <span className="text-xs sm:text-sm font-black text-black">
+                                                {offer.price.toLocaleString()} <span className="text-[9px] text-black font-black">ل.س</span>
                                               </span>
                                               {offer.originalPrice && (
-                                                <span className="text-[10px] text-slate-400 line-through">
+                                                <span className="text-[10px] text-slate-500 font-bold line-through">
                                                   {offer.originalPrice.toLocaleString()} ل.س
                                                 </span>
                                               )}
@@ -5619,21 +5619,23 @@ export default function App() {
                                   </span>
                                 ) : null}
                               </div>
-                              <h4 className="font-extrabold text-slate-800 text-sm leading-tight">
+                              <h4 className="font-black text-black text-sm sm:text-base leading-snug break-words">
                                 {offer.name}
                               </h4>
-                              <p className="text-slate-400 text-[11px] line-clamp-1 mt-0.5">
-                                {offer.description}
-                              </p>
+                              {offer.description && (
+                                <p className="text-black font-bold text-xs leading-relaxed mt-1 break-words">
+                                  {offer.description}
+                                </p>
+                              )}
                             </div>
 
                             <div className="flex items-center justify-between mt-2.5">
                               <div className="flex items-baseline gap-1.5 flex-wrap">
-                                <span className="font-extrabold text-base text-orange-600">
-                                  {offer.price.toLocaleString()} ل.س
+                                <span className="font-black text-base text-black">
+                                  {offer.price.toLocaleString()} <span className="text-[10px] text-black font-black">ل.س</span>
                                 </span>
                                 {offer.originalPrice && (
-                                  <span className="text-slate-300 line-through text-xs font-semibold">
+                                  <span className="text-slate-500 line-through text-xs font-bold">
                                     {offer.originalPrice.toLocaleString()} ل.س
                                   </span>
                                 )}

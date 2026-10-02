@@ -1034,7 +1034,7 @@ export const StoreDetails: React.FC<StoreDetailsProps> = ({
               )}
             </div>
 
-            <div className="text-[11px] font-black text-slate-500">
+            <div className="text-xs font-black text-black">
               عرض {storeProducts.length} من أصل {allStoreProducts.length} منتج
             </div>
           </div>
@@ -1142,31 +1142,35 @@ export const StoreDetails: React.FC<StoreDetailsProps> = ({
                   </div>
 
                   <div>
-                    <div className="flex items-center justify-between gap-1">
-                      <h3 className="font-black text-slate-800 text-xs sm:text-sm line-clamp-1">{product.name}</h3>
+                    <div className="flex items-start justify-between gap-1">
+                      <h3 className="font-black text-black text-xs sm:text-sm leading-snug break-words">{product.name}</h3>
                       {product.soldCount && product.soldCount > 0 ? (
-                        <span className="text-[8px] sm:text-[9px] font-bold text-orange-600 bg-orange-50 px-1 py-0.5 rounded shrink-0">
+                        <span className="text-[8px] sm:text-[9px] font-black text-orange-600 bg-orange-50 px-1 py-0.5 rounded shrink-0">
                           🔥 {product.soldCount}
                         </span>
                       ) : null}
                     </div>
-                    <p className="text-slate-500 text-[10px] sm:text-xs leading-relaxed line-clamp-1 sm:line-clamp-2 mt-0.5">{product.description}</p>
+                    {product.description && (
+                      <p className="text-black font-bold text-[11px] sm:text-xs leading-relaxed mt-1 break-words">
+                        {product.description}
+                      </p>
+                    )}
                   </div>
                 </div>
 
-                <div className="pt-1.5 border-t border-slate-100 flex flex-col xs:flex-row items-start xs:items-center justify-between gap-1.5">
+                <div className="pt-2 border-t border-slate-200 flex flex-col xs:flex-row items-start xs:items-center justify-between gap-1.5">
                   <div className="min-w-0">
                     <div className="flex items-baseline gap-1">
-                      <span className="text-xs sm:text-sm md:text-base font-black text-slate-900">
-                        {product.price.toLocaleString()} <span className="text-[9px] sm:text-[10px] text-slate-500 font-bold">ل.س</span>
+                      <span className="text-xs sm:text-sm md:text-base font-black text-black">
+                        {product.price.toLocaleString()} <span className="text-[9px] sm:text-[10px] text-black font-black">ل.س</span>
                       </span>
                     </div>
                     {product.originalPrice && (
-                      <span className="text-[9px] sm:text-[10px] text-slate-400 line-through block">
+                      <span className="text-[9px] sm:text-[10px] text-slate-500 font-bold line-through block">
                         {product.originalPrice.toLocaleString()} ل.س
                       </span>
                     )}
-                    {product.unit && <span className="text-[9px] sm:text-[10px] text-slate-400 font-bold block">{product.unit}</span>}
+                    {product.unit && <span className="text-[9px] sm:text-[10px] text-black font-black block mt-0.5">{product.unit}</span>}
                   </div>
 
                   {isOutOfStock ? (
@@ -1287,13 +1291,13 @@ export const StoreDetails: React.FC<StoreDetailsProps> = ({
               } text-white font-black text-[9px] sm:text-[10px] px-2.5 py-0.5 rounded-full uppercase`}>
                 {isPharmacy ? "طلب دواء أو روشتة 🩺" : "طلب حر ✍️"}
               </span>
-              <h4 className="font-black text-slate-900 text-xs sm:text-sm">
+              <h4 className="font-black text-black text-xs sm:text-sm">
                 {isPharmacy
                   ? `لم تجد دواءك في القائمة؟ طلب خاص من (${store.name})`
                   : `لم تجد طلبك في القائمة؟ طلب خاص من (${store.name})`}
               </h4>
             </div>
-            <p className="text-slate-600 text-[11px] sm:text-xs font-semibold mt-1">
+            <p className="text-black text-xs font-bold mt-1 leading-relaxed">
               {isPharmacy
                 ? "اكتب اسم الدواء والعيار أو صوّر الروشتة/علبة الدواء وسيقوم الصيدلي بتجهيزها وصرفها فوراً!"
                 : "اكتب قائمة مقاضيك أو صوّر ورقة الطلبات بالكاميرا وسيحضرها لك المتجر والكابتن فوراً!"}
@@ -1764,8 +1768,8 @@ export const StoreDetails: React.FC<StoreDetailsProps> = ({
             >
               <div className="flex items-center justify-between border-b pb-3">
                 <div>
-                  <h3 className="font-black text-slate-800 text-base">{selectedProduct.name}</h3>
-                  <p className="text-slate-400 text-xs font-bold">
+                  <h3 className="font-black text-black text-base">{selectedProduct.name}</h3>
+                  <p className="text-slate-900 text-xs font-bold">
                     اختر الحجم والإضافات المفضلة
                     {selectedProduct.stock !== undefined && (
                       <span className="text-orange-600 mr-1.5 font-black">
@@ -1777,7 +1781,7 @@ export const StoreDetails: React.FC<StoreDetailsProps> = ({
                 <button
                   type="button"
                   onClick={() => setSelectedProduct(null)}
-                  className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 flex items-center justify-center text-sm font-bold cursor-pointer"
+                  className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-700 flex items-center justify-center text-sm font-bold cursor-pointer"
                 >
                   <X className="w-4 h-4" />
                 </button>
@@ -1786,7 +1790,7 @@ export const StoreDetails: React.FC<StoreDetailsProps> = ({
               {/* Sizes */}
               {selectedProduct.sizes && selectedProduct.sizes.length > 0 && (
                 <div className="space-y-2">
-                  <label className="text-xs font-extrabold text-slate-700 block">اختر الحجم:</label>
+                  <label className="text-xs font-black text-black block">اختر الحجم:</label>
                   <div className="grid grid-cols-3 gap-2">
                     {selectedProduct.sizes.map((sz) => (
                       <button
@@ -1795,12 +1799,12 @@ export const StoreDetails: React.FC<StoreDetailsProps> = ({
                         onClick={() => setSelectedSize(sz)}
                         className={`p-2.5 rounded-xl border text-xs font-bold transition-all cursor-pointer flex flex-col items-center gap-1 ${
                           selectedSize?.name === sz.name
-                            ? "bg-orange-50 border-orange-500 text-orange-700 shadow-xs"
-                            : "border-slate-200 text-slate-600 hover:bg-slate-50"
+                            ? "bg-orange-50 border-orange-500 text-orange-700 shadow-xs font-black"
+                            : "border-slate-200 text-black hover:bg-slate-50 font-bold"
                         }`}
                       >
-                        <span>{sz.name}</span>
-                        <span className="font-black text-slate-900">{sz.price} ل.س</span>
+                        <span className="font-black">{sz.name}</span>
+                        <span className="font-black text-black">{sz.price} ل.س</span>
                       </button>
                     ))}
                   </div>
@@ -1810,7 +1814,7 @@ export const StoreDetails: React.FC<StoreDetailsProps> = ({
               {/* Additions */}
               {selectedProduct.additions && selectedProduct.additions.length > 0 && (
                 <div className="space-y-2">
-                  <label className="text-xs font-extrabold text-slate-700 block">إضافات اختيارية:</label>
+                  <label className="text-xs font-black text-black block">إضافات اختيارية:</label>
                   <div className="space-y-1.5 max-h-48 overflow-y-auto">
                     {selectedProduct.additions.map((add) => {
                       const isChecked = selectedAdditions.some((a) => a.name === add.name);
@@ -1820,8 +1824,8 @@ export const StoreDetails: React.FC<StoreDetailsProps> = ({
                           onClick={() => toggleAddition(add)}
                           className={`p-2.5 rounded-xl border flex items-center justify-between text-xs font-bold cursor-pointer transition-all ${
                             isChecked
-                              ? "bg-orange-50 border-orange-300 text-orange-900"
-                              : "border-slate-200 text-slate-700 hover:bg-slate-50"
+                              ? "bg-orange-50 border-orange-300 text-orange-950 font-black"
+                              : "border-slate-200 text-black hover:bg-slate-50 font-bold"
                           }`}
                         >
                           <div className="flex items-center gap-2">
@@ -1832,9 +1836,9 @@ export const StoreDetails: React.FC<StoreDetailsProps> = ({
                             >
                               {isChecked && <Check className="w-3 h-3" />}
                             </div>
-                            <span>{add.name}</span>
+                            <span className="font-black text-black">{add.name}</span>
                           </div>
-                          <span className="text-slate-500 font-bold">+{add.price} ل.س</span>
+                          <span className="text-black font-black">+{add.price} ل.س</span>
                         </div>
                       );
                     })}
