@@ -44,7 +44,8 @@ import {
   User,
   Bot,
   WifiOff,
-  RefreshCw
+  RefreshCw,
+  Download
 } from "lucide-react";
 import { CartItem, Category, Craftsman, Doctor, DriverMember, DriverService, MapNode, Order, Product, Store, StoreAddition, StoreSize, UserProfile, StoreBroadcast, StoreReview, Coupon } from "./types";
 import { initialCategories, initialMapNodes, initialProducts, initialStores, initialStoreBroadcasts, initialStoreReviews } from "./data/initialData";
@@ -69,6 +70,8 @@ import { ToastNotification, ToastItem } from "./components/ToastNotification";
 import { OfflineBanner, useOnlineStatus } from "./components/OfflineBanner";
 import { NotificationPermissionBanner } from "./components/NotificationPermissionBanner";
 import { ManagerSecretAuthModal } from "./components/ManagerSecretAuthModal";
+import { PullToRefresh } from "./components/PullToRefresh";
+import { InAppRefreshModal } from "./components/InAppRefreshModal";
 
 import {
   subscribeToPushNotifications,
@@ -442,6 +445,33 @@ export default function App() {
   const [showCraftsmenModal, setShowCraftsmenModal] = useState<boolean>(false);
   const [selectedCraftFilter, setSelectedCraftFilter] = useState<string>("all");
   const [showManagerSecretModal, setShowManagerSecretModal] = useState<boolean>(false);
+  const [showInstallModal, setShowInstallModal] = useState<boolean>(false);
+  const [showInAppRefreshModal, setShowInAppRefreshModal] = useState<boolean>(false);
+  const [isAppRefreshing, setIsAppRefreshing] = useState<boolean>(false);
+  const [isStandalone, setIsStandalone] = useState<boolean>(() => {
+    if (typeof window === "undefined") return false;
+    return (
+      window.matchMedia("(display-mode: standalone)").matches ||
+      (window.navigator as any).standalone === true ||
+      document.referrer.includes("android-app://")
+    );
+  });
+
+  useEffect(() => {
+    const checkMode = () => {
+      const standalone =
+        window.matchMedia("(display-mode: standalone)").matches ||
+        (window.navigator as any).standalone === true ||
+        document.referrer.includes("android-app://");
+      setIsStandalone(standalone);
+    };
+    checkMode();
+    const media = window.matchMedia("(display-mode: standalone)");
+    if (media.addEventListener) {
+      media.addEventListener("change", checkMode);
+      return () => media.removeEventListener("change", checkMode);
+    }
+  }, []);
 
   // Doctors State
   const [doctorsList, setDoctorsList] = useState<Doctor[]>(() => {
@@ -1456,6 +1486,99 @@ export default function App() {
       }
       window.location.reload();
     }
+  };
+
+  const handleInAppRefresh = async () => {
+    if (isAppRefreshing) return;
+    setIsAppRefreshing(true);
+    try {
+      if (soundEnabled) {
+        playOrderAlertSound("chime");
+      }
+
+      // 1. Sync stores from localStorage
+      const rawStores = localStorage.getItem("tw_stores");
+      if (rawStores) {
+        try {
+          const parsed = JSON.parse(rawStores);
+          setStores(ensureInitialStoresPreserved(parsed));
+        } catch {}
+      }
+
+      // 2. Sync products
+      const rawProducts = localStorage.getItem("tw_products");
+      if (rawProducts) {
+        try {
+          setProducts(JSON.parse(rawProducts));
+        } catch {}
+      }
+
+      // 3. Sync orders and active order
+      const rawOrders = localStorage.getItem("tw_orders_list") || localStorage.getItem("tw_all_orders");
+      if (rawOrders) {
+        try {
+          setAllOrders(JSON.parse(rawOrders));
+        } catch {}
+      }
+      const rawActive = localStorage.getItem("tw_active_order");
+      if (rawActive) {
+        try {
+          const act = JSON.parse(rawActive);
+          if (act && act.status !== "delivered" && act.status !== "cancelled") {
+            setActiveOrder(act);
+          }
+        } catch {}
+      }
+
+      // 4. Trigger background Service Worker update check
+      if ("serviceWorker" in navigator) {
+        navigator.serviceWorker.ready.then((reg) => {
+          reg.update().catch(() => {});
+        }).catch(() => {});
+      }
+
+      // 5. Broadcast global events so all child components re-render fresh state
+      window.dispatchEvent(new CustomEvent("tw_stores_updated"));
+      window.dispatchEvent(new CustomEvent("tw_products_updated"));
+      window.dispatchEvent(new CustomEvent("tw_orders_updated"));
+      window.dispatchEvent(new CustomEvent("tw_doctors_updated"));
+      window.dispatchEvent(new CustomEvent("tw_craftsmen_updated"));
+      window.dispatchEvent(new CustomEvent("tw_driver_services_updated"));
+
+      addToastNotification({
+        title: "تم تحديث البيانات بنجاح 🔄",
+        message: "تمت مزامنة أحدث المتاجر والعروض والطلبات داخل التطبيق بنجاح وسرعة فائقة.",
+        type: "success"
+      });
+    } catch (e) {
+      console.warn("In-app refresh error:", e);
+    } finally {
+      setTimeout(() => {
+        setIsAppRefreshing(false);
+      }, 700);
+    }
+  };
+
+  const handleFullReload = () => {
+    window.location.reload();
+  };
+
+  const handleClearCacheReload = async () => {
+    if ("caches" in window) {
+      try {
+        const keys = await caches.keys();
+        await Promise.all(keys.map((k) => caches.delete(k)));
+      } catch (e) {}
+    }
+    if ("serviceWorker" in navigator) {
+      try {
+        const regs = await navigator.serviceWorker.getRegistrations();
+        for (const reg of regs) {
+          await reg.unregister();
+        }
+      } catch (e) {}
+    }
+    window.location.reload();
   };
 
   const handleToggleSound = () => {
@@ -4677,6 +4800,64 @@ export default function App() {
 
           {/* Header Action Buttons */}
           <div className="flex items-center justify-end gap-1 sm:gap-2 shrink-0">
+            {/* In-App Direct Refresh Button: Single Click = Quick Smart Data Sync, Dropdown = Advanced Options */}
+            <div className="relative flex items-center">
+              <button
+                type="button"
+                onClick={handleInAppRefresh}
+                onContextMenu={(e) => {
+                  e.preventDefault();
+                  setShowInAppRefreshModal(true);
+                }}
+                disabled={isAppRefreshing}
+                className={`py-1.5 px-2 sm:px-2.5 rounded-xl border transition-all cursor-pointer flex items-center gap-1 text-xs font-black shadow-xs active:scale-95 shrink-0 select-none ${
+                  isAppRefreshing 
+                    ? "bg-orange-50 border-orange-300 text-orange-900" 
+                    : "border-slate-200/90 bg-white hover:bg-orange-50/70 hover:border-orange-300 text-slate-800"
+                }`}
+                title="ريفرش وتحديث مباشر للتطبيق والبيانات من الداخل"
+              >
+                <RefreshCw
+                  className={`w-3.5 h-3.5 text-orange-600 shrink-0 ${
+                    isAppRefreshing ? "animate-spin" : ""
+                  }`}
+                />
+                <span className="hidden xs:inline">
+                  {isAppRefreshing ? "جاري التحديث..." : "تحديث 🔄"}
+                </span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowInAppRefreshModal(true)}
+                className="py-1 px-1 text-slate-400 hover:text-orange-600 transition-colors hidden sm:flex items-center justify-center cursor-pointer"
+                title="خيارات الريفرش والتحديث المتقدمة"
+              >
+                <span className="text-[10px] font-black">▾</span>
+              </button>
+            </div>
+
+            {/* Independent Standalone Mode Button & Indicator (Opens independent of Chrome) */}
+            {!isStandalone ? (
+              <button
+                type="button"
+                onClick={() => setShowInstallModal(true)}
+                className="py-1.5 px-2 sm:px-2.5 rounded-xl border border-emerald-300 bg-emerald-50 hover:bg-emerald-100 text-emerald-900 transition-all cursor-pointer flex items-center gap-1 text-xs font-black shadow-xs active:scale-95 shrink-0 select-none"
+                title="فتح وتثبيت التطبيق كنافذة مستقلة بدون قوقل كروم"
+              >
+                <Download className="w-3.5 h-3.5 text-emerald-600 animate-bounce shrink-0" />
+                <span className="hidden sm:inline">تطبيق مستقل 📲</span>
+                <span className="sm:hidden">تثبيت 📲</span>
+              </button>
+            ) : (
+              <div
+                className="py-1 px-2 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-[10px] font-black hidden lg:flex items-center gap-1 shadow-2xs select-none"
+                title="التطبيق يعمل كنافذة مستقلة دون متصفح كروم"
+              >
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse shrink-0" />
+                <span>مستقل ⚡</span>
+              </div>
+            )}
+
             {/* Real-time Offline Mode Indicator Badge */}
             {!isOnline && (
               <button
@@ -4984,8 +5165,9 @@ export default function App() {
       </header>
       </div>
 
-      {/* Main Container */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 py-6 pb-28 flex-1 w-full relative min-h-[500px]">
+      {/* Main Container with Mobile Pull-To-Refresh */}
+      <PullToRefresh onRefresh={handleInAppRefresh}>
+        <main className="max-w-7xl mx-auto px-4 sm:px-6 py-6 pb-28 flex-1 w-full relative min-h-[500px]">
         {/* Router Views with Smooth Transition */}
         <AnimatePresence mode="wait">
           {userRole === "store_owner" && !isStoreOwnerBrowsingAsCustomer ? (
@@ -6662,6 +6844,7 @@ export default function App() {
           )}
         </AnimatePresence>
       </main>
+      </PullToRefresh>
 
       {/* Store Conflict Switch Modal */}
       <AnimatePresence>
@@ -6809,8 +6992,22 @@ export default function App() {
         )}
       </AnimatePresence>
 
-      {/* Standalone Elegant PWA Installation Modal on Entry */}
-      <InstallPromptModal />
+      {/* Standalone Elegant PWA Installation Modal on Entry & Manual Trigger */}
+      <InstallPromptModal 
+        isOpenManual={showInstallModal}
+        onClose={() => setShowInstallModal(false)}
+      />
+
+      {/* In-App Direct Refresh & Data Sync Modal */}
+      <InAppRefreshModal
+        isOpen={showInAppRefreshModal}
+        onClose={() => setShowInAppRefreshModal(false)}
+        onQuickRefresh={handleInAppRefresh}
+        onFullReload={handleFullReload}
+        onClearCacheReload={handleClearCacheReload}
+        onOpenStandaloneGuide={() => setShowInstallModal(true)}
+        isStandalone={isStandalone}
+      />
 
       {/* Customer Orders Archive Modal */}
       {showCustomerArchiveModal && (

@@ -1022,6 +1022,24 @@ export const AccountSettingsModal: React.FC<AccountSettingsModalProps> = ({
               )}
             </div>
 
+            {/* Quick in-app refresh & data sync */}
+            <div className="pt-2 border-t border-slate-100">
+              <button
+                type="button"
+                onClick={() => {
+                  window.dispatchEvent(new CustomEvent("tw_stores_updated"));
+                  window.dispatchEvent(new CustomEvent("tw_products_updated"));
+                  window.dispatchEvent(new CustomEvent("tw_orders_updated"));
+                  window.location.reload();
+                }}
+                className="w-full py-2.5 px-3 bg-orange-50 hover:bg-orange-100 text-orange-950 border border-orange-200/90 rounded-2xl text-xs font-black transition-all flex items-center justify-center gap-2 cursor-pointer active:scale-98"
+                title="تحديث التطبيق والبيانات من الداخل"
+              >
+                <RefreshCw className="w-3.5 h-3.5 text-orange-600" />
+                <span>تحديث التطبيق والبيانات فورا 🔄</span>
+              </button>
+            </div>
+
             {/* Direct button to enter Admin Dashboard under Logout button */}
             {(userRole === "admin" || currentStaff?.role === "manager") && onGoToAdmin && (
               <button

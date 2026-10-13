@@ -113,37 +113,24 @@
         window.dispatchEvent(new CustomEvent('pwaInstallPromptReady'));
       });
 
-      // Service Worker handling: active only in true production PWA, disabled and cleaned in development
+      // Service Worker handling: Register for standalone PWA and production browser, safe in preview
       if ('serviceWorker' in navigator) {
-        const isDevEnv =
-          window.location.hostname === 'localhost' ||
-          window.location.hostname.includes('ais-dev') ||
-          window.location.hostname.includes('.run.app') ||
-          window.location.port === '3000' ||
-          window.location.port === '5173' ||
-          window.self !== window.top;
+        const isInPreviewIframe = window.self !== window.top;
 
-        if (isDevEnv) {
-          // In development/iframe, completely unregister service workers and purge caches to prevent stale React modules
+        if (isInPreviewIframe) {
+          // Inside developer preview iframe: unregister service worker to prevent cached hot updates
           navigator.serviceWorker.getRegistrations().then(function(registrations) {
             for (let reg of registrations) {
               reg.unregister();
             }
-          });
-          if ('caches' in window) {
-            caches.keys().then(function(names) {
-              for (let name of names) {
-                caches.delete(name);
-              }
-            });
-          }
+          }).catch(function() {});
         } else {
-          // Guard against multiple automatic reloads (prevents Android system UI flickering)
+          // In real browser, standalone PWA, or mobile screen:
+          // Register Service Worker to enable full offline support and instant launch without Chrome!
           let hadPreviousController = !navigator.serviceWorker.controller;
           let isReloading = false;
 
           navigator.serviceWorker.addEventListener('controllerchange', () => {
-            // Only reload if the page was previously controlled by an older service worker
             if (!hadPreviousController) {
               hadPreviousController = true;
               return;
@@ -152,7 +139,7 @@
             const lastReload = Number(sessionStorage.getItem('tw_sw_reload_ts') || 0);
             const now = Date.now();
             if (now - lastReload < 15000) {
-              return; // Prevent rapid consecutive reloads
+              return; // Prevent reload loops
             }
 
             if (!isReloading) {
@@ -163,13 +150,12 @@
           });
 
           window.addEventListener('load', () => {
-            // Dynamically resolve service worker path and scope based on current location
             const pathname = window.location.pathname;
             const dir = pathname.substring(0, pathname.lastIndexOf('/') + 1) || '/';
             const swPath = dir + 'sw.js';
             const swScope = dir;
             navigator.serviceWorker.register(swPath, { scope: swScope }).then((reg) => {
-              // Gracefully check for updates without reload storms
+              // Check for background updates gracefully
               setInterval(() => {
                 reg.update().catch(() => {});
               }, 60000);

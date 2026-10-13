@@ -30,7 +30,8 @@ import {
   ShoppingBag,
   Bell,
   Stethoscope,
-  Car
+  Car,
+  RefreshCw
 } from "lucide-react";
 import { StaffMember, StaffPermission } from "../../types";
 import { playOrderAlertSound, isSoundEnabled, setSoundEnabled, requestNotificationPermission, showSystemNotification } from "../../utils/soundNotifications";
@@ -318,6 +319,21 @@ export const AdminHeader: React.FC<AdminHeaderProps> = ({
           >
             <Volume2 className={`w-3.5 h-3.5 ${testSoundPlaying ? "animate-spin text-amber-400" : "text-amber-400"}`} />
             <span>{testSoundPlaying ? "يرن الآن..." : "تجربة الرنين 🔊"}</span>
+          </button>
+
+          {/* In-App Direct Refresh for Admin */}
+          <button
+            type="button"
+            onClick={() => {
+              window.dispatchEvent(new CustomEvent("tw_stores_updated"));
+              window.dispatchEvent(new CustomEvent("tw_orders_updated"));
+              window.location.reload();
+            }}
+            className="px-2.5 sm:px-3 py-1.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-orange-400 font-black text-xs rounded-2xl transition-all flex items-center justify-center gap-1.5 cursor-pointer active:scale-95"
+            title="ريفرش وتحديث فوري للوحة الإدارة والطلبات من داخل التطبيق"
+          >
+            <RefreshCw className="w-3.5 h-3.5 text-orange-400" />
+            <span className="hidden xs:inline">تحديث 🔄</span>
           </button>
 
           <div className="bg-slate-800/90 border border-slate-700/80 rounded-2xl px-2.5 sm:px-3 py-1.5 flex items-center justify-center gap-1.5 text-xs truncate">
