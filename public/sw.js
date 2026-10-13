@@ -1,10 +1,10 @@
 // ==============================================================================
 // Tawseel Progressive Web App (PWA) - Service Worker
-// Version: tawseel-v70-driver-services-id-card
-// Designed for instant startup and automatic freshness for all customers & staff
+// Version: tawseel-v71-instant-offline-persistent
+// Guaranteed instant startup even when completely offline or left for extended periods
 // ==============================================================================
 
-const CACHE_NAME = 'tawseel-v70-driver-services-id-card';
+const CACHE_NAME = 'tawseel-v71-instant-offline-persistent';
 
 // Dynamically determine the base path (e.g. '/Tawseel-pwa' on GitHub Pages or '' on root domain)
 const getBasePath = () => {
@@ -113,6 +113,9 @@ self.addEventListener('install', (event) => {
                   const aRes = await fetch(assetUrl, { cache: 'no-cache' });
                   if (aRes && aRes.status === 200) {
                     await cache.put(assetUrl, aRes);
+                    if (assetUrl.startsWith('./')) {
+                      await cache.put(assetUrl.substring(1), aRes.clone()).catch(() => {});
+                    }
                   }
                 } catch (err) {}
               })
@@ -127,6 +130,14 @@ self.addEventListener('install', (event) => {
         if (htmlRes && htmlRes.status === 200) {
           const clone = htmlRes.clone();
           await cache.put('./index.html', clone);
+          await cache.put('./', htmlRes.clone()).catch(() => {});
+          await cache.put('/index.html', htmlRes.clone()).catch(() => {});
+          await cache.put('/', htmlRes.clone()).catch(() => {});
+          if (self.location && self.location.origin) {
+            await cache.put(self.location.origin + '/', htmlRes.clone()).catch(() => {});
+            await cache.put(self.location.origin + '/index.html', htmlRes.clone()).catch(() => {});
+          }
+
           const htmlText = await htmlRes.text();
           const discovered = extractAssetsFromHtml(htmlText);
           await Promise.all(
@@ -135,6 +146,9 @@ self.addEventListener('install', (event) => {
                 const dRes = await fetch(dUrl, { cache: 'no-cache' });
                 if (dRes && dRes.status === 200) {
                   await cache.put(dUrl, dRes);
+                  if (dUrl.startsWith('./')) {
+                    await cache.put(dUrl.substring(1), dRes.clone()).catch(() => {});
+                  }
                 }
               } catch (e) {}
             })
@@ -207,24 +221,31 @@ async function matchCacheFlexible(cache, request) {
 // Helper: Find the cached index.html
 async function getCachedIndexHtml(cache) {
   const base = getBasePath();
+  const origin = (self.location && self.location.origin) || '';
   const candidates = [
     './index.html',
     './',
     `${base}/index.html`,
     `${base}/`,
     '/index.html',
-    '/'
+    '/',
+    `${origin}/index.html`,
+    `${origin}/`,
+    `${origin}${base}/index.html`,
+    `${origin}${base}/`
   ];
 
   for (const c of candidates) {
+    if (!c) continue;
     const hit = await cache.match(c);
     if (hit) return hit;
   }
 
-  // Search all keys in cache for index.html
+  // Search all keys in cache for index.html or root
   const keys = await cache.keys();
   for (const k of keys) {
-    if (k.url.endsWith('/index.html') || k.url.endsWith(base + '/')) {
+    const u = k.url.toLowerCase();
+    if (u.endsWith('/index.html') || u === origin + '/' || (base && u.endsWith(base + '/'))) {
       const hit = await cache.match(k);
       if (hit) return hit;
     }
@@ -256,50 +277,60 @@ self.addEventListener('fetch', (event) => {
   }
 
   // A. NAVIGATION / DOCUMENT REQUESTS (Opening the app from Home Screen, launcher, or refreshing)
-  // STRATEGY: Safe Network-First with Cache Fallback - 100% resilient, never throws ERR_FAILED
+  // STRATEGY: Zero-delay offline delivery + Fast network check if online (1s race)
   if (request.mode === 'navigate' || request.destination === 'document') {
     event.respondWith(
       (async () => {
-        try {
-          const cache = await caches.open(CACHE_NAME);
+        const cache = await caches.open(CACHE_NAME);
+        const isOffline = typeof self.navigator !== 'undefined' && self.navigator.onLine === false;
 
-          // 1. Try to fetch the fresh HTML from network
-          try {
-            const netResponse = await fetch(request);
-            if (netResponse && netResponse.status === 200) {
-              const copy = netResponse.clone();
-              cache.put(request, copy).catch(() => {});
-              cache.put('./index.html', netResponse.clone()).catch(() => {});
-              cache.put('./', netResponse.clone()).catch(() => {});
-
-              // Background scan for new assets
-              netResponse.clone().text().then((text) => {
-                const assets = extractAssetsFromHtml(text);
-                assets.forEach((a) => {
-                  fetch(a).then((aRes) => {
-                    if (aRes && aRes.status === 200) {
-                      cache.put(a, aRes).catch(() => {});
-                    }
-                  }).catch(() => {});
-                });
-              }).catch(() => {});
-
-              return netResponse;
-            }
-          } catch (netErr) {
-            // Offline or network error - gracefully fall back to cache
+        // 1. If device is currently offline, return cached shell IMMEDIATELY (0ms wait)
+        if (isOffline) {
+          const cachedOffline = (await matchCacheFlexible(cache, request)) || (await getCachedIndexHtml(cache));
+          if (cachedOffline) {
+            return cachedOffline;
           }
-
-          // 2. Offline fallback: Serve cached index.html
-          const cachedResponse = (await matchCacheFlexible(cache, request)) || (await getCachedIndexHtml(cache));
-          if (cachedResponse) {
-            return cachedResponse;
-          }
-        } catch (swErr) {
-          // Log and continue to fallback
         }
 
-        // 3. Ultimate fallback if completely offline and nothing was cached yet
+        // 2. If device is online, attempt fast fetch with a 1000ms timeout
+        try {
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 1000);
+          const netResponse = await fetch(request, { signal: controller.signal });
+          clearTimeout(timeoutId);
+          if (netResponse && netResponse.status === 200) {
+            const copy = netResponse.clone();
+            cache.put(request, copy).catch(() => {});
+            cache.put('./index.html', netResponse.clone()).catch(() => {});
+            cache.put('./', netResponse.clone()).catch(() => {});
+            cache.put('/index.html', netResponse.clone()).catch(() => {});
+            cache.put('/', netResponse.clone()).catch(() => {});
+
+            // Background scan for new assets
+            netResponse.clone().text().then((text) => {
+              const assets = extractAssetsFromHtml(text);
+              assets.forEach((a) => {
+                fetch(a).then((aRes) => {
+                  if (aRes && aRes.status === 200) {
+                    cache.put(a, aRes).catch(() => {});
+                  }
+                }).catch(() => {});
+              });
+            }).catch(() => {});
+
+            return netResponse;
+          }
+        } catch (netErr) {
+          // Network timed out or connection dropped - fall back immediately to cache
+        }
+
+        // 3. Offline / Timeout fallback: Serve cached index.html immediately
+        const cachedResponse = (await matchCacheFlexible(cache, request)) || (await getCachedIndexHtml(cache));
+        if (cachedResponse) {
+          return cachedResponse;
+        }
+
+        // 4. Ultimate fallback if completely empty
         return new Response(
           `<!DOCTYPE html>
           <html lang="ar" dir="rtl">
@@ -333,7 +364,7 @@ self.addEventListener('fetch', (event) => {
   }
 
   // B. SCRIPTS & STYLES (JS bundles & CSS stylesheets)
-  // STRATEGY: Network First with Cache Fallback - Ensures live updates are loaded immediately
+  // STRATEGY: Cache First for hashed immutable bundles & offline; Fast network for new chunks
   if (
     request.destination === 'script' ||
     request.destination === 'style' ||
@@ -343,9 +374,21 @@ self.addEventListener('fetch', (event) => {
     event.respondWith(
       (async () => {
         const cache = await caches.open(CACHE_NAME);
+        const isOffline = typeof self.navigator !== 'undefined' && self.navigator.onLine === false;
+        const isHashedAsset = url.pathname.includes('/assets/');
+
+        // If offline or hashed bundle asset, check cache FIRST for instant execution
+        if (isOffline || isHashedAsset) {
+          const cachedInstant = (await matchCacheFlexible(cache, request)) || (await cache.match(request));
+          if (cachedInstant) {
+            return cachedInstant;
+          }
+        }
+
+        // Otherwise fetch with 1200ms timeout
         try {
           const controller = new AbortController();
-          const timeoutId = setTimeout(() => controller.abort(), 3000);
+          const timeoutId = setTimeout(() => controller.abort(), 1200);
           const netRes = await fetch(request, { signal: controller.signal });
           clearTimeout(timeoutId);
           if (netRes && (netRes.status === 200 || netRes.type === 'opaque')) {
@@ -355,6 +398,7 @@ self.addEventListener('fetch', (event) => {
         } catch (e) {
           // Network failed or offline: fall back to cache
         }
+
         const cached = (await matchCacheFlexible(cache, request)) || (await cache.match(request));
         if (cached) return cached;
         return new Response('/* offline bundle fallback */ export default {};', {

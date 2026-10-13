@@ -53,35 +53,16 @@
         }
       })();
     </script>
-    <!-- Auto-purge stale cache for v70 update -->
+    <!-- Persistent Storage & Offline Protection: Ensures app files & data stay saved permanently -->
     <script>
       (function() {
         try {
-          var PURGE_KEY = 'tw_purged_v70';
-          if (localStorage.getItem(PURGE_KEY) !== 'done') {
-            localStorage.setItem(PURGE_KEY, 'done');
-            try {
-              var rawDocs = localStorage.getItem('tw_doctors');
-              if (!rawDocs || rawDocs === '[]') {
-                localStorage.removeItem('tw_doctors');
+          if (navigator.storage && navigator.storage.persist) {
+            navigator.storage.persist().then(function(persistent) {
+              if (persistent) {
+                console.log('Tawseel PWA storage is persistent - guaranteed offline launch even after long periods.');
               }
-              var activeRaw = localStorage.getItem('tw_active_order');
-              if (activeRaw) {
-                var act = JSON.parse(activeRaw);
-                if (act && (act.status === 'delivered' || act.status === 'cancelled')) {
-                  localStorage.removeItem('tw_active_order');
-                }
-              }
-            } catch (errAct) {}
-            if ('caches' in window) {
-              caches.keys().then(function(names) {
-                names.forEach(function(name) {
-                  if (name.indexOf('v70') === -1) {
-                    caches.delete(name);
-                  }
-                });
-              });
-            }
+            }).catch(function() {});
           }
         } catch (e) {}
       })();
