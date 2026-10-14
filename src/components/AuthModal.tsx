@@ -78,6 +78,11 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     return initialRole;
   });
 
+  // Keep partner & staff roles hidden from regular customers (unlocked via secret instructions)
+  const [showPartnerRoles, setShowPartnerRoles] = useState<boolean>(() => {
+    return initialRole !== "customer" && initialRole !== undefined;
+  });
+
   const [hasInstallPrompt, setHasInstallPrompt] = useState(!!(window as any).deferredPrompt);
 
   // ==========================================
@@ -249,6 +254,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     setSecretClicks(next);
     if (next >= 4) {
       setSecretClicks(0);
+      setShowPartnerRoles(true);
       if (onOpenManagerSecretModal) {
         if (onClose) onClose();
         onOpenManagerSecretModal();
@@ -869,77 +875,86 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           <div
             onClick={handleSecretTitleClick}
             className="text-center space-y-1.5 cursor-pointer select-none"
-            title="تطبيق توصيل القرية"
+            title="تطبيق توصيل"
           >
             <div className="w-14 h-14 bg-gradient-to-tr from-orange-500 to-amber-400 text-white rounded-2xl mx-auto flex items-center justify-center shadow-lg shadow-orange-500/20 text-2xl">
               🛵
             </div>
             <h2 className="text-xl font-black text-slate-900 tracking-tight">
-              تسجيل الدخول في تطبيق توصيل
+              {showPartnerRoles ? "تسجيل الدخول في تطبيق توصيل" : "تسجيل حساب الزبون المتسوق 🛍️"}
             </h2>
             <p className="text-xs text-slate-500 font-medium">
-              الاسم ورقم الموبايل مثبتان تلقائياً - الدخول المباشر بالرمز السري (PIN)
+              {showPartnerRoles
+                ? "الاسم ورقم الموبايل مثبتان تلقائياً - الدخول المباشر بالرمز السري (PIN)"
+                : "أدخل اسمك ورقم هاتفك لحفظ طلباتك وتسهيل التوصيل السريع إلى باب بيتك"}
             </p>
           </div>
 
-          {/* Role Tabs */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 bg-slate-100 p-1.5 rounded-2xl border border-slate-200/70 text-center">
-            {/* Tab 1: Customer */}
-            <button
-              type="button"
-              onClick={() => { setRole("customer"); setErrorMsg(""); }}
-              className={`py-2 px-1 rounded-xl font-extrabold text-xs transition-all flex items-center justify-center gap-1 cursor-pointer ${
-                role === "customer"
-                  ? "bg-white text-orange-600 shadow-md shadow-slate-200/50"
-                  : "text-slate-500 hover:text-slate-900"
-              }`}
-            >
-              <User className="w-3.5 h-3.5" />
-              <span>زبون 🛍️</span>
-            </button>
+          {/* Role Tabs - Only visible if unlocked for partners/staff */}
+          {showPartnerRoles ? (
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 bg-slate-100 p-1.5 rounded-2xl border border-slate-200/70 text-center animate-fade-in">
+              {/* Tab 1: Customer */}
+              <button
+                type="button"
+                onClick={() => { setRole("customer"); setErrorMsg(""); }}
+                className={`py-2 px-1 rounded-xl font-extrabold text-xs transition-all flex items-center justify-center gap-1 cursor-pointer ${
+                  role === "customer"
+                    ? "bg-white text-orange-600 shadow-md shadow-slate-200/50"
+                    : "text-slate-500 hover:text-slate-900"
+                }`}
+              >
+                <User className="w-3.5 h-3.5" />
+                <span>زبون 🛍️</span>
+              </button>
 
-            {/* Tab 2: Store Owner */}
-            <button
-              type="button"
-              onClick={() => { setRole("store"); setErrorMsg(""); }}
-              className={`py-2 px-1 rounded-xl font-extrabold text-xs transition-all flex items-center justify-center gap-1 cursor-pointer ${
-                role === "store"
-                  ? "bg-white text-orange-600 shadow-md shadow-slate-200/50"
-                  : "text-slate-500 hover:text-slate-900"
-              }`}
-            >
-              <StoreIcon className="w-3.5 h-3.5" />
-              <span>صاحب محل 🏪</span>
-            </button>
+              {/* Tab 2: Store Owner */}
+              <button
+                type="button"
+                onClick={() => { setRole("store"); setErrorMsg(""); }}
+                className={`py-2 px-1 rounded-xl font-extrabold text-xs transition-all flex items-center justify-center gap-1 cursor-pointer ${
+                  role === "store"
+                    ? "bg-white text-orange-600 shadow-md shadow-slate-200/50"
+                    : "text-slate-500 hover:text-slate-900"
+                }`}
+              >
+                <StoreIcon className="w-3.5 h-3.5" />
+                <span>صاحب محل 🏪</span>
+              </button>
 
-            {/* Tab 3: Driver / Captain */}
-            <button
-              type="button"
-              onClick={() => { setRole("driver"); setErrorMsg(""); }}
-              className={`py-2 px-1 rounded-xl font-extrabold text-xs transition-all flex items-center justify-center gap-1 cursor-pointer ${
-                role === "driver"
-                  ? "bg-white text-orange-600 shadow-md shadow-slate-200/50"
-                  : "text-slate-500 hover:text-slate-900"
-              }`}
-            >
-              <Bike className="w-3.5 h-3.5" />
-              <span>كابتن توصيل 🛵</span>
-            </button>
+              {/* Tab 3: Driver / Captain */}
+              <button
+                type="button"
+                onClick={() => { setRole("driver"); setErrorMsg(""); }}
+                className={`py-2 px-1 rounded-xl font-extrabold text-xs transition-all flex items-center justify-center gap-1 cursor-pointer ${
+                  role === "driver"
+                    ? "bg-white text-orange-600 shadow-md shadow-slate-200/50"
+                    : "text-slate-500 hover:text-slate-900"
+                }`}
+              >
+                <Bike className="w-3.5 h-3.5" />
+                <span>كابتن توصيل 🛵</span>
+              </button>
 
-            {/* Tab 4: Staff / Employee */}
-            <button
-              type="button"
-              onClick={() => { setRole("staff"); setErrorMsg(""); }}
-              className={`py-2 px-1 rounded-xl font-extrabold text-xs transition-all flex items-center justify-center gap-1 cursor-pointer ${
-                role === "staff"
-                  ? "bg-white text-orange-600 shadow-md shadow-slate-200/50 font-black"
-                  : "text-slate-500 hover:text-slate-900"
-              }`}
-            >
-              <Briefcase className="w-3.5 h-3.5" />
-              <span>موظف / كادر 👔</span>
-            </button>
-          </div>
+              {/* Tab 4: Staff / Employee */}
+              <button
+                type="button"
+                onClick={() => { setRole("staff"); setErrorMsg(""); }}
+                className={`py-2 px-1 rounded-xl font-extrabold text-xs transition-all flex items-center justify-center gap-1 cursor-pointer ${
+                  role === "staff"
+                    ? "bg-white text-orange-600 shadow-md shadow-slate-200/50 font-black"
+                    : "text-slate-500 hover:text-slate-900"
+                }`}
+              >
+                <Briefcase className="w-3.5 h-3.5" />
+                <span>موظف / كادر 👔</span>
+              </button>
+            </div>
+          ) : (
+            <div className="flex items-center justify-center gap-2 py-2 px-3 bg-orange-50/70 border border-orange-200/70 rounded-2xl text-orange-950 text-xs font-black select-none">
+              <User className="w-4 h-4 text-orange-600 shrink-0" />
+              <span>حساب الزبون المتسوق (حفظ البيانات وعنوان التوصيل)</span>
+            </div>
+          )}
 
           {/* Feedback Messages */}
           {errorMsg && (
