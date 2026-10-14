@@ -12,6 +12,7 @@ import {
   X, 
   Save, 
   LogOut, 
+  LogIn,
   Eye, 
   EyeOff, 
   Sparkles,
@@ -388,7 +389,7 @@ export const AccountSettingsModal: React.FC<AccountSettingsModalProps> = ({
               className="p-3.5 bg-emerald-50 border border-emerald-300 rounded-2xl flex items-center gap-2 text-emerald-800 text-xs font-black shadow-xs"
             >
               <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
-              <span>تم حفظ وتحديث بيانات حسابك ومزامنتها بنجاح مع النظام! ✅</span>
+              <span>تم تسجيل الدخول وحفظ ومزامنة بيانات حسابك بنجاح! ✅</span>
             </motion.div>
           )}
 
@@ -973,12 +974,12 @@ export const AccountSettingsModal: React.FC<AccountSettingsModalProps> = ({
                 {isSaving ? (
                   <>
                     <RefreshCw className="w-4 h-4 animate-spin" />
-                    <span>جارٍ الحفظ والمزامنة...</span>
+                    <span>جارٍ تسجيل الدخول والمزامنة...</span>
                   </>
                 ) : (
                   <>
-                    <Save className="w-4 h-4" />
-                    <span>حفظ التعديلات ومزامنة الحساب 💾</span>
+                    <LogIn className="w-4 h-4" />
+                    <span>تسجيل الدخول</span>
                   </>
                 )}
               </button>
