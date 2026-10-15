@@ -123,7 +123,7 @@ export const initialStaff: StaffMember[] = [
     username: "support_marwan", 
     password: "support_pass_9999", 
     pin: "9999", 
-    phone: "0951854257", 
+    phone: "0994567890", 
     permissions: ["customers", "orders", "craftsmen", "landmarks"],
     notes: "خدمة العملاء والدعم الفني - استقبال اتصالات واستفسارات الزبائن وحل المشكلات",
     isActive: true, 

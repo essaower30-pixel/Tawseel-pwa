@@ -514,11 +514,10 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       return;
     }
 
-    // Check if phone belonged to driver but password was wrong
+    // Check if phone belonged to driver but password was wrong (don't halt yet, in case user is logging in as customer)
+    let matchedDriverFailMsg = "";
     if (driverValidation.reason === "invalid_pin" && driverValidation.matchedDriverName) {
-      setIsAuthenticating(false);
-      setErrorMsg(`⛔ تم التعرف على حساب كابتن التوصيل (${driverValidation.matchedDriverName})، ولكن رمز المرور (PIN) غير صحيح! الرمز الافتراضي 1111.`);
-      return;
+      matchedDriverFailMsg = `⛔ تم التعرف على حساب كابتن التوصيل (${driverValidation.matchedDriverName})، ولكن رمز المرور (PIN) غير صحيح! الرمز الافتراضي 1111.`;
     }
 
     // -----------------------------------------------------------------------
@@ -688,7 +687,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     }
 
     setIsAuthenticating(false);
-    setErrorMsg("⛔ لم يتم العثور على أي حساب مسجل بهذا الرقم أو الاسم! يمكنك الانتقال إلى 'إنشاء حساب جديد' للتسجيل.");
+    setErrorMsg(matchedDriverFailMsg || "⛔ لم يتم العثور على أي حساب مسجل بهذا الرقم أو الاسم! يمكنك الانتقال إلى 'إنشاء حساب جديد' للتسجيل.");
   };
 
   // =========================================================================

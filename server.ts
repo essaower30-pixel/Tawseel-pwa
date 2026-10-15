@@ -1628,6 +1628,39 @@ app.delete("/api/drivers/:id", (req, res) => {
   res.json({ success: true });
 });
 
+// 10b. API: Registered Customers
+app.get("/api/customers", (req, res) => {
+  const data = readServerData();
+  res.json(data.customers || []);
+});
+
+app.post("/api/customers", (req, res) => {
+  const newCust = req.body;
+  if (!newCust || !newCust.phone) {
+    return res.status(400).json({ error: "بيانات الزبون غير مكتملة" });
+  }
+  const data = readServerData();
+  if (!data.customers) data.customers = [];
+
+  const cleanP = (p?: string) => (p || "").replace(/[^0-9]/g, "");
+  const targetPhone = cleanP(newCust.phone);
+
+  const existingIdx = data.customers.findIndex((c: any) => {
+    if (c.id === newCust.id) return true;
+    if (targetPhone && cleanP(c.phone) === targetPhone) return true;
+    return false;
+  });
+
+  if (existingIdx >= 0) {
+    data.customers[existingIdx] = { ...data.customers[existingIdx], ...newCust };
+  } else {
+    data.customers.push(newCust);
+  }
+
+  writeServerData(data);
+  res.json({ success: true, customer: newCust });
+});
+
 // 11. API: Clean Slate (Zero out demo data while preserving server data structures)
 app.post("/api/clean-slate", (req, res) => {
   const { preserveCustomOnly, target } = req.body || {};

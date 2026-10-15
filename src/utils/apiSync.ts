@@ -1,4 +1,4 @@
-import { Store, Order, Product, Category, DriverMember, Craftsman, DriverService } from "../types";
+import { Store, Order, Product, Category, DriverMember, Craftsman, DriverService, RegisteredCustomer } from "../types";
 import { initialStores, initialProducts, initialCategories, initialMapNodes } from "../data/initialData";
 import { initialOrders, initialDrivers, initialCraftsmen, initialDriverServices } from "../data/adminInitialData";
 
@@ -568,6 +568,37 @@ export async function deleteDriverServiceOnServer(driverServiceId: string): Prom
   } catch (err) {
     console.warn("Failed to delete driver service on server:", err);
     return false;
+  }
+}
+
+// -------------------------------------------------------------
+// Customers API Sync Helpers
+// -------------------------------------------------------------
+export async function saveCustomerOnServer(customer: RegisteredCustomer): Promise<boolean> {
+  try {
+    const res = await fetch(`${API_BASE}/api/customers`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(customer)
+    });
+    return res.ok;
+  } catch (err) {
+    console.warn("Failed to save customer on server:", err);
+    return false;
+  }
+}
+
+export async function fetchCustomersFromServer(): Promise<RegisteredCustomer[]> {
+  try {
+    const res = await fetch(`${API_BASE}/api/customers`);
+    if (res.ok) {
+      const data = await res.json();
+      return Array.isArray(data) ? data : [];
+    }
+    return [];
+  } catch (err) {
+    console.warn("Failed to fetch customers from server:", err);
+    return [];
   }
 }
 
