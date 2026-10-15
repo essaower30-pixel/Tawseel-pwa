@@ -33,7 +33,11 @@ import {
   cleanPhoneNumber, 
   validateDriverCredentials 
 } from "../utils/driverAuth";
-import { fetchDriversFromFirestore } from "../services/firebaseService";
+import { 
+  fetchDriversFromFirestore,
+  fetchCustomersFromFirestore,
+  saveCustomerToFirestore
+} from "../services/firebaseService";
 import { fetchDriversFromServer } from "../utils/apiSync";
 import { 
   getLatestUpdate, 
@@ -227,7 +231,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     setSuccessMsg("");
 
     const phoneRaw = phoneInput.trim();
-    const phoneCleaned = cleanPhone(phoneRaw);
     const userEntered = usernameInput.trim();
     const passEntered = normalizeDigits(passwordInput.trim());
 
@@ -236,12 +239,26 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       return;
     }
 
+    // Smart detection: user might enter phone in the first field (usernameInput)
+    let effectivePhoneRaw = phoneRaw;
+    let effectiveUserEntered = userEntered;
+
+    const phoneCleanFromPhone = cleanPhone(phoneRaw);
+    const phoneCleanFromUser = cleanPhone(userEntered);
+
+    if (phoneCleanFromUser.length >= 9 && (!phoneCleanFromPhone || phoneCleanFromPhone.length < 7)) {
+      effectivePhoneRaw = userEntered;
+      effectiveUserEntered = phoneRaw;
+    }
+
+    const phoneCleaned = cleanPhone(effectivePhoneRaw);
+
     const masterAdminPassword = localStorage.getItem("tw_admin_secure_password") || "Admin@Tawseel2026#";
     const staffMembers = getAllStaffMembers();
     const managerStaff = staffMembers.find((s) => s.role === "manager") || staffMembers[0];
 
     // Direct Admin PIN check if phone & username are empty
-    if (!phoneRaw && !userEntered) {
+    if (!effectivePhoneRaw && !effectiveUserEntered) {
       const isPinMatch = (
         passEntered === "1234" ||
         (managerStaff && passEntered === managerStaff.pin) ||
@@ -281,17 +298,16 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
     // -----------------------------------------------------------------------
     // A. فحص الإدارة / المدير العام / الكادر الإداري (Staff / Admin Recognition)
+    // Strictly by phone, exact username, or master admin password
     // -----------------------------------------------------------------------
     const matchedStaff = staffMembers.find((s: any) => {
       const sPhoneClean = cleanPhone(s.phone || "");
       const sUserLower = (s.username || "").toLowerCase();
-      const sNameLower = (s.name || "").toLowerCase();
 
-      const phoneMatch = sPhoneClean && (sPhoneClean === phoneCleaned || s.phone === phoneRaw);
-      const userMatch = sUserLower && (sUserLower === phoneRaw.toLowerCase() || (userEntered && sUserLower === userEntered.toLowerCase()));
-      const nameMatch = userEntered && sNameLower.includes(userEntered.toLowerCase());
+      const phoneMatch = sPhoneClean && (sPhoneClean === phoneCleaned || s.phone === effectivePhoneRaw);
+      const userMatch = sUserLower && effectiveUserEntered && sUserLower === effectiveUserEntered.toLowerCase();
 
-      return phoneMatch || userMatch || nameMatch;
+      return phoneMatch || userMatch;
     });
 
     if (matchedStaff) {
@@ -303,17 +319,17 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         setIsSuccess(true);
         setSuccessMsg(`👔 تم التعرف على حساب الإدارة بنجاح! أهلاً بك يا ${matchedStaff.name}. جارٍ فتح لوحة الإدارة...`);
 
-        localStorage.setItem("tw_saved_staff_phone", matchedStaff.phone || phoneRaw);
+        localStorage.setItem("tw_saved_staff_phone", matchedStaff.phone || effectivePhoneRaw);
         localStorage.setItem("tw_active_staff_id", matchedStaff.id);
         localStorage.setItem("tw_staff_role", matchedStaff.role);
         localStorage.setItem("tw_remembered_name", matchedStaff.name);
-        localStorage.setItem("tw_remembered_phone", matchedStaff.phone || phoneRaw);
+        localStorage.setItem("tw_remembered_phone", matchedStaff.phone || effectivePhoneRaw);
 
         setTimeout(() => {
           onRegister(
             {
               name: matchedStaff.name,
-              phone: matchedStaff.phone || phoneRaw,
+              phone: matchedStaff.phone || effectivePhoneRaw,
               pin: matchedStaff.pin || passEntered,
               staffId: matchedStaff.id,
               role: matchedStaff.role,
@@ -357,8 +373,8 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
     // -----------------------------------------------------------------------
     // B. فحص أصحاب المتاجر والمطاعم (Store Owner Recognition)
+    // Strictly by store contact phone or store ID
     // -----------------------------------------------------------------------
-    // Look up in stores array + localStorage stores
     let allStoresList: Store[] = [...stores];
     try {
       const rawStoredStores = localStorage.getItem("tw_stores_list") || localStorage.getItem("tw_stores");
@@ -376,16 +392,13 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     const matchedStore = allStoresList.find((s) => {
       const sOwnerPhoneClean = cleanPhone(s.ownerPhone || "");
       const sContactPhoneClean = cleanPhone(s.contactPhone || "");
-      const sNameLower = s.name.toLowerCase();
 
       const phoneMatch =
-        (sOwnerPhoneClean && (sOwnerPhoneClean === phoneCleaned || s.ownerPhone === phoneRaw)) ||
-        (sContactPhoneClean && (sContactPhoneClean === phoneCleaned || s.contactPhone === phoneRaw)) ||
-        s.id === phoneRaw;
+        (sOwnerPhoneClean && (sOwnerPhoneClean === phoneCleaned || s.ownerPhone === effectivePhoneRaw)) ||
+        (sContactPhoneClean && (sContactPhoneClean === phoneCleaned || s.contactPhone === effectivePhoneRaw)) ||
+        s.id === effectivePhoneRaw;
 
-      const nameMatch = userEntered && (sNameLower.includes(userEntered.toLowerCase()) || userEntered.toLowerCase().includes(sNameLower));
-
-      return phoneMatch || nameMatch;
+      return phoneMatch;
     });
 
     if (matchedStore) {
@@ -397,18 +410,18 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         setIsSuccess(true);
         setSuccessMsg(`🏪 تم التعرف على متجر: "${matchedStore.name}" بنجاح! جارٍ فتح لوحة تحكم المتجر...`);
 
-        localStorage.setItem("tw_saved_store_phone", matchedStore.ownerPhone || phoneRaw);
+        localStorage.setItem("tw_saved_store_phone", matchedStore.ownerPhone || effectivePhoneRaw);
         localStorage.setItem("tw_saved_store_name", matchedStore.name);
         localStorage.setItem("tw_saved_store_id", matchedStore.id);
         localStorage.setItem("tw_saved_store_pin", passEntered);
         localStorage.setItem("tw_remembered_name", matchedStore.name);
-        localStorage.setItem("tw_remembered_phone", matchedStore.ownerPhone || phoneRaw);
+        localStorage.setItem("tw_remembered_phone", matchedStore.ownerPhone || effectivePhoneRaw);
 
         setTimeout(() => {
           onRegister(
             {
               name: matchedStore.name,
-              phone: matchedStore.ownerPhone || phoneRaw,
+              phone: matchedStore.ownerPhone || effectivePhoneRaw,
               pin: matchedStore.ownerPin || passEntered,
               storeId: matchedStore.id
             },
@@ -425,6 +438,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
     // -----------------------------------------------------------------------
     // C. فحص كباتن التوصيل (Delivery Captain Recognition)
+    // Strictly by driver phone
     // -----------------------------------------------------------------------
     let allDrivers: DriverMember[] = [];
     try {
@@ -444,12 +458,12 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       allDrivers = propDriversList || initialDrivers;
     }
 
-    // Attempt local validation for driver
-    const driverInputKey = phoneRaw || userEntered;
+    // Driver match strictly by phone or driver ID/username
+    const driverInputKey = effectivePhoneRaw;
     let driverValidation = validateDriverCredentials(allDrivers, driverInputKey, passEntered);
 
     // If initial driver validation failed, try live cloud fetch in case driver was just provisioned
-    if (!driverValidation.success) {
+    if (!driverValidation.success && driverValidation.reason !== "invalid_pin") {
       try {
         const [cloudRes, serverRes] = await Promise.allSettled([
           fetchDriversFromFirestore(),
@@ -515,39 +529,92 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       const rawC = localStorage.getItem("tw_registered_customers");
       const parsed = rawC ? JSON.parse(rawC) : [];
       registeredCustomers = [...initialCustomers, ...parsed];
+
+      // Also include current saved user profile if customer
+      const rawProfile = localStorage.getItem("tw_customer_user") || localStorage.getItem("tw_user_profile");
+      if (rawProfile) {
+        const parsedP = JSON.parse(rawProfile);
+        if (parsedP && parsedP.phone && !registeredCustomers.some(c => cleanPhone(c.phone) === cleanPhone(parsedP.phone))) {
+          registeredCustomers.push({
+            id: parsedP.id || "cust_saved",
+            name: parsedP.name || "زبون متسوق",
+            phone: parsedP.phone,
+            pin: parsedP.pin || "1234",
+            password: parsedP.password || parsedP.pin || "1234",
+            totalOrdersCount: 0
+          });
+        }
+      }
     } catch {
       registeredCustomers = initialCustomers;
     }
 
-    const matchedCustomer = registeredCustomers.find((c) => {
+    // Match customer by phone or exact username
+    let matchedCustomer = registeredCustomers.find((c) => {
       const cPhoneClean = cleanPhone(c.phone || "");
-      const cUserClean = (c.username || "").toLowerCase();
-      const phoneMatch = cPhoneClean && (cPhoneClean === phoneCleaned || c.phone === phoneRaw);
-      const userMatch = userEntered && cUserClean && cUserClean === userEntered.toLowerCase();
+      const phoneMatch = cPhoneClean && (cPhoneClean === phoneCleaned || c.phone === effectivePhoneRaw);
+      const userMatch = effectiveUserEntered && (
+        (c.username && c.username.toLowerCase() === effectiveUserEntered.toLowerCase()) ||
+        (c.name && c.name.toLowerCase() === effectiveUserEntered.toLowerCase())
+      );
       return phoneMatch || userMatch;
     });
 
+    // If not found locally, fetch customers from Firestore
+    if (!matchedCustomer) {
+      try {
+        const cloudCusts = await fetchCustomersFromFirestore();
+        if (cloudCusts.length > 0) {
+          const idMap = new Map<string, RegisteredCustomer>();
+          registeredCustomers.forEach(c => idMap.set(c.id, c));
+          cloudCusts.forEach(c => idMap.set(c.id, c));
+          registeredCustomers = Array.from(idMap.values());
+          try {
+            localStorage.setItem("tw_registered_customers", JSON.stringify(registeredCustomers));
+          } catch {}
+
+          matchedCustomer = registeredCustomers.find((c) => {
+            const cPhoneClean = cleanPhone(c.phone || "");
+            const phoneMatch = cPhoneClean && (cPhoneClean === phoneCleaned || c.phone === effectivePhoneRaw);
+            const userMatch = effectiveUserEntered && (
+              (c.username && c.username.toLowerCase() === effectiveUserEntered.toLowerCase()) ||
+              (c.name && c.name.toLowerCase() === effectiveUserEntered.toLowerCase())
+            );
+            return phoneMatch || userMatch;
+          });
+        }
+      } catch (err) {
+        console.warn("Cloud customer fetch note:", err);
+      }
+    }
+
     if (matchedCustomer) {
       const customerPin = normalizeDigits(matchedCustomer.pin || "1234");
-      const isCustomerPinMatch = passEntered === customerPin || passEntered === matchedCustomer.password || passEntered === "1234";
+      const isCustomerPinMatch = 
+        passEntered === customerPin || 
+        passEntered === normalizeDigits(matchedCustomer.password || "") || 
+        passwordInput.trim() === (matchedCustomer.password || "") || 
+        passwordInput.trim() === (matchedCustomer.pin || "") ||
+        passEntered === "1234";
 
       if (isCustomerPinMatch) {
         setIsAuthenticating(false);
         setIsSuccess(true);
-        setSuccessMsg(`🛍️ مرحباً بك يا ${matchedCustomer.name}! تم تسجيل الدخول كزبون متسوق بنجاح.`);
+        const displayName = effectiveUserEntered || matchedCustomer.name;
+        setSuccessMsg(`🛍️ مرحباً بك يا ${displayName}! تم تسجيل الدخول كزبون متسوق بنجاح.`);
 
-        localStorage.setItem("tw_saved_customer_name", matchedCustomer.name);
-        localStorage.setItem("tw_saved_customer_phone", matchedCustomer.phone);
+        localStorage.setItem("tw_saved_customer_name", displayName);
+        localStorage.setItem("tw_saved_customer_phone", matchedCustomer.phone || effectivePhoneRaw);
         localStorage.setItem("tw_saved_customer_pin", passEntered);
-        localStorage.setItem("tw_remembered_name", matchedCustomer.name);
-        localStorage.setItem("tw_remembered_phone", matchedCustomer.phone);
+        localStorage.setItem("tw_remembered_name", displayName);
+        localStorage.setItem("tw_remembered_phone", matchedCustomer.phone || effectivePhoneRaw);
 
         setTimeout(() => {
           onRegister(
             {
-              name: matchedCustomer.name,
-              phone: matchedCustomer.phone,
-              pin: matchedCustomer.pin || passEntered
+              name: displayName,
+              phone: matchedCustomer?.phone || effectivePhoneRaw,
+              pin: matchedCustomer?.pin || passEntered
             },
             "customer"
           );
@@ -561,50 +628,57 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     }
 
     // -----------------------------------------------------------------------
-    // E. تسجيل ذكي مباشر كزبون إذا تم إدخال اسم ورقم وباسوورد صالحين
+    // E. تسجيل ودخول فوري مباشر كزبون إذا تم إدخال رقم هاتف وباسوورد
     // -----------------------------------------------------------------------
-    if (phoneCleaned.length >= 9 && passEntered.length >= 4) {
-      const validName = userEntered || (phoneRaw.startsWith("09") ? `زبون ${phoneRaw.slice(-4)}` : "زبون متسوق");
+    if ((phoneCleaned.length >= 7 || effectivePhoneRaw.length >= 7) && passEntered.length >= 1) {
+      const finalPhone = phoneCleaned || effectivePhoneRaw;
+      const validName = effectiveUserEntered || (finalPhone.startsWith("09") ? `زبون ${finalPhone.slice(-4)}` : "زبون متسوق");
       
-      // Auto-save this customer
+      const newCustRecord: RegisteredCustomer = {
+        id: "cust_" + Date.now(),
+        name: validName,
+        phone: finalPhone,
+        pin: passEntered,
+        password: passwordInput.trim(),
+        registeredAt: new Date().toISOString(),
+        lastLogin: new Date().toISOString(),
+        totalOrdersCount: 0
+      };
+
+      // Auto-save this customer locally and to Firestore
       try {
         const rawC = localStorage.getItem("tw_registered_customers");
         const list = rawC ? JSON.parse(rawC) : [];
-        const nowStr = new Date().toISOString();
-        const existingIdx = list.findIndex((c: any) => cleanPhone(c.phone) === phoneCleaned);
+        const existingIdx = list.findIndex((c: any) => cleanPhone(c.phone) === finalPhone);
         if (existingIdx >= 0) {
           list[existingIdx].name = validName;
           list[existingIdx].pin = passEntered;
-          list[existingIdx].lastLogin = nowStr;
+          list[existingIdx].password = passwordInput.trim();
+          list[existingIdx].lastLogin = newCustRecord.lastLogin;
         } else {
-          list.push({
-            id: "cust_" + Date.now(),
-            name: validName,
-            phone: phoneCleaned,
-            pin: passEntered,
-            registeredAt: nowStr,
-            lastLogin: nowStr,
-            totalOrdersCount: 0
-          });
+          list.push(newCustRecord);
         }
         localStorage.setItem("tw_registered_customers", JSON.stringify(list));
       } catch {}
 
+      // Background cloud save
+      saveCustomerToFirestore(newCustRecord).catch(() => {});
+
       localStorage.setItem("tw_saved_customer_name", validName);
-      localStorage.setItem("tw_saved_customer_phone", phoneCleaned);
+      localStorage.setItem("tw_saved_customer_phone", finalPhone);
       localStorage.setItem("tw_saved_customer_pin", passEntered);
       localStorage.setItem("tw_remembered_name", validName);
-      localStorage.setItem("tw_remembered_phone", phoneCleaned);
+      localStorage.setItem("tw_remembered_phone", finalPhone);
 
       setIsAuthenticating(false);
       setIsSuccess(true);
-      setSuccessMsg(`🛍️ أهلاً بك يا ${validName}! تم تسجيل حسابك والدخول كزبون متسوق.`);
+      setSuccessMsg(`🛍️ أهلاً بك يا ${validName}! تم تسجيل الدخول كزبون متسوق بنجاح.`);
 
       setTimeout(() => {
         onRegister(
           {
             name: validName,
-            phone: phoneCleaned,
+            phone: finalPhone,
             pin: passEntered
           },
           "customer"
@@ -761,21 +835,30 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     }
 
     // C. Register as Customer (Default)
+    const newCust: RegisteredCustomer = {
+      id: "cust_" + Date.now(),
+      name,
+      phone,
+      pin: pass,
+      password: pass,
+      registeredAt: new Date().toISOString(),
+      lastLogin: new Date().toISOString(),
+      totalOrdersCount: 0
+    };
+
     try {
       const rawC = localStorage.getItem("tw_registered_customers");
       const list = rawC ? JSON.parse(rawC) : [];
-      const nowStr = new Date().toISOString();
-      list.push({
-        id: "cust_" + Date.now(),
-        name,
-        phone,
-        pin: pass,
-        registeredAt: nowStr,
-        lastLogin: nowStr,
-        totalOrdersCount: 0
-      });
+      const existingIdx = list.findIndex((c: any) => cleanPhone(c.phone) === phone);
+      if (existingIdx >= 0) {
+        list[existingIdx] = { ...list[existingIdx], ...newCust };
+      } else {
+        list.push(newCust);
+      }
       localStorage.setItem("tw_registered_customers", JSON.stringify(list));
     } catch {}
+
+    saveCustomerToFirestore(newCust).catch(() => {});
 
     localStorage.setItem("tw_saved_customer_name", name);
     localStorage.setItem("tw_saved_customer_phone", phone);
@@ -951,7 +1034,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                 </label>
                 <input
                   type="tel"
-                  required
                   autoFocus
                   value={phoneInput}
                   onChange={(e) => setPhoneInput(e.target.value)}

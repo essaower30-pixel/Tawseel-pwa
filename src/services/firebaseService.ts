@@ -631,6 +631,20 @@ export async function saveCustomerToFirestore(customer: RegisteredCustomer): Pro
   }
 }
 
+export async function fetchCustomersFromFirestore(): Promise<RegisteredCustomer[]> {
+  try {
+    const custSnap = await getDocs(collection(db, "customers"));
+    const list: RegisteredCustomer[] = [];
+    custSnap.forEach((d) => {
+      list.push(d.data() as RegisteredCustomer);
+    });
+    return list;
+  } catch (err) {
+    console.warn("Error fetching customers from Firestore:", err);
+    return [];
+  }
+}
+
 export async function saveStaffToFirestore(staff: StaffMember): Promise<boolean> {
   try {
     const docRef = doc(db, "staff", staff.id);

@@ -113,7 +113,8 @@ export interface RegisteredCustomer {
   notes?: string;
   avatar?: string;
   registeredBy?: string; // e.g. "المدير العام"
-  registeredAt: string;
+  registeredAt?: string;
+  lastLogin?: string;
   totalOrdersCount?: number;
   totalSpent?: number;
 }
