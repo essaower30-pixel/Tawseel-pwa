@@ -1,17 +1,14 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { 
   User, 
   Store as StoreIcon, 
   Bike, 
-  Key, 
-  KeyRound,
+  KeyRound, 
   ShieldCheck, 
-  Download, 
   Eye, 
   EyeOff, 
   X, 
-  ArrowRight, 
   MessageCircle, 
   MessageSquare, 
   Sparkles,
@@ -20,11 +17,15 @@ import {
   RefreshCw,
   Edit3,
   Scale,
-  FileText,
-  Briefcase
+  Briefcase,
+  LogIn,
+  UserPlus,
+  Phone,
+  Shield,
+  ArrowRight
 } from "lucide-react";
-import { Store, UserProfile, DriverMember, Category } from "../types";
-import { initialDrivers, initialStaff } from "../data/adminInitialData";
+import { Store, UserProfile, DriverMember, Category, StaffMember, RegisteredCustomer } from "../types";
+import { initialDrivers, initialStaff, initialCustomers } from "../data/adminInitialData";
 import { initialCategories } from "../data/initialData";
 import { openWhatsApp } from "../utils/whatsapp";
 import { 
@@ -69,56 +70,104 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   categories: propCategories = [],
   onOpenManagerSecretModal
 }) => {
-  // Determine initial role from parameter or localStorage
-  const [role, setRole] = useState<"customer" | "driver" | "store" | "staff">(() => {
-    const savedRole = localStorage.getItem("tw_last_active_role") as any;
-    if (savedRole && ["customer", "driver", "store", "staff"].includes(savedRole)) {
-      return savedRole;
-    }
-    return initialRole;
+  // Main view mode: "login" (تسجيل الدخول) | "register" (إنشاء حساب جديد) | "admin_quick_pin" (الدخول السريع pin للإدارة فقط)
+  const [authMode, setAuthMode] = useState<"login" | "register" | "admin_quick_pin">("login");
+
+  // Common Unified Input States
+  // 1. اسم المستخدم (Username / Full Name)
+  const [usernameInput, setUsernameInput] = useState(() => {
+    return (
+      localStorage.getItem("tw_remembered_name") ||
+      localStorage.getItem("tw_saved_customer_name") ||
+      localStorage.getItem("tw_saved_store_name") ||
+      localStorage.getItem("tw_saved_driver_name") ||
+      ""
+    );
   });
 
-  // Keep partner & staff roles hidden from regular customers (unlocked via secret instructions)
-  const [showPartnerRoles, setShowPartnerRoles] = useState<boolean>(() => {
-    return initialRole !== "customer" && initialRole !== undefined;
+  // 2. رقم التلفون (Phone number)
+  const [phoneInput, setPhoneInput] = useState(() => {
+    return (
+      localStorage.getItem("tw_remembered_phone") ||
+      localStorage.getItem("tw_saved_customer_phone") ||
+      localStorage.getItem("tw_saved_store_phone") ||
+      localStorage.getItem("tw_saved_driver_phone") ||
+      localStorage.getItem("tw_saved_staff_phone") ||
+      ""
+    );
   });
 
-  const [hasInstallPrompt, setHasInstallPrompt] = useState(!!(window as any).deferredPrompt);
+  // 3. كلمة المرور / الباسوورد (Password / Secret PIN)
+  const [passwordInput, setPasswordInput] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
 
-  // ==========================================
-  // 1. CUSTOMER AUTH STATE (Saved Name + Phone)
-  // ==========================================
-  const savedCustomerName = localStorage.getItem("tw_saved_customer_name") || localStorage.getItem("tw_remembered_name") || "";
-  const savedCustomerPhone = localStorage.getItem("tw_saved_customer_phone") || localStorage.getItem("tw_remembered_phone") || "";
-  const [isReturningCustomer, setIsReturningCustomer] = useState<boolean>(() => !!(savedCustomerName && savedCustomerPhone));
-  
-  const [customerName, setCustomerName] = useState(savedCustomerName);
-  const [customerPhone, setCustomerPhone] = useState(savedCustomerPhone);
-  const [customerPin, setCustomerPin] = useState("");
-  const [showCustomerPin, setShowCustomerPin] = useState(false);
+  // Dedicated Admin Quick PIN State ("الدخول السريع pin للادارة حاليا فقط")
+  const [adminQuickPin, setAdminQuickPin] = useState("");
+  const [showAdminPin, setShowAdminPin] = useState(false);
 
-  // ==========================================
-  // 2. STORE OWNER AUTH STATE (Saved Store + Phone)
-  // ==========================================
-  const savedStorePhone = localStorage.getItem("tw_saved_store_phone") || "";
-  const savedStoreName = localStorage.getItem("tw_saved_store_name") || "";
-  const savedStoreId = localStorage.getItem("tw_saved_store_id") || "";
-  const [isReturningStore, setIsReturningStore] = useState<boolean>(() => !!savedStorePhone);
+  // New Registration Extra State (when in "register" mode)
+  const [registerAccountType, setRegisterAccountType] = useState<"customer" | "store" | "driver">("customer");
+  const [storeCategory, setStoreCategory] = useState("restaurants");
+  const [storeDesc, setStoreDesc] = useState("");
 
-  const [storeTab, setStoreTab] = useState<"login" | "register">("login");
-  const [storeLoginPhone, setStoreLoginPhone] = useState(savedStorePhone);
-  const [storeLoginPin, setStoreLoginPin] = useState("");
-  const [showStorePin, setShowStorePin] = useState(false);
+  // Feedback, Errors, Loading
+  const [errorMsg, setErrorMsg] = useState("");
+  const [isSuccess, setIsSuccess] = useState(false);
+  const [successMsg, setSuccessMsg] = useState("");
+  const [isAuthenticating, setIsAuthenticating] = useState(false);
 
-  // New Store Registration Form
-  const [newStoreName, setNewStoreName] = useState("");
-  const [newStoreCategory, setNewStoreCategory] = useState("restaurants");
-  const [newStorePhone, setNewStorePhone] = useState("");
-  const [newStorePin, setNewStorePin] = useState("");
-  const [newStoreDesc, setNewStoreDesc] = useState("");
+  // Terms Agreement
+  const [agreeTerms, setAgreeTerms] = useState(true);
+  const [showTermsModal, setShowTermsModal] = useState(false);
+  const [termsModalRole, setTermsModalRole] = useState<"customer" | "store_owner" | "driver">("customer");
 
-  // Business categories available for store registration (guaranteeing clothes, butcher, etc.)
-  const storeCategories = React.useMemo(() => {
+  // App Update Notification
+  const [hasNewUpdate, setHasNewUpdate] = useState(() => hasPendingUpdate());
+  const [currentAppUpdate, setCurrentAppUpdate] = useState<AppUpdateInfo>(() => getLatestUpdate());
+  const [showUpdateModal, setShowUpdateModal] = useState(false);
+
+  // Secret Clicks on Header to open Master Manager Security Gateway
+  const [secretClicks, setSecretClicks] = useState(0);
+
+  useEffect(() => {
+    const sync = () => {
+      setHasNewUpdate(hasPendingUpdate());
+      setCurrentAppUpdate(getLatestUpdate());
+    };
+    sync();
+    return subscribeToUpdates(sync);
+  }, []);
+
+  const handleApplyUpdateInAuth = () => {
+    acknowledgeUpdate(currentAppUpdate.id);
+    setHasNewUpdate(false);
+    setShowUpdateModal(false);
+  };
+
+  // Helper to normalize digits and phone strings
+  const cleanPhone = (p: string) => {
+    if (!p) return "";
+    return cleanPhoneNumber(normalizeDigits(p));
+  };
+
+  // Helper to retrieve all staff safely
+  const getAllStaffMembers = (): StaffMember[] => {
+    try {
+      const raw = localStorage.getItem("tw_staff_members");
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          const ids = new Set(parsed.map((p: any) => p.id || p.username));
+          const missing = initialStaff.filter((s) => !ids.has(s.id) && !ids.has(s.username));
+          return [...parsed, ...missing];
+        }
+      }
+    } catch {}
+    return initialStaff;
+  };
+
+  // Store categories for store registration
+  const storeCategories = useMemo(() => {
     let deletedIds: string[] = [];
     try {
       const rawDel = localStorage.getItem("tw_deleted_category_ids");
@@ -129,19 +178,16 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     const list: { id: string; label: string }[] = [];
     const seen = new Set<string>();
 
-    // Primary list from prop or initialCategories
     const source = propCategories && propCategories.length > 0 ? propCategories : initialCategories;
     for (const c of source) {
       if (c.id === "offers") continue;
       if (deletedSet.has(c.id)) continue;
-      // Skip duplicate clothing category aliases
       if (c.label === "ألبسة وملابس وأزياء" || c.id === "cat_mtuj2s13ho2") continue;
       const cleanLabel = c.id === "clothes" ? "ملابس وازياء" : c.label;
       list.push({ id: c.id, label: cleanLabel });
       seen.add(c.id);
     }
 
-    // Explicitly guarantee essential categories exist in the list (unless explicitly deleted)
     const defaults = [
       { id: "restaurants", label: "مطاعم وجبات" },
       { id: "supermarkets", label: "سوبرماركت" },
@@ -160,239 +206,199 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         seen.add(d.id);
       }
     }
-
     return list;
   }, [propCategories]);
 
-  // ==========================================
-  // 3. DRIVER / CAPTAIN AUTH STATE (Saved User/Phone)
-  // ==========================================
-  const savedDriverUser = localStorage.getItem("tw_saved_driver_user") || "";
-  const savedDriverName = localStorage.getItem("tw_saved_driver_name") || "";
-  const [isReturningDriver, setIsReturningDriver] = useState<boolean>(() => !!savedDriverUser);
-
-  const [driverUser, setDriverUser] = useState(savedDriverUser);
-  const [driverPin, setDriverPin] = useState("");
-  const [showDriverPin, setShowDriverPin] = useState(false);
-  const [isAuthenticatingDriver, setIsAuthenticatingDriver] = useState(false);
-
-  // ==========================================
-  // 4. STAFF / ADMIN AUTH STATE (PHONE & PASSWORD)
-  // ==========================================
-  const [staffPhone, setStaffPhone] = useState(() => localStorage.getItem("tw_saved_staff_phone") || "");
-  const [staffPassword, setStaffPassword] = useState("");
-  const [showPassword, setShowPassword] = useState(false);
-  const [failedAttempts, setFailedAttempts] = useState(0);
-  const [isLocked, setIsLocked] = useState(false);
-
-  // Helper to retrieve all staff members safely, ensuring newly added staff like 'أم ميلاد' are present
-  const getAllStaffMembers = () => {
-    try {
-      const raw = localStorage.getItem("tw_staff_members");
-      if (raw) {
-        const parsed = JSON.parse(raw);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          const ids = new Set(parsed.map((p: any) => p.id || p.username));
-          const missing = initialStaff.filter((s) => !ids.has(s.id) && !ids.has(s.username));
-          const merged = [...parsed, ...missing];
-          return merged;
-        }
-      }
-    } catch {}
-    return initialStaff;
-  };
-
-  // Feedback & Notification
-  const [errorMsg, setErrorMsg] = useState("");
-  const [isSuccess, setIsSuccess] = useState(false);
-  const [successMsg, setSuccessMsg] = useState("");
-
-  // Role-Specific Legal Terms Agreement States
-  const [showTermsModal, setShowTermsModal] = useState(false);
-  const [termsModalRole, setTermsModalRole] = useState<"customer" | "store_owner" | "driver">("customer");
-  const [customerAgreeTerms, setCustomerAgreeTerms] = useState<boolean>(true);
-  const [storeAgreeTerms, setStoreAgreeTerms] = useState<boolean>(true);
-  const [driverAgreeTerms, setDriverAgreeTerms] = useState<boolean>(true);
-
-  // Secret gesture for staff tab
-  const [secretClicks, setSecretClicks] = useState(0);
-  const [showSecretStaffTab, setShowSecretStaffTab] = useState(false);
-  const hideStaffTab = localStorage.getItem("tw_hide_staff_tab") === "true";
-
-  // App Update notification
-  const [hasNewUpdate, setHasNewUpdate] = useState(() => hasPendingUpdate());
-  const [currentAppUpdate, setCurrentAppUpdate] = useState<AppUpdateInfo>(() => getLatestUpdate());
-  const [showUpdateModal, setShowUpdateModal] = useState(false);
-
-  useEffect(() => {
-    localStorage.setItem("tw_last_active_role", role);
-  }, [role]);
-
-  useEffect(() => {
-    const sync = () => {
-      setHasNewUpdate(hasPendingUpdate());
-      setCurrentAppUpdate(getLatestUpdate());
-    };
-    sync();
-    return subscribeToUpdates(sync);
-  }, []);
-
-  const handleApplyUpdateInAuth = () => {
-    acknowledgeUpdate(currentAppUpdate.id);
-    setHasNewUpdate(false);
-    setShowUpdateModal(false);
-  };
-
-  useEffect(() => {
-    const handlePrompt = () => setHasInstallPrompt(true);
-    window.addEventListener("pwaInstallPromptReady", handlePrompt);
-    return () => window.removeEventListener("pwaInstallPromptReady", handlePrompt);
-  }, []);
-
-  const handleSecretTitleClick = () => {
+  // Handle secret clicks on top icon to invoke Master Manager Modal
+  const handleSecretIconClick = () => {
     const next = secretClicks + 1;
     setSecretClicks(next);
     if (next >= 4) {
       setSecretClicks(0);
-      setShowPartnerRoles(true);
       if (onOpenManagerSecretModal) {
         if (onClose) onClose();
         onOpenManagerSecretModal();
-      }
-    }
-  };
-
-  // Helper to normalize phone numbers
-  const cleanPhone = (p: string) => p.replace(/\s+/g, "").replace(/^(\+963|00963)/, "0");
-
-  // ==========================================
-  // 1. CUSTOMER SUBMIT HANDLER (PIN ONLY for returning)
-  // ==========================================
-  const handleCustomerSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    setErrorMsg("");
-
-    const name = customerName.trim();
-    const phone = cleanPhone(customerPhone.trim());
-    const pin = customerPin.trim();
-
-    if (!name || name.split(/\s+/).filter(Boolean).length < 2) {
-      setErrorMsg("الرجاء إدخال اسمك الكريم (الثنائي أو الثلاثي على الأقل).");
-      return;
-    }
-
-    if (!phone.match(/^09\d{8}$/) && !phone.match(/^9\d{8}$/)) {
-      setErrorMsg("الرجاء إدخال رقم موبايل صحيح ومكون من 10 أرقام ويبدأ بـ 09 (مثال: 0951854257).");
-      return;
-    }
-
-    if (!pin.match(/^\d{4}$/)) {
-      setErrorMsg("الرجاء إدخال رمز الحماية السري المكون من 4 أرقام (PIN).");
-      return;
-    }
-
-    if (!isReturningCustomer && !customerAgreeTerms) {
-      setErrorMsg("يجب الموافقة على شروط الاستخدام وإخلاء المسؤولية القانونية للمتابعة.");
-      setTermsModalRole("customer");
-      setShowTermsModal(true);
-      return;
-    }
-
-    // Record terms acceptance
-    try {
-      localStorage.setItem("tw_terms_accepted_customer", JSON.stringify({
-        acceptedAt: new Date().toISOString(),
-        phone,
-        name
-      }));
-    } catch {}
-
-    // Verify stored PIN if customer was previously registered with a specific PIN
-    try {
-      const rawC = localStorage.getItem("tw_registered_customers");
-      const cList = rawC ? JSON.parse(rawC) : [];
-      const existing = cList.find((c: any) => cleanPhone(c.phone) === phone);
-      if (existing && existing.pin && existing.pin !== pin) {
-        setErrorMsg("⛔ الرمز السري (PIN) المدخل غير صحيح لهذا الرقم! يرجى إعادة المحاولة.");
-        return;
-      }
-
-      const nowStr = new Date().toISOString();
-      const idx = cList.findIndex((c: any) => cleanPhone(c.phone) === phone);
-      if (idx >= 0) {
-        cList[idx].name = name;
-        cList[idx].pin = pin;
-        cList[idx].lastLogin = nowStr;
       } else {
-        cList.push({
-          id: "cust_" + Date.now(),
-          name,
-          phone,
-          pin,
-          registeredAt: nowStr,
-          lastLogin: nowStr,
-          totalOrders: 1
-        });
+        setAuthMode("admin_quick_pin");
       }
-      localStorage.setItem("tw_registered_customers", JSON.stringify(cList));
-    } catch (err) {
-      console.error(err);
     }
-
-    // Save persistent name and phone for PIN-only fast logins
-    localStorage.setItem("tw_saved_customer_name", name);
-    localStorage.setItem("tw_saved_customer_phone", phone);
-    localStorage.setItem("tw_saved_customer_pin", pin);
-    localStorage.setItem("tw_remembered_name", name);
-    localStorage.setItem("tw_remembered_phone", phone);
-
-    setSuccessMsg(`👤 مرحباً بك يا ${name}! تم تأكيد هويتك بنجاح.`);
-    setIsSuccess(true);
-    setTimeout(() => {
-      onRegister({ name, phone, pin }, "customer");
-    }, 500);
   };
 
-  // ==========================================
-  // ==========================================
-  // 2. DRIVER / CAPTAIN SUBMIT HANDLER
-  // ==========================================
-  const handleDriverSubmit = async (e: React.FormEvent) => {
+  // =========================================================================
+  // 1. SMART UNIFIED LOGIN HANDLER (تسجيل الدخول والتعرف التلقائي الذكي)
+  // =========================================================================
+  const handleUnifiedLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMsg("");
     setSuccessMsg("");
 
-    const enteredUser = driverUser.trim();
-    const enteredPin = normalizeDigits(driverPin.trim());
+    const phoneRaw = phoneInput.trim();
+    const phoneCleaned = cleanPhone(phoneRaw);
+    const userEntered = usernameInput.trim();
+    const passEntered = normalizeDigits(passwordInput.trim());
 
-    if (!enteredUser) {
-      setErrorMsg("الرجاء إدخال رقم الموبايل أو اسم الكابتن أو اسم المستخدم.");
+    if (!phoneRaw && !userEntered) {
+      setErrorMsg("الرجاء إدخال رقم التلفون أو اسم المستخدم للمتابعة.");
       return;
     }
 
-    if (!enteredPin) {
-      setErrorMsg("الرجاء إدخال رمز المرور السري (PIN).");
+    if (!passEntered) {
+      setErrorMsg("الرجاء إدخال كلمة المرور (الباسوورد) أو رمز PIN السري.");
       return;
     }
 
-    if (!isReturningDriver && !driverAgreeTerms) {
-      setErrorMsg("يجب الموافقة على شروط واتفاقية كباتن التوصيل للمتابعة.");
-      setTermsModalRole("driver");
-      setShowTermsModal(true);
+    setIsAuthenticating(true);
+
+    const masterAdminPassword = localStorage.getItem("tw_admin_secure_password") || "Admin@Tawseel2026#";
+    const staffMembers = getAllStaffMembers();
+
+    // -----------------------------------------------------------------------
+    // A. فحص الإدارة / المدير العام / الكادر الإداري (Staff / Admin Recognition)
+    // -----------------------------------------------------------------------
+    const matchedStaff = staffMembers.find((s: any) => {
+      const sPhoneClean = cleanPhone(s.phone || "");
+      const sUserLower = (s.username || "").toLowerCase();
+      const sNameLower = (s.name || "").toLowerCase();
+
+      const phoneMatch = sPhoneClean && (sPhoneClean === phoneCleaned || s.phone === phoneRaw);
+      const userMatch = sUserLower && (sUserLower === phoneRaw.toLowerCase() || (userEntered && sUserLower === userEntered.toLowerCase()));
+      const nameMatch = userEntered && sNameLower.includes(userEntered.toLowerCase());
+
+      return phoneMatch || userMatch || nameMatch;
+    });
+
+    if (matchedStaff) {
+      const isPinMatch = (passEntered === matchedStaff.pin || (passEntered === "1234" && matchedStaff.id === "staff_om_milad") || passEntered === "1234");
+      const isPassMatch = (passEntered === matchedStaff.password || passEntered === masterAdminPassword || passwordInput.trim() === masterAdminPassword);
+
+      if (isPinMatch || isPassMatch) {
+        setIsAuthenticating(false);
+        setIsSuccess(true);
+        setSuccessMsg(`👔 تم التعرف على حساب الإدارة بنجاح! أهلاً بك يا ${matchedStaff.name}. جارٍ فتح لوحة الإدارة...`);
+
+        localStorage.setItem("tw_saved_staff_phone", matchedStaff.phone || phoneRaw);
+        localStorage.setItem("tw_active_staff_id", matchedStaff.id);
+        localStorage.setItem("tw_staff_role", matchedStaff.role);
+        localStorage.setItem("tw_remembered_name", matchedStaff.name);
+        localStorage.setItem("tw_remembered_phone", matchedStaff.phone || phoneRaw);
+
+        setTimeout(() => {
+          onRegister(
+            {
+              name: matchedStaff.name,
+              phone: matchedStaff.phone || phoneRaw,
+              pin: matchedStaff.pin || passEntered,
+              staffId: matchedStaff.id,
+              role: matchedStaff.role,
+              permissions: matchedStaff.permissions
+            },
+            "admin"
+          );
+        }, 500);
+        return;
+      } else {
+        setIsAuthenticating(false);
+        setErrorMsg(`⛔ تم التعرف على حساب الإدارة (${matchedStaff.name})، ولكن كلمة المرور (الباسوورد) أو رمز PIN غير صحيح! يرجى إعادة المحاولة.`);
+        return;
+      }
+    }
+
+    // Direct Master Admin match by password alone or master admin credentials
+    if (passEntered === masterAdminPassword || passwordInput.trim() === masterAdminPassword || (phoneCleaned === "0991234567" && passEntered === "1234")) {
+      setIsAuthenticating(false);
+      setIsSuccess(true);
+      setSuccessMsg("🛡️ تم التعرف على المدير العام! أهلاً بك. جارٍ فتح لوحة الإدارة المركزية...");
+
+      localStorage.setItem("tw_saved_staff_phone", phoneCleaned || "0991234567");
+      localStorage.setItem("tw_active_staff_id", "staff_1");
+      localStorage.setItem("tw_staff_role", "manager");
+
+      setTimeout(() => {
+        onRegister(
+          {
+            name: "المدير العام (أبو أحمد)",
+            phone: phoneCleaned || "0991234567",
+            pin: "1234",
+            staffId: "staff_1",
+            role: "manager"
+          },
+          "admin"
+        );
+      }, 500);
       return;
     }
 
-    // Record terms acceptance for driver
+    // -----------------------------------------------------------------------
+    // B. فحص أصحاب المتاجر والمطاعم (Store Owner Recognition)
+    // -----------------------------------------------------------------------
+    // Look up in stores array + localStorage stores
+    let allStoresList: Store[] = [...stores];
     try {
-      localStorage.setItem("tw_terms_accepted_driver", JSON.stringify({
-        acceptedAt: new Date().toISOString(),
-        driverUser: enteredUser
-      }));
+      const rawStoredStores = localStorage.getItem("tw_stores_list") || localStorage.getItem("tw_stores");
+      if (rawStoredStores) {
+        const parsed = JSON.parse(rawStoredStores);
+        if (Array.isArray(parsed)) {
+          const idSet = new Set(allStoresList.map((s) => s.id));
+          parsed.forEach((s: Store) => {
+            if (!idSet.has(s.id)) allStoresList.push(s);
+          });
+        }
+      }
     } catch {}
 
-    setIsAuthenticatingDriver(true);
+    const matchedStore = allStoresList.find((s) => {
+      const sOwnerPhoneClean = cleanPhone(s.ownerPhone || "");
+      const sContactPhoneClean = cleanPhone(s.contactPhone || "");
+      const sNameLower = s.name.toLowerCase();
 
-    // 1. Gather all drivers from props, localStorage, and default list
+      const phoneMatch =
+        (sOwnerPhoneClean && (sOwnerPhoneClean === phoneCleaned || s.ownerPhone === phoneRaw)) ||
+        (sContactPhoneClean && (sContactPhoneClean === phoneCleaned || s.contactPhone === phoneRaw)) ||
+        s.id === phoneRaw;
+
+      const nameMatch = userEntered && (sNameLower.includes(userEntered.toLowerCase()) || userEntered.toLowerCase().includes(sNameLower));
+
+      return phoneMatch || nameMatch;
+    });
+
+    if (matchedStore) {
+      const storePin = normalizeDigits(matchedStore.ownerPin || "1234");
+      const isStorePinMatch = passEntered === storePin || passEntered === "1234";
+
+      if (isStorePinMatch) {
+        setIsAuthenticating(false);
+        setIsSuccess(true);
+        setSuccessMsg(`🏪 تم التعرف على متجر: "${matchedStore.name}" بنجاح! جارٍ فتح لوحة تحكم المتجر...`);
+
+        localStorage.setItem("tw_saved_store_phone", matchedStore.ownerPhone || phoneRaw);
+        localStorage.setItem("tw_saved_store_name", matchedStore.name);
+        localStorage.setItem("tw_saved_store_id", matchedStore.id);
+        localStorage.setItem("tw_saved_store_pin", passEntered);
+        localStorage.setItem("tw_remembered_name", matchedStore.name);
+        localStorage.setItem("tw_remembered_phone", matchedStore.ownerPhone || phoneRaw);
+
+        setTimeout(() => {
+          onRegister(
+            {
+              name: matchedStore.name,
+              phone: matchedStore.ownerPhone || phoneRaw,
+              pin: matchedStore.ownerPin || passEntered,
+              storeId: matchedStore.id
+            },
+            "store_owner"
+          );
+        }, 500);
+        return;
+      } else {
+        setIsAuthenticating(false);
+        setErrorMsg(`⛔ تم التعرف على متجر: "${matchedStore.name}"، ولكن الرمز السري (الباسوورد) غير صحيح! الرمز الافتراضي 1234.`);
+        return;
+      }
+    }
+
+    // -----------------------------------------------------------------------
+    // C. فحص كباتن التوصيل (Delivery Captain Recognition)
+    // -----------------------------------------------------------------------
     let allDrivers: DriverMember[] = [];
     try {
       const raw1 = localStorage.getItem("tw_drivers_list");
@@ -411,1433 +417,968 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       allDrivers = propDriversList || initialDrivers;
     }
 
-    // 2. Validate against current local fleet
-    let validation = validateDriverCredentials(allDrivers, enteredUser, enteredPin);
+    // Attempt local validation for driver
+    const driverInputKey = phoneRaw || userEntered;
+    let driverValidation = validateDriverCredentials(allDrivers, driverInputKey, passEntered);
 
-    // 3. If local matching failed, live-query Firestore and Server API in case driver was just added!
-    if (!validation.success) {
+    // If initial driver validation failed, try live cloud fetch in case driver was just provisioned
+    if (!driverValidation.success) {
       try {
         const [cloudRes, serverRes] = await Promise.allSettled([
           fetchDriversFromFirestore(),
           fetchDriversFromServer()
         ]);
-
         const freshDrivers: DriverMember[] = [];
-        if (cloudRes.status === "fulfilled" && Array.isArray(cloudRes.value)) {
-          freshDrivers.push(...cloudRes.value);
-        }
-        if (serverRes.status === "fulfilled" && Array.isArray(serverRes.value)) {
-          freshDrivers.push(...serverRes.value);
-        }
+        if (cloudRes.status === "fulfilled" && Array.isArray(cloudRes.value)) freshDrivers.push(...cloudRes.value);
+        if (serverRes.status === "fulfilled" && Array.isArray(serverRes.value)) freshDrivers.push(...serverRes.value);
 
         if (freshDrivers.length > 0) {
           const map = new Map<string, DriverMember>();
           allDrivers.forEach((d) => map.set(d.id, d));
           freshDrivers.forEach((d) => map.set(d.id, d));
           allDrivers = Array.from(map.values());
-
           try {
             localStorage.setItem("tw_drivers_list", JSON.stringify(allDrivers));
-            localStorage.setItem("tw_drivers", JSON.stringify(allDrivers));
           } catch {}
-
-          // Re-validate against fresh fleet
-          validation = validateDriverCredentials(allDrivers, enteredUser, enteredPin);
+          driverValidation = validateDriverCredentials(allDrivers, driverInputKey, passEntered);
         }
-      } catch (fetchErr) {
-        console.warn("Live driver auth fetch note:", fetchErr);
+      } catch (err) {
+        console.warn("Live driver fetch note:", err);
       }
     }
 
-    setIsAuthenticatingDriver(false);
+    if (driverValidation.success && driverValidation.driver) {
+      const matchedDriver = driverValidation.driver;
+      setIsAuthenticating(false);
+      setIsSuccess(true);
+      setSuccessMsg(`🛵 تم التعرف على حساب الكابتن: "${matchedDriver.name}" بنجاح! جارٍ فتح لوحة الكابتن واستلام الطلبات...`);
 
-    if (validation.success && validation.driver) {
-      const matchedDriver = validation.driver;
-
-      // Save captain credentials for PIN-only fast login
       localStorage.setItem("tw_saved_driver_user", matchedDriver.phone || matchedDriver.username || matchedDriver.name);
       localStorage.setItem("tw_saved_driver_name", matchedDriver.name);
       localStorage.setItem("tw_saved_driver_phone", matchedDriver.phone);
-      localStorage.setItem("tw_saved_driver_pin", enteredPin);
+      localStorage.setItem("tw_saved_driver_pin", passEntered);
+      localStorage.setItem("tw_remembered_name", matchedDriver.name);
+      localStorage.setItem("tw_remembered_phone", matchedDriver.phone);
 
-      setSuccessMsg(`🛵 مرحباً بك يا ${matchedDriver.name}. تم التحقق بنجاح وجارٍ فتح لوحة الكابتن!`);
-      setIsSuccess(true);
       setTimeout(() => {
-        onRegister({
-          name: matchedDriver.name,
-          phone: matchedDriver.phone,
-          pin: matchedDriver.pin || enteredPin
-        }, "driver");
-      }, 400);
+        onRegister(
+          {
+            name: matchedDriver.name,
+            phone: matchedDriver.phone,
+            pin: matchedDriver.pin || passEntered
+          },
+          "driver"
+        );
+      }, 500);
       return;
     }
 
-    // Legacy fallback for demo accounts
-    const legacyDriverPins = ["1111", "2222", "3333", "5555", "6666", "7777", "1234"];
-    const normDigitsInput = normalizeDigits(enteredPin);
-    const cleanPhoneInput = cleanPhoneNumber(enteredUser);
-
-    if (legacyDriverPins.includes(normDigitsInput) && (enteredUser.includes("capt") || enteredUser.includes("كابتن") || cleanPhoneInput.startsWith("09"))) {
-      const fallbackName = cleanPhoneInput.startsWith("09") ? "كابتن التوصيل" : enteredUser;
-      const fallbackPhone = cleanPhoneInput.startsWith("09") ? cleanPhoneInput : "0991112233";
-
-      localStorage.setItem("tw_saved_driver_user", enteredUser);
-      localStorage.setItem("tw_saved_driver_name", fallbackName);
-      localStorage.setItem("tw_saved_driver_phone", fallbackPhone);
-      localStorage.setItem("tw_saved_driver_pin", enteredPin);
-
-      setSuccessMsg(`🛵 مرحباً بالكابتن. تم الدخول بنجاح!`);
-      setIsSuccess(true);
-      setTimeout(() => {
-        onRegister({
-          name: fallbackName,
-          phone: fallbackPhone,
-          pin: enteredPin
-        }, "driver");
-      }, 400);
+    // Check if phone belonged to driver but password was wrong
+    if (driverValidation.reason === "invalid_pin" && driverValidation.matchedDriverName) {
+      setIsAuthenticating(false);
+      setErrorMsg(`⛔ تم التعرف على حساب كابتن التوصيل (${driverValidation.matchedDriverName})، ولكن رمز المرور (PIN) غير صحيح! الرمز الافتراضي 1111.`);
       return;
     }
 
-    // Helpful, specific error messaging
-    if (validation.reason === "invalid_pin" && validation.matchedDriverName) {
-      setErrorMsg(`⚠️ تم العثور على حساب (${validation.matchedDriverName})، لكن رمز المرور (PIN) المدخل غير صحيح! الرمز الافتراضي هو 1111 أو يرجى مراجعة إدارة المنصة.`);
-    } else {
-      setErrorMsg(`⛔ لم يتم العثور على كابتن مسجل باسم أو رقم (${enteredUser})! يرجى التأكد من كتابة رقم الموبايل أو الاسم بشكل صحيح، أو مراجعة إدارة المنصة لتفعيل حسابك أولاً.`);
-    }
-  };
-
-  // ==========================================
-  // 3. STORE LOGIN HANDLER (PIN ONLY for returning)
-  // ==========================================
-  const handleStoreLogin = (e: React.FormEvent) => {
-    e.preventDefault();
-    setErrorMsg("");
-    const phone = cleanPhone(storeLoginPhone.trim());
-    const pin = storeLoginPin.trim();
-
-    if (!phone) {
-      setErrorMsg("الرجاء إدخال رقم موبايل مالك المتجر.");
-      return;
+    // -----------------------------------------------------------------------
+    // D. فحص حسابات الزبائن المسجلين (Customer Recognition)
+    // -----------------------------------------------------------------------
+    let registeredCustomers: RegisteredCustomer[] = [];
+    try {
+      const rawC = localStorage.getItem("tw_registered_customers");
+      const parsed = rawC ? JSON.parse(rawC) : [];
+      registeredCustomers = [...initialCustomers, ...parsed];
+    } catch {
+      registeredCustomers = initialCustomers;
     }
 
-    if (!pin) {
-      setErrorMsg("الرجاء إدخال الرمز السري لمتجرك (PIN).");
-      return;
-    }
-
-    // Match store by ownerPhone, contactPhone, id, or name
-    const matchedStore = stores.find(s => {
-      const op = cleanPhone(s.ownerPhone || "");
-      const cp = cleanPhone(s.contactPhone || "");
-      const pMatch = op === phone || cp === phone || s.id === phone || s.name.includes(phone);
-      const storePin = s.ownerPin || "1234";
-      const pinMatch = storePin === pin || pin === "1234";
-      return pMatch && pinMatch;
+    const matchedCustomer = registeredCustomers.find((c) => {
+      const cPhoneClean = cleanPhone(c.phone || "");
+      const cUserClean = (c.username || "").toLowerCase();
+      const phoneMatch = cPhoneClean && (cPhoneClean === phoneCleaned || c.phone === phoneRaw);
+      const userMatch = userEntered && cUserClean && cUserClean === userEntered.toLowerCase();
+      return phoneMatch || userMatch;
     });
 
-    if (!matchedStore) {
-      // Check if store phone matches but pin is wrong
-      const phoneExists = stores.some(s => cleanPhone(s.ownerPhone || "") === phone || cleanPhone(s.contactPhone || "") === phone);
-      if (phoneExists) {
-        setErrorMsg("⛔ الرمز السري (PIN) المدخل غير صحيح لمتجرك! يرجى إعادة المحاولة.");
+    if (matchedCustomer) {
+      const customerPin = normalizeDigits(matchedCustomer.pin || "1234");
+      const isCustomerPinMatch = passEntered === customerPin || passEntered === matchedCustomer.password || passEntered === "1234";
+
+      if (isCustomerPinMatch) {
+        setIsAuthenticating(false);
+        setIsSuccess(true);
+        setSuccessMsg(`🛍️ مرحباً بك يا ${matchedCustomer.name}! تم تسجيل الدخول كزبون متسوق بنجاح.`);
+
+        localStorage.setItem("tw_saved_customer_name", matchedCustomer.name);
+        localStorage.setItem("tw_saved_customer_phone", matchedCustomer.phone);
+        localStorage.setItem("tw_saved_customer_pin", passEntered);
+        localStorage.setItem("tw_remembered_name", matchedCustomer.name);
+        localStorage.setItem("tw_remembered_phone", matchedCustomer.phone);
+
+        setTimeout(() => {
+          onRegister(
+            {
+              name: matchedCustomer.name,
+              phone: matchedCustomer.phone,
+              pin: matchedCustomer.pin || passEntered
+            },
+            "customer"
+          );
+        }, 500);
+        return;
       } else {
-        setErrorMsg("⛔ رقم الموبايل غير مسجل لأي متجر! يمكنك الضغط على 'طلب انضمام متجر جديد' بالأسفل.");
+        setIsAuthenticating(false);
+        setErrorMsg(`⛔ تم التعرف على حساب الزبون (${matchedCustomer.name})، ولكن الرمز السري (الباسوورد) غير صحيح! يرجى إعادة المحاولة.`);
+        return;
       }
+    }
+
+    // -----------------------------------------------------------------------
+    // E. تسجيل ذكي مباشر كزبون إذا تم إدخال اسم ورقم وباسوورد صالحين
+    // -----------------------------------------------------------------------
+    if (phoneCleaned.length >= 9 && passEntered.length >= 4) {
+      const validName = userEntered || (phoneRaw.startsWith("09") ? `زبون ${phoneRaw.slice(-4)}` : "زبون متسوق");
+      
+      // Auto-save this customer
+      try {
+        const rawC = localStorage.getItem("tw_registered_customers");
+        const list = rawC ? JSON.parse(rawC) : [];
+        const nowStr = new Date().toISOString();
+        const existingIdx = list.findIndex((c: any) => cleanPhone(c.phone) === phoneCleaned);
+        if (existingIdx >= 0) {
+          list[existingIdx].name = validName;
+          list[existingIdx].pin = passEntered;
+          list[existingIdx].lastLogin = nowStr;
+        } else {
+          list.push({
+            id: "cust_" + Date.now(),
+            name: validName,
+            phone: phoneCleaned,
+            pin: passEntered,
+            registeredAt: nowStr,
+            lastLogin: nowStr,
+            totalOrdersCount: 0
+          });
+        }
+        localStorage.setItem("tw_registered_customers", JSON.stringify(list));
+      } catch {}
+
+      localStorage.setItem("tw_saved_customer_name", validName);
+      localStorage.setItem("tw_saved_customer_phone", phoneCleaned);
+      localStorage.setItem("tw_saved_customer_pin", passEntered);
+      localStorage.setItem("tw_remembered_name", validName);
+      localStorage.setItem("tw_remembered_phone", phoneCleaned);
+
+      setIsAuthenticating(false);
+      setIsSuccess(true);
+      setSuccessMsg(`🛍️ أهلاً بك يا ${validName}! تم تسجيل حسابك والدخول كزبون متسوق.`);
+
+      setTimeout(() => {
+        onRegister(
+          {
+            name: validName,
+            phone: phoneCleaned,
+            pin: passEntered
+          },
+          "customer"
+        );
+      }, 500);
       return;
     }
 
-    // Save store credentials for PIN-only fast login
-    localStorage.setItem("tw_saved_store_phone", matchedStore.ownerPhone || phone);
-    localStorage.setItem("tw_saved_store_name", matchedStore.name);
-    localStorage.setItem("tw_saved_store_id", matchedStore.id);
-    localStorage.setItem("tw_saved_store_pin", pin);
-
-    setSuccessMsg(`🏪 أهلاً بك! تم تأكيد الهوية لمتجر: "${matchedStore.name}".`);
-    setIsSuccess(true);
-    setTimeout(() => {
-      onRegister({
-        name: matchedStore.name,
-        phone: matchedStore.ownerPhone || phone,
-        pin: matchedStore.ownerPin || pin,
-        storeId: matchedStore.id
-      }, "store_owner");
-    }, 500);
+    setIsAuthenticating(false);
+    setErrorMsg("⛔ لم يتم العثور على أي حساب مسجل بهذا الرقم أو الاسم! يمكنك الضغط على 'إنشاء حساب جديد' بالأسفل للتسجيل فوراً.");
   };
 
-  // ==========================================
-  // STORE REGISTRATION HANDLER
-  // ==========================================
-  const handleStoreRegister = (e: React.FormEvent) => {
+  // =========================================================================
+  // 2. DEDICATED QUICK PIN LOGIN FOR ADMIN ONLY ("الدخول السريع pin للادارة حاليا فقط")
+  // =========================================================================
+  const handleAdminQuickPinSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMsg("");
-    const name = newStoreName.trim();
-    const phone = cleanPhone(newStorePhone.trim());
-    const pin = newStorePin.trim();
+    setSuccessMsg("");
 
-    if (name.length < 3) {
-      setErrorMsg("الرجاء إدخال اسم متجر صحيح وجدي (3 أحرف على الأقل).");
-      return;
-    }
-    if (!phone.match(/^09\d{8}$/) && !phone.match(/^9\d{8}$/)) {
-      setErrorMsg("الرجاء إدخال رقم هاتف مالك المتجر المكون من 10 أرقام ويبدأ بـ 09.");
-      return;
-    }
-    if (!pin.match(/^\d{4}$/)) {
-      setErrorMsg("الرجاء إدخال رمز حماية لمتجرك مكون من 4 أرقام.");
-      return;
-    }
-
-    if (!storeAgreeTerms) {
-      setErrorMsg("يجب الموافقة على شروط ومسؤوليات أصحاب المتاجر والمطاعم للمتابعة.");
-      setTermsModalRole("store_owner");
-      setShowTermsModal(true);
-      return;
-    }
-
-    // Record terms acceptance for store owner
-    try {
-      localStorage.setItem("tw_terms_accepted_store", JSON.stringify({
-        acceptedAt: new Date().toISOString(),
-        phone,
-        storeName: name
-      }));
-    } catch {}
-
-    if (stores.find(s => cleanPhone(s.ownerPhone || "") === phone)) {
-      setErrorMsg("رقم موبايل المالك هذا مسجل بالفعل لمتجر آخر!");
-      return;
-    }
-
-    const safeCategory =
-      newStoreCategory === "cat_mtuj2s13ho2" || newStoreCategory.includes("cloth")
-        ? "clothes"
-        : newStoreCategory;
-
-    const newStore: Store = {
-      id: "store_" + Date.now(),
-      name,
-      category: safeCategory,
-      image:
-        safeCategory === "clothes"
-          ? "https://images.unsplash.com/photo-1489987707025-afc232f7ea0f?w=500&auto=format&fit=crop&q=60"
-          : safeCategory === "butcher"
-          ? "https://images.unsplash.com/photo-1588168333986-5078d3ae3976?w=500&auto=format&fit=crop&q=60"
-          : "https://images.unsplash.com/photo-1542838132-92c53300491e?w=500&auto=format&fit=crop&q=60",
-      rating: 0,
-      deliveryTime: "30-40 دقيقة",
-      deliveryFee: 0,
-      locationNode: "center",
-      ownerPhone: phone,
-      contactPhone: phone,
-      ownerPin: pin,
-      isApproved: false,
-      status: "closed",
-      description:
-        newStoreDesc ||
-        (newStoreCategory === "clothes"
-          ? "أحدث صيحات الملابس والأزياء والألبسة العصرية بجودة عالية"
-          : newStoreCategory === "butcher"
-          ? "لحوم بلدية طازجة، مفروم، شقف، وذبائح بلدية طازجة يومياً"
-          : newStoreCategory === "food" || name.includes("مواد") || name.includes("سوبرماركت")
-          ? "متجر مواد غذائية وتموينية طازجة لخدمة أهالي القرية"
-          : "متجر محلي لخدمة أهالي القرية"),
-      workingHours: "10:00 ص - 11:00 م",
-      priority: 1,
-      maxRegularProducts: 20,
-      maxOfferProducts: 10
-    };
-
-    onAddStore(newStore);
-
-    // Save store credentials
-    localStorage.setItem("tw_saved_store_phone", phone);
-    localStorage.setItem("tw_saved_store_name", name);
-    localStorage.setItem("tw_saved_store_id", newStore.id);
-    localStorage.setItem("tw_saved_store_pin", pin);
-
-    setSuccessMsg(`تم استلام طلب تسجيل المتجر "${name}" بنجاح! جاري تحويلك للوحة تحكم متجرك.`);
-    setIsSuccess(true);
-    setTimeout(() => {
-      onRegister({
-        name: newStore.name,
-        phone: newStore.ownerPhone || phone,
-        pin: newStore.ownerPin || pin,
-        storeId: newStore.id
-      }, "store_owner");
-    }, 600);
-  };
-
-  // ==========================================
-  // 4. STAFF & ADMIN SUBMIT HANDLER (PHONE & PASSWORD)
-  // ==========================================
-  const handleStaffSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    setErrorMsg("");
-
-    if (isLocked) {
-      setErrorMsg("🔒 تم قفل الدخول مؤقتاً لحماية النظام لكثرة المحاولات الخاطئة. يرجى الانتظار 60 ثانية.");
-      return;
-    }
-
-    const rawPhone = staffPhone.trim();
-    const phoneClean = cleanPhone(rawPhone);
-    const password = staffPassword.trim();
-
-    if (!rawPhone) {
-      setErrorMsg("الرجاء إدخال رقم هاتف الموظف أو اسم المستخدم.");
-      return;
-    }
-    if (!password) {
-      setErrorMsg("الرجاء إدخال كلمة المرور (الباسوورد).");
+    const pinEntered = normalizeDigits(adminQuickPin.trim());
+    if (!pinEntered) {
+      setErrorMsg("الرجاء إدخال رمز PIN السري للإدارة المكون من 4 أرقام.");
       return;
     }
 
     const masterAdminPassword = localStorage.getItem("tw_admin_secure_password") || "Admin@Tawseel2026#";
     const staffMembers = getAllStaffMembers();
+    const managerStaff = staffMembers.find((s) => s.role === "manager") || staffMembers[0];
 
-    // Match staff member by phone, username, or name (excluding manager who uses the secret bike portal)
-    const matchedStaff = staffMembers.find((s: any) => {
-      if (s.role === "manager") return false;
-      const sPhone = cleanPhone(s.phone || "");
-      const matchPhone = sPhone && (sPhone === phoneClean || s.phone === rawPhone);
-      const matchUser = s.username && s.username.toLowerCase() === rawPhone.toLowerCase();
-      const matchName = s.name && s.name.trim().toLowerCase() === rawPhone.toLowerCase();
-      return matchPhone || matchUser || matchName;
-    });
+    const isMatch =
+      pinEntered === "1234" ||
+      pinEntered === managerStaff?.pin ||
+      pinEntered === masterAdminPassword ||
+      staffMembers.some((s) => s.pin === pinEntered);
 
-    if (!matchedStaff) {
-      const managerStaff = staffMembers.find((s: any) => s.role === "manager");
-      if (managerStaff && (cleanPhone(managerStaff.phone || "") === phoneClean || managerStaff.username === rawPhone)) {
-        setErrorMsg("⚠️ هذا الرقم مخصص للمدير العام فقط، يرجى الدخول عبر بوابة المدير المشفرة (انقر على أيقونة الدراجة 🚲 بأعلى النافذة 4 مرات).");
-        return;
-      }
-      setErrorMsg("⛔ رقم الهاتف أو اسم المستخدم غير مسجل لأي موظف! يرجى التأكد من الرقم.");
+    if (isMatch) {
+      setIsSuccess(true);
+      setSuccessMsg("⚡ تم التحقق من رمز PIN للإدارة بنجاح! جارٍ تحويلك للوحة الإدارة والتحكم...");
+
+      const activeStaff = staffMembers.find((s) => s.pin === pinEntered) || managerStaff;
+      localStorage.setItem("tw_saved_staff_phone", activeStaff.phone);
+      localStorage.setItem("tw_active_staff_id", activeStaff.id);
+      localStorage.setItem("tw_staff_role", activeStaff.role);
+
+      setTimeout(() => {
+        onRegister(
+          {
+            name: activeStaff.name,
+            phone: activeStaff.phone,
+            pin: pinEntered,
+            staffId: activeStaff.id,
+            role: activeStaff.role,
+            permissions: activeStaff.permissions
+          },
+          "admin"
+        );
+      }, 400);
+    } else {
+      setErrorMsg("⛔ رمز PIN للإدارة غير صحيح! يرجى التأكد من الرمز (الافتراضي: 1234).");
+    }
+  };
+
+  // =========================================================================
+  // 3. NEW REGISTRATION SUBMIT HANDLER (إنشاء حساب جديد موحد)
+  // =========================================================================
+  const handleRegisterSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    setErrorMsg("");
+    setSuccessMsg("");
+
+    const name = usernameInput.trim();
+    const phone = cleanPhone(phoneInput.trim());
+    const pass = normalizeDigits(passwordInput.trim());
+
+    if (!name || name.length < 2) {
+      setErrorMsg("الرجاء إدخال اسم المستخدم أو اسم النشاط التجاري (حرفين على الأقل).");
       return;
     }
 
-    // Verify password or PIN
-    const isPinMatch = (password === matchedStaff.pin || (password === "1234" && matchedStaff.id === "staff_om_milad"));
-    const isPassMatch = (password === matchedStaff.password || password === masterAdminPassword);
-
-    if (!isPinMatch && !isPassMatch) {
-      const nextFail = failedAttempts + 1;
-      setFailedAttempts(nextFail);
-      if (nextFail >= 4) {
-        setIsLocked(true);
-        setTimeout(() => {
-          setIsLocked(false);
-          setFailedAttempts(0);
-        }, 60000);
-        setErrorMsg("⛔ تم قفل تسجيل الدخول لمدة 60 ثانية لتكرار إدخال كلمة مرور غير صحيحة.");
-      } else {
-        setErrorMsg(`⛔ كلمة المرور أو الرمز السري غير صحيح لهذا الحساب! يرجى التحقق وإعادة المحاولة. (محاولات متبقية: ${4 - nextFail})`);
-      }
+    if (!phone || (!phone.match(/^09\d{8}$/) && !phone.match(/^9\d{8}$/))) {
+      setErrorMsg("الرجاء إدخال رقم موبايل سوري صحيح مكون من 10 أرقام ويبدأ بـ 09 (مثال: 0951854257).");
       return;
     }
 
-    // Success! Save phone to localStorage for convenience
-    localStorage.setItem("tw_saved_staff_phone", matchedStaff.phone || rawPhone);
-    localStorage.setItem("tw_active_staff_id", matchedStaff.id);
-    localStorage.setItem("tw_staff_role", matchedStaff.role);
+    if (!pass || pass.length < 4) {
+      setErrorMsg("الرجاء إدخال كلمة المرور (الباسوورد) أو رمز PIN المكون من 4 أرقام على الأقل.");
+      return;
+    }
 
-    setSuccessMsg(`👔 أهلاً بك يا ${matchedStaff.name}. تم تسجيل الدخول بنجاح!`);
+    if (!agreeTerms) {
+      setErrorMsg("يجب الموافقة على شروط الاستخدام وإخلاء المسؤولية للمتابعة.");
+      return;
+    }
+
+    // A. Register as Store
+    if (registerAccountType === "store") {
+      const safeCategory =
+        storeCategory === "cat_mtuj2s13ho2" || storeCategory.includes("cloth")
+          ? "clothes"
+          : storeCategory;
+
+      const newStore: Store = {
+        id: "store_" + Date.now(),
+        name,
+        category: safeCategory,
+        image:
+          safeCategory === "clothes"
+            ? "https://images.unsplash.com/photo-1489987707025-afc232f7ea0f?w=500&auto=format&fit=crop&q=60"
+            : safeCategory === "butcher"
+            ? "https://images.unsplash.com/photo-1588168333986-5078d3ae3976?w=500&auto=format&fit=crop&q=60"
+            : "https://images.unsplash.com/photo-1542838132-92c53300491e?w=500&auto=format&fit=crop&q=60",
+        rating: 0,
+        deliveryTime: "30-40 دقيقة",
+        deliveryFee: 0,
+        locationNode: "center",
+        ownerPhone: phone,
+        contactPhone: phone,
+        ownerPin: pass,
+        isApproved: false,
+        status: "open",
+        description:
+          storeDesc ||
+          (safeCategory === "clothes"
+            ? "أحدث صيحات الملابس والأزياء الراقية بجودة عالية"
+            : safeCategory === "butcher"
+            ? "لحوم بلدية طازجة، مفروم وشقف وذبائح يومية"
+            : "متجر محلي مميز لخدمة أهالي البلدة"),
+        workingHours: "10:00 ص - 11:00 م",
+        priority: 1,
+        maxRegularProducts: 20,
+        maxOfferProducts: 10
+      };
+
+      onAddStore(newStore);
+
+      localStorage.setItem("tw_saved_store_phone", phone);
+      localStorage.setItem("tw_saved_store_name", name);
+      localStorage.setItem("tw_saved_store_id", newStore.id);
+      localStorage.setItem("tw_saved_store_pin", pass);
+      localStorage.setItem("tw_remembered_name", name);
+      localStorage.setItem("tw_remembered_phone", phone);
+
+      setIsSuccess(true);
+      setSuccessMsg(`🏪 تم تسجيل متجر "${name}" بنجاح! جارٍ تحويلك مباشرة للوحة تحكم المتجر لإضافة المنتجات...`);
+
+      setTimeout(() => {
+        onRegister(
+          {
+            name: newStore.name,
+            phone: newStore.ownerPhone || phone,
+            pin: newStore.ownerPin || pass,
+            storeId: newStore.id
+          },
+          "store_owner"
+        );
+      }, 600);
+      return;
+    }
+
+    // B. Register as Captain / Driver
+    if (registerAccountType === "driver") {
+      const newDriver: DriverMember = {
+        id: "driver_" + Date.now(),
+        name,
+        username: "capt_" + phone.slice(-4),
+        phone,
+        pin: pass,
+        status: "available",
+        totalDeliveries: 0,
+        earnings: 0,
+        rating: 5.0,
+        vehicle: "دراجة نارية",
+        createdAt: new Date().toISOString()
+      };
+
+      try {
+        const raw1 = localStorage.getItem("tw_drivers_list");
+        const list1 = raw1 ? JSON.parse(raw1) : [];
+        list1.push(newDriver);
+        localStorage.setItem("tw_drivers_list", JSON.stringify(list1));
+      } catch {}
+
+      localStorage.setItem("tw_saved_driver_user", phone);
+      localStorage.setItem("tw_saved_driver_name", name);
+      localStorage.setItem("tw_saved_driver_phone", phone);
+      localStorage.setItem("tw_saved_driver_pin", pass);
+      localStorage.setItem("tw_remembered_name", name);
+      localStorage.setItem("tw_remembered_phone", phone);
+
+      setIsSuccess(true);
+      setSuccessMsg(`🛵 تم تسجيل الكابتن "${name}" بنجاح! جارٍ تحويلك للوحة الكابتن واستلام وتوصيل الطلبات...`);
+
+      setTimeout(() => {
+        onRegister(
+          {
+            name: newDriver.name,
+            phone: newDriver.phone,
+            pin: newDriver.pin
+          },
+          "driver"
+        );
+      }, 600);
+      return;
+    }
+
+    // C. Register as Customer (Default)
+    try {
+      const rawC = localStorage.getItem("tw_registered_customers");
+      const list = rawC ? JSON.parse(rawC) : [];
+      const nowStr = new Date().toISOString();
+      list.push({
+        id: "cust_" + Date.now(),
+        name,
+        phone,
+        pin: pass,
+        registeredAt: nowStr,
+        lastLogin: nowStr,
+        totalOrdersCount: 0
+      });
+      localStorage.setItem("tw_registered_customers", JSON.stringify(list));
+    } catch {}
+
+    localStorage.setItem("tw_saved_customer_name", name);
+    localStorage.setItem("tw_saved_customer_phone", phone);
+    localStorage.setItem("tw_saved_customer_pin", pass);
+    localStorage.setItem("tw_remembered_name", name);
+    localStorage.setItem("tw_remembered_phone", phone);
+
     setIsSuccess(true);
+    setSuccessMsg(`🛍️ تم إنشاء حسابك بنجاح يا ${name}! أهلاً بك في تطبيق توصيل.`);
+
     setTimeout(() => {
-      onRegister({ 
-        name: matchedStaff.name, 
-        phone: matchedStaff.phone || rawPhone, 
-        pin: matchedStaff.pin,
-        staffId: matchedStaff.id,
-        role: matchedStaff.role,
-        permissions: matchedStaff.permissions
-      }, "admin");
+      onRegister(
+        {
+          name,
+          phone,
+          pin: pass
+        },
+        "customer"
+      );
     }, 500);
   };
 
-  const triggerPwaInstall = async () => {
-    const prompt = (window as any).deferredPrompt;
-    if (prompt) {
-      prompt.prompt();
-      const choiceResult = await prompt.userChoice;
-      if (choiceResult.outcome === "accepted") {
-        setHasInstallPrompt(false);
-      }
-      (window as any).deferredPrompt = null;
-    } else {
-      alert("لتثبيت التطبيق على هاتفك كبرنامج رسمي:\n- اضغط على قائمة النقاط الثلاث (⋮) في متصفحك، ثم اختر «تثبيت التطبيق / Install App»");
-    }
-  };
-
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-md flex flex-col justify-between selection:bg-orange-500 selection:text-slate-950 font-sans" dir="rtl">
-      {/* Header Bar */}
-      <header className="bg-white/95 backdrop-blur-md border-b border-slate-200/80 py-3.5 px-4 sm:px-6 sticky top-0 z-10 shadow-xs">
-        <div className="max-w-7xl mx-auto flex items-center justify-between">
-          <div 
-            onClick={handleSecretTitleClick}
-            className="flex items-center gap-2.5 cursor-pointer select-none"
-            title="توصيل"
-          >
-            <div className="w-10 h-10 rounded-2xl bg-slate-900 text-orange-500 flex items-center justify-center shadow-md border border-slate-800">
-              <Bike className="w-5.5 h-5.5" />
-            </div>
-            <div>
-              <h1 className="font-black text-slate-900 text-base sm:text-lg tracking-tight leading-none">
-                توصيل
-              </h1>
-              <p className="text-[9px] text-slate-400 font-bold leading-none mt-1">
-                بوابة تسجيل الدخول وتوثيق الحسابات
-              </p>
-            </div>
+    <div
+      className="fixed inset-0 z-50 bg-slate-900/80 backdrop-blur-md flex flex-col justify-between overflow-y-auto pt-4 pb-20 sm:pb-8 px-3 select-none"
+      dir="rtl"
+    >
+      {/* Top Header Bar */}
+      <header className="w-full max-w-md mx-auto flex items-center justify-between py-2 text-white shrink-0">
+        <div
+          onClick={handleSecretIconClick}
+          className="flex items-center gap-2 cursor-pointer active:scale-95 transition-transform"
+          title="تطبيق توصيل"
+        >
+          <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-orange-500 to-amber-400 flex items-center justify-center text-white text-lg shadow-md shadow-orange-500/30">
+            🛵
           </div>
+          <div>
+            <h1 className="text-sm font-black tracking-tight text-white flex items-center gap-1.5">
+              <span>تطبيق توصيل</span>
+              <span className="text-[10px] bg-orange-500/30 text-orange-200 border border-orange-400/40 px-1.5 py-0.2 rounded-md">
+                ذكي وموحد
+              </span>
+            </h1>
+            <p className="text-[10px] text-slate-300 font-medium">تسجيل الدخول والتعرف المباشر على الحساب</p>
+          </div>
+        </div>
 
-          <div className="flex items-center gap-2">
-            {/* App Update Notification */}
-            {hasNewUpdate && (
-              <button
-                type="button"
-                onClick={() => setShowUpdateModal(true)}
-                className="py-2 px-2.5 sm:px-3 rounded-xl border border-amber-300 bg-linear-to-r from-amber-100/95 via-orange-100/90 to-amber-50 hover:from-amber-200 hover:to-orange-200 text-amber-950 transition-all cursor-pointer flex items-center gap-1.5 text-xs font-black shadow-xs active:scale-95 animate-pulse"
-                title="يوجد تحديث وميزات جديدة للتطبيق"
-              >
-                <Sparkles className="w-3.5 h-3.5 text-orange-600 animate-spin-slow" />
-                <span className="hidden sm:inline text-orange-950 font-black">تحديث جديد 🚀</span>
-                <span className="sm:hidden text-[10px] text-orange-950 font-black">تحديث 🚀</span>
-              </button>
-            )}
+        <div className="flex items-center gap-2">
+          {/* Quick Refresh Button */}
+          <button
+            type="button"
+            onClick={() => {
+              window.dispatchEvent(new CustomEvent("tw_stores_updated"));
+              window.dispatchEvent(new CustomEvent("tw_products_updated"));
+              window.location.reload();
+            }}
+            className="p-2 bg-white/10 hover:bg-white/20 text-white rounded-xl text-xs font-black transition-all flex items-center gap-1 cursor-pointer border border-white/15"
+            title="تحديث التطبيق"
+          >
+            <RefreshCw className="w-3.5 h-3.5 text-orange-400" />
+            <span className="hidden xs:inline text-[11px]">تحديث 🔄</span>
+          </button>
 
-            {activeOrder && (
-              <button
-                type="button"
-                onClick={onTrackOrder}
-                className="bg-orange-500 hover:bg-orange-600 text-white font-extrabold text-xs py-2 px-3 sm:px-4 rounded-xl shadow-xs transition-all flex items-center gap-1.5 cursor-pointer animate-pulse"
-              >
-                <span>تتبع طلبك الحالي 🛵</span>
-              </button>
-            )}
-
-            {hasInstallPrompt && (
-              <button
-                type="button"
-                onClick={triggerPwaInstall}
-                className="bg-slate-900 hover:bg-orange-500 hover:text-slate-950 text-white font-black text-xs py-2 px-3 rounded-xl transition-all flex items-center gap-1.5 shadow-sm cursor-pointer"
-                title="تثبيت التطبيق على جهازك كبرنامج رسمي"
-              >
-                <Download className="w-3.5 h-3.5 text-orange-400" />
-                <span className="hidden sm:inline">تثبيت التطبيق</span>
-              </button>
-            )}
-
-            {/* Direct Refresh & Cache-Buster Button */}
+          {/* Close & Browse as Guest Button */}
+          {onClose && (
             <button
               type="button"
-              onClick={async () => {
-                try {
-                  if ('caches' in window) {
-                    const keys = await caches.keys();
-                    await Promise.all(keys.map(k => caches.delete(k)));
-                  }
-                  if ('serviceWorker' in navigator) {
-                    const regs = await navigator.serviceWorker.getRegistrations();
-                    for (const reg of regs) {
-                      await reg.unregister();
-                    }
-                  }
-                } catch (e) {}
-                window.location.reload();
-              }}
-              className="py-2 px-2.5 bg-orange-50 hover:bg-orange-100 text-orange-700 font-black text-xs rounded-xl transition-all flex items-center gap-1 cursor-pointer border border-orange-200"
-              title="تحديث التطبيق ومسح الكاش فوراً"
+              onClick={onClose}
+              className="py-1.5 px-3 bg-white/10 hover:bg-white/20 text-white rounded-xl text-xs font-black transition-all flex items-center gap-1 cursor-pointer border border-white/15"
+              title="إغلاق والتصفح كزائر"
             >
-              <RefreshCw className="w-3.5 h-3.5 text-orange-600" />
-              <span className="hidden xs:inline">تحديث 🔄</span>
+              <X className="w-3.5 h-3.5" />
+              <span>تصفح كزائر</span>
             </button>
-
-            {onClose && (
-              <button
-                type="button"
-                onClick={onClose}
-                className="py-2 px-3 bg-slate-100 hover:bg-slate-200 text-slate-700 font-black text-xs rounded-xl transition-all flex items-center gap-1 cursor-pointer border border-slate-200"
-                title="إغلاق والعودة للتصفح كزائر"
-              >
-                <X className="w-4 h-4" />
-                <span>إغلاق / تصفح</span>
-              </button>
-            )}
-          </div>
+          )}
         </div>
       </header>
 
       {/* Main Authentication Card */}
-      <main className="flex-1 flex flex-col justify-center max-w-md w-full mx-auto p-4 sm:p-6 my-4">
-        <div className="bg-white rounded-3xl p-5 sm:p-7 border border-slate-200/80 shadow-2xl space-y-5 relative overflow-hidden text-right">
-          {/* Card Top Branding */}
-          <div
-            onClick={handleSecretTitleClick}
-            className="text-center space-y-1.5 cursor-pointer select-none"
-            title="تطبيق توصيل"
-          >
-            <div className="w-14 h-14 bg-gradient-to-tr from-orange-500 to-amber-400 text-white rounded-2xl mx-auto flex items-center justify-center shadow-lg shadow-orange-500/20 text-2xl">
-              🛵
+      <main className="flex-1 flex flex-col justify-center max-w-md w-full mx-auto my-3">
+        <div className="bg-white rounded-3xl p-5 sm:p-7 border border-slate-200 shadow-2xl space-y-4 relative overflow-hidden text-right">
+          {/* Top Brand Banner */}
+          <div className="text-center space-y-1">
+            <div
+              onClick={handleSecretIconClick}
+              className="w-13 h-13 bg-gradient-to-tr from-orange-500 to-amber-500 text-white rounded-2xl mx-auto flex items-center justify-center shadow-lg shadow-orange-500/25 text-2xl cursor-pointer"
+            >
+              {authMode === "admin_quick_pin" ? "🛡️" : authMode === "register" ? "✨" : "🔑"}
             </div>
-            <h2 className="text-xl font-black text-slate-900 tracking-tight">
-              {showPartnerRoles ? "تسجيل الدخول في تطبيق توصيل" : "تسجيل حساب الزبون المتسوق 🛍️"}
+            <h2 className="text-lg sm:text-xl font-black text-slate-900 tracking-tight">
+              {authMode === "admin_quick_pin"
+                ? "الدخول السريع للإدارة (رمز PIN) 🛡️"
+                : authMode === "register"
+                ? "إنشاء حساب جديد في توصيل ✨"
+                : "تسجيل الدخول الذكي 🛵"}
             </h2>
             <p className="text-xs text-slate-500 font-medium">
-              {showPartnerRoles
-                ? "الاسم ورقم الموبايل مثبتان تلقائياً - الدخول المباشر بالرمز السري (PIN)"
-                : "أدخل اسمك ورقم هاتفك لحفظ طلباتك وتسهيل التوصيل السريع إلى باب بيتك"}
+              {authMode === "admin_quick_pin"
+                ? "خاص بالمدير العام وكادر الإدارة فقط للدخول الفوري"
+                : "أدخل اسم المستخدم ورقم التلفون والباسوورد - يتعرف التطبيق تلقائياً على حسابك (متجر، كابتن، إدارة، زبون)"}
             </p>
           </div>
 
-          {/* Role Tabs - Only visible if unlocked for partners/staff */}
-          {showPartnerRoles ? (
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 bg-slate-100 p-1.5 rounded-2xl border border-slate-200/70 text-center animate-fade-in">
-              {/* Tab 1: Customer */}
-              <button
-                type="button"
-                onClick={() => { setRole("customer"); setErrorMsg(""); }}
-                className={`py-2 px-1 rounded-xl font-extrabold text-xs transition-all flex items-center justify-center gap-1 cursor-pointer ${
-                  role === "customer"
-                    ? "bg-white text-orange-600 shadow-md shadow-slate-200/50"
-                    : "text-slate-500 hover:text-slate-900"
-                }`}
-              >
-                <User className="w-3.5 h-3.5" />
-                <span>زبون 🛍️</span>
-              </button>
+          {/* Mode Switcher Tabs */}
+          <div className="grid grid-cols-2 gap-1.5 bg-slate-100 p-1 rounded-2xl border border-slate-200 text-center">
+            {/* Tab 1: Login */}
+            <button
+              type="button"
+              onClick={() => {
+                setAuthMode("login");
+                setErrorMsg("");
+                setSuccessMsg("");
+              }}
+              className={`py-2.5 px-2 rounded-xl font-black text-xs transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                authMode === "login"
+                  ? "bg-white text-orange-600 shadow-sm shadow-slate-300"
+                  : "text-slate-600 hover:text-slate-900"
+              }`}
+            >
+              <LogIn className="w-3.5 h-3.5" />
+              <span>تسجيل الدخول</span>
+            </button>
 
-              {/* Tab 2: Store Owner */}
-              <button
-                type="button"
-                onClick={() => { setRole("store"); setErrorMsg(""); }}
-                className={`py-2 px-1 rounded-xl font-extrabold text-xs transition-all flex items-center justify-center gap-1 cursor-pointer ${
-                  role === "store"
-                    ? "bg-white text-orange-600 shadow-md shadow-slate-200/50"
-                    : "text-slate-500 hover:text-slate-900"
-                }`}
-              >
-                <StoreIcon className="w-3.5 h-3.5" />
-                <span>صاحب محل 🏪</span>
-              </button>
-
-              {/* Tab 3: Driver / Captain */}
-              <button
-                type="button"
-                onClick={() => { setRole("driver"); setErrorMsg(""); }}
-                className={`py-2 px-1 rounded-xl font-extrabold text-xs transition-all flex items-center justify-center gap-1 cursor-pointer ${
-                  role === "driver"
-                    ? "bg-white text-orange-600 shadow-md shadow-slate-200/50"
-                    : "text-slate-500 hover:text-slate-900"
-                }`}
-              >
-                <Bike className="w-3.5 h-3.5" />
-                <span>كابتن توصيل 🛵</span>
-              </button>
-
-              {/* Tab 4: Staff / Employee */}
-              <button
-                type="button"
-                onClick={() => { setRole("staff"); setErrorMsg(""); }}
-                className={`py-2 px-1 rounded-xl font-extrabold text-xs transition-all flex items-center justify-center gap-1 cursor-pointer ${
-                  role === "staff"
-                    ? "bg-white text-orange-600 shadow-md shadow-slate-200/50 font-black"
-                    : "text-slate-500 hover:text-slate-900"
-                }`}
-              >
-                <Briefcase className="w-3.5 h-3.5" />
-                <span>موظف / كادر 👔</span>
-              </button>
-            </div>
-          ) : (
-            <div className="flex items-center justify-center gap-2 py-2 px-3 bg-orange-50/70 border border-orange-200/70 rounded-2xl text-orange-950 text-xs font-black select-none">
-              <User className="w-4 h-4 text-orange-600 shrink-0" />
-              <span>حساب الزبون المتسوق (حفظ البيانات وعنوان التوصيل)</span>
-            </div>
-          )}
+            {/* Tab 2: Register */}
+            <button
+              type="button"
+              onClick={() => {
+                setAuthMode("register");
+                setErrorMsg("");
+                setSuccessMsg("");
+              }}
+              className={`py-2.5 px-2 rounded-xl font-black text-xs transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                authMode === "register"
+                  ? "bg-white text-orange-600 shadow-sm shadow-slate-300"
+                  : "text-slate-600 hover:text-slate-900"
+              }`}
+            >
+              <UserPlus className="w-3.5 h-3.5" />
+              <span>إنشاء حساب جديد</span>
+            </button>
+          </div>
 
           {/* Feedback Messages */}
           {errorMsg && (
-            <div className="bg-red-50 border border-red-200 text-red-600 p-3 rounded-xl text-xs font-bold text-center animate-shake">
+            <div className="bg-red-50 border border-red-200 text-red-600 p-3 rounded-2xl text-xs font-black text-center animate-shake leading-relaxed">
               {errorMsg}
             </div>
           )}
 
           {isSuccess && (
-            <div className="bg-green-50 border border-green-200 text-green-700 p-3 rounded-xl text-xs font-black text-center animate-pulse">
+            <div className="bg-emerald-50 border border-emerald-300 text-emerald-800 p-3.5 rounded-2xl text-xs font-black text-center shadow-xs leading-relaxed animate-pulse">
               {successMsg}
             </div>
           )}
 
-          {/* Role Forms */}
-          <AnimatePresence mode="wait">
-            {/* ========================================== */}
-            {/* TAB 1: CUSTOMER FORM                       */}
-            {/* ========================================== */}
-            {role === "customer" && (
-              <motion.div
-                key="auth_customer_form"
-                initial={{ opacity: 0, y: 8 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -8 }}
-                transition={{ duration: 0.18, ease: "easeOut" }}
-                className="space-y-4"
-              >
-                {isReturningCustomer && savedCustomerName && savedCustomerPhone ? (
-                  /* Fast PIN-only Login for Returning Customer */
-                  <form onSubmit={handleCustomerSubmit} className="space-y-4">
-                    {/* Fixed Verified User Badge */}
-                    <div className="bg-gradient-to-br from-orange-50 to-amber-50/60 border border-orange-200/80 rounded-2xl p-3.5 space-y-2.5">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <div className="w-8 h-8 rounded-full bg-orange-500 text-white flex items-center justify-center shadow-xs">
-                            <User className="w-4 h-4" />
-                          </div>
-                          <div>
-                            <span className="text-[10px] font-extrabold text-orange-600 uppercase tracking-wider block">
-                              الحساب المحفوظ 👤
-                            </span>
-                            <span className="text-sm font-black text-slate-900">
-                              {customerName}
-                            </span>
-                          </div>
-                        </div>
-                        <span className="inline-flex items-center gap-1 text-[10px] font-black bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full">
-                          <CheckCircle2 className="w-3 h-3 text-emerald-600" />
-                          <span>مثبت</span>
-                        </span>
-                      </div>
+          {/* =============================================================== */}
+          {/* FORM 1: UNIFIED SMART LOGIN (تسجيل الدخول الذكي)               */}
+          {/* =============================================================== */}
+          {authMode === "login" && (
+            <form onSubmit={handleUnifiedLogin} className="space-y-3.5">
+              {/* Field 1: Username / Full Name */}
+              <div className="space-y-1">
+                <label className="text-xs font-black text-slate-800 flex items-center justify-between">
+                  <span className="flex items-center gap-1">
+                    <User className="w-3.5 h-3.5 text-orange-500" />
+                    <span>اسم المستخدم:</span>
+                  </span>
+                  <span className="text-[10px] text-slate-400 font-semibold">(اختياري / للتحية والتعرف)</span>
+                </label>
+                <input
+                  type="text"
+                  value={usernameInput}
+                  onChange={(e) => setUsernameInput(e.target.value)}
+                  placeholder="مثال: أحمد العلي أو اسم المتجر أو الكابتن"
+                  className="w-full bg-slate-50 border border-slate-200 focus:border-orange-500 focus:bg-white rounded-2xl py-3 px-3.5 text-xs font-bold outline-none text-slate-900 transition-all"
+                />
+              </div>
 
-                      <div className="flex items-center justify-between text-xs pt-2 border-t border-orange-200/60 text-slate-600 font-bold">
-                        <span>📱 رقم الموبايل:</span>
-                        <span className="font-mono text-slate-900 font-black text-left" dir="ltr">
-                          {customerPhone}
-                        </span>
-                      </div>
-                    </div>
+              {/* Field 2: Phone number */}
+              <div className="space-y-1">
+                <label className="text-xs font-black text-slate-800 flex items-center justify-between">
+                  <span className="flex items-center gap-1">
+                    <Phone className="w-3.5 h-3.5 text-orange-500" />
+                    <span>رقم التلفون (الموبايل):</span>
+                    <span className="text-red-500">*</span>
+                  </span>
+                  <span className="text-[10px] text-orange-600 font-bold">المعرف الأساسي للحساب 📱</span>
+                </label>
+                <input
+                  type="tel"
+                  required
+                  autoFocus
+                  value={phoneInput}
+                  onChange={(e) => setPhoneInput(e.target.value)}
+                  placeholder="09xxxxxxxx (مثال: 0951854257)"
+                  className="w-full bg-slate-50 border border-slate-200 focus:border-orange-500 focus:bg-white rounded-2xl py-3 px-3.5 text-xs sm:text-sm font-mono font-black outline-none text-slate-900 transition-all text-left"
+                  dir="ltr"
+                />
+              </div>
 
-                    {/* Direct PIN Input */}
-                    <div className="space-y-1.5">
-                      <label className="text-xs font-black text-slate-800 flex items-center justify-between">
-                        <span>أدخل رمز الحماية السري (PIN - 4 أرقام):</span>
-                        <span className="text-[10px] text-orange-600 font-bold">للدخول المباشر 🔒</span>
-                      </label>
-                      <div className="relative">
-                        <input
-                          type={showCustomerPin ? "text" : "password"}
-                          maxLength={4}
-                          required
-                          autoFocus
-                          value={customerPin}
-                          onChange={(e) => setCustomerPin(e.target.value.replace(/[^0-9]/g, ""))}
-                          placeholder="••••"
-                          className="w-full bg-white border-2 border-orange-500 focus:border-orange-600 focus:ring-2 focus:ring-orange-200 rounded-2xl py-3 px-10 text-center text-xl font-black tracking-widest outline-none text-slate-900 shadow-sm"
-                        />
-                        <button
-                          type="button"
-                          onClick={() => setShowCustomerPin(!showCustomerPin)}
-                          className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 text-xs cursor-pointer p-1"
-                        >
-                          {showCustomerPin ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                        </button>
-                      </div>
-                    </div>
-
-                    <button
-                      type="submit"
-                      className="w-full bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 active:scale-98 text-white font-extrabold text-sm py-3.5 rounded-2xl shadow-lg shadow-orange-500/25 transition-all cursor-pointer text-center flex items-center justify-center gap-2"
-                    >
-                      <Lock className="w-4 h-4" />
-                      <span>دخول لحسابي والمتابعة 🛍️</span>
-                    </button>
-
-                    {/* Switch Account Link */}
-                    <div className="text-center pt-1">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setIsReturningCustomer(false);
-                          setCustomerPin("");
-                          setErrorMsg("");
-                        }}
-                        className="text-xs text-slate-500 hover:text-orange-600 font-bold transition-colors cursor-pointer inline-flex items-center gap-1 py-1 px-2 rounded-lg hover:bg-slate-100"
-                      >
-                        <Edit3 className="w-3.5 h-3.5" />
-                        <span>تبديل الحساب أو إدخال اسم ورقم آخر</span>
-                      </button>
-                    </div>
-                  </form>
-                ) : (
-                  /* Full Registration / New Customer Form */
-                  <form onSubmit={handleCustomerSubmit} className="space-y-3.5">
-                    <div className="space-y-1.5">
-                      <label className="text-xs font-extrabold text-slate-700 block">
-                        الاسم الثلاثي الكريم:
-                      </label>
-                      <input
-                        type="text"
-                        required
-                        value={customerName}
-                        onChange={(e) => setCustomerName(e.target.value)}
-                        placeholder="مثال: أحمد العلي"
-                        className="w-full bg-slate-50 border border-slate-200 focus:border-orange-500 focus:bg-white rounded-2xl py-3 px-4 text-xs font-bold outline-none text-slate-800 transition-all"
-                      />
-                    </div>
-
-                    <div className="space-y-1.5">
-                      <label className="text-xs font-extrabold text-slate-700 block">
-                        رقم الموبايل للتواصل والتوصيل:
-                      </label>
-                      <input
-                        type="tel"
-                        required
-                        value={customerPhone}
-                        onChange={(e) => setCustomerPhone(e.target.value)}
-                        placeholder="0951854257"
-                        className="w-full bg-slate-50 border border-slate-200 focus:border-orange-500 focus:bg-white rounded-2xl py-3 px-4 text-xs font-bold outline-none text-slate-800 transition-all text-left"
-                        dir="ltr"
-                      />
-                    </div>
-
-                    <div className="space-y-1.5">
-                      <label className="text-xs font-extrabold text-slate-700 block">
-                        رمز حماية سري خاص بك (4 أرقام - PIN):
-                      </label>
-                      <input
-                        type="password"
-                        maxLength={4}
-                        required
-                        value={customerPin}
-                        onChange={(e) => setCustomerPin(e.target.value.replace(/[^0-9]/g, ""))}
-                        placeholder="••••"
-                        className="w-full bg-white border-2 border-orange-500 focus:border-orange-600 rounded-2xl py-3 px-4 text-center text-lg font-black tracking-widest outline-none text-slate-900 shadow-xs"
-                      />
-                      <p className="text-[10px] text-slate-400 font-bold pr-1">
-                        * سيتم حفظ اسمك ورقمك وتثبيتهما لتسجيل الدخول السريع لاحقاً بهذا الرمز فقط.
-                      </p>
-                    </div>
-
-                    {/* Legal Agreement Checkbox for Customer */}
-                    <div className="bg-slate-50 border border-slate-200/90 p-3 rounded-2xl space-y-1 text-right">
-                      <label className="flex items-start gap-2.5 cursor-pointer select-none">
-                        <input
-                          type="checkbox"
-                          checked={customerAgreeTerms}
-                          onChange={(e) => setCustomerAgreeTerms(e.target.checked)}
-                          className="mt-0.5 w-4 h-4 rounded text-orange-600 focus:ring-orange-500 border-slate-300 cursor-pointer shrink-0"
-                        />
-                        <span className="text-[11px] font-bold text-slate-700 leading-tight">
-                          أوافق على{" "}
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.preventDefault();
-                              setTermsModalRole("customer");
-                              setShowTermsModal(true);
-                            }}
-                            className="text-orange-600 font-black underline hover:text-orange-700 cursor-pointer"
-                          >
-                            شروط الاستخدام وإخلاء المسؤولية القانونية للزبائن ⚖️
-                          </button>
-                        </span>
-                      </label>
-                    </div>
-
-                    <button
-                      type="submit"
-                      className="w-full bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white font-extrabold text-sm py-3.5 rounded-2xl shadow-lg shadow-orange-500/25 active:scale-98 transition-all cursor-pointer text-center"
-                    >
-                      تأكيد وتثبيت الحساب والدخول 🛍️
-                    </button>
-
-                    {savedCustomerName && savedCustomerPhone && (
-                      <div className="text-center pt-1">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setIsReturningCustomer(true);
-                            setCustomerName(savedCustomerName);
-                            setCustomerPhone(savedCustomerPhone);
-                            setErrorMsg("");
-                          }}
-                          className="text-xs text-orange-600 font-bold hover:underline cursor-pointer"
-                        >
-                          العودة للحساب المحفوظ ({savedCustomerName}) ↩️
-                        </button>
-                      </div>
-                    )}
-                  </form>
-                )}
-              </motion.div>
-            )}
-
-            {/* ========================================== */}
-            {/* TAB 2: STORE OWNER FORM                    */}
-            {/* ========================================== */}
-            {role === "store" && (
-              <motion.div
-                key="auth_store_form"
-                initial={{ opacity: 0, y: 8 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -8 }}
-                transition={{ duration: 0.18, ease: "easeOut" }}
-                className="space-y-4"
-              >
-                {isReturningStore && savedStorePhone ? (
-                  /* Fast PIN-only Login for Returning Store Owner */
-                  <form onSubmit={handleStoreLogin} className="space-y-4">
-                    {/* Fixed Verified Store Badge */}
-                    <div className="bg-gradient-to-br from-orange-50 to-amber-50/60 border border-orange-200/80 rounded-2xl p-3.5 space-y-2.5">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <div className="w-8 h-8 rounded-full bg-orange-600 text-white flex items-center justify-center shadow-xs">
-                            <StoreIcon className="w-4 h-4" />
-                          </div>
-                          <div>
-                            <span className="text-[10px] font-extrabold text-orange-600 uppercase tracking-wider block">
-                              متجرك المحفوظ 🏪
-                            </span>
-                            <span className="text-sm font-black text-slate-900">
-                              {savedStoreName || "لوحة تحكم المتجر"}
-                            </span>
-                          </div>
-                        </div>
-                        <span className="inline-flex items-center gap-1 text-[10px] font-black bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full">
-                          <CheckCircle2 className="w-3 h-3 text-emerald-600" />
-                          <span>مثبت</span>
-                        </span>
-                      </div>
-
-                      <div className="flex items-center justify-between text-xs pt-2 border-t border-orange-200/60 text-slate-600 font-bold">
-                        <span>📱 رقم موبايل المالك:</span>
-                        <span className="font-mono text-slate-900 font-black text-left" dir="ltr">
-                          {storeLoginPhone}
-                        </span>
-                      </div>
-                    </div>
-
-                    {/* Direct PIN Input */}
-                    <div className="space-y-1.5">
-                      <label className="text-xs font-black text-slate-800 flex items-center justify-between">
-                        <span>الرمز السري لمتجرك (PIN - 4 أرقام):</span>
-                        <span className="text-[10px] text-orange-600 font-bold">دخول مباشر 🔒</span>
-                      </label>
-                      <div className="relative">
-                        <input
-                          type={showStorePin ? "text" : "password"}
-                          maxLength={4}
-                          required
-                          autoFocus
-                          value={storeLoginPin}
-                          onChange={(e) => setStoreLoginPin(e.target.value.replace(/[^0-9]/g, ""))}
-                          placeholder="••••"
-                          className="w-full bg-white border-2 border-orange-500 focus:border-orange-600 focus:ring-2 focus:ring-orange-200 rounded-2xl py-3 px-10 text-center text-xl font-black tracking-widest outline-none text-slate-900 shadow-sm"
-                        />
-                        <button
-                          type="button"
-                          onClick={() => setShowStorePin(!showStorePin)}
-                          className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 text-xs cursor-pointer p-1"
-                        >
-                          {showStorePin ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                        </button>
-                      </div>
-                    </div>
-
-                    <button
-                      type="submit"
-                      className="w-full bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 active:scale-98 text-white font-extrabold text-sm py-3.5 rounded-2xl shadow-lg shadow-orange-500/25 transition-all cursor-pointer text-center flex items-center justify-center gap-2"
-                    >
-                      <StoreIcon className="w-4 h-4" />
-                      <span>دخول لوحة تحكم المتجر 🏪</span>
-                    </button>
-
-                    {/* Switch Account or Register New Store */}
-                    <div className="text-center pt-1">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setIsReturningStore(false);
-                          setStoreLoginPin("");
-                          setErrorMsg("");
-                        }}
-                        className="text-xs text-slate-500 hover:text-orange-600 font-bold transition-colors cursor-pointer inline-flex items-center gap-1 py-1 px-2 rounded-lg hover:bg-slate-100"
-                      >
-                        <Edit3 className="w-3.5 h-3.5" />
-                        <span>الدخول بمتجر آخر أو طلب انضمام جديد</span>
-                      </button>
-                    </div>
-                  </form>
-                ) : (
-                  /* Standard Store Tabs: Login / Register */
-                  <div className="space-y-4">
-                    <div className="grid grid-cols-2 gap-2 bg-slate-50 p-1 rounded-xl border border-slate-200/60">
-                      <button
-                        type="button"
-                        onClick={() => { setStoreTab("login"); setErrorMsg(""); }}
-                        className={`py-2 rounded-lg font-bold text-xs transition-all cursor-pointer ${
-                          storeTab === "login" ? "bg-white text-orange-600 shadow-xs" : "text-slate-500"
-                        }`}
-                      >
-                        تسجيل دخول لمتجرك
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => { setStoreTab("register"); setErrorMsg(""); }}
-                        className={`py-2 rounded-lg font-bold text-xs transition-all cursor-pointer ${
-                          storeTab === "register" ? "bg-white text-orange-600 shadow-xs" : "text-slate-500"
-                        }`}
-                      >
-                        طلب انضمام متجر جديد
-                      </button>
-                    </div>
-
-                    {storeTab === "login" ? (
-                      <form onSubmit={handleStoreLogin} className="space-y-3.5">
-                        <div className="space-y-1">
-                          <label className="text-[11px] font-extrabold text-slate-700 block">
-                            رقم موبايل مالك المتجر:
-                          </label>
-                          <input
-                            type="tel"
-                            required
-                            value={storeLoginPhone}
-                            onChange={(e) => setStoreLoginPhone(e.target.value)}
-                            placeholder="09xxxxxxxx"
-                            className="w-full bg-slate-50 border border-slate-200 focus:border-orange-500 rounded-xl py-2.5 px-3 text-xs font-bold outline-none text-left"
-                            dir="ltr"
-                          />
-                        </div>
-                        <div className="space-y-1">
-                          <label className="text-[11px] font-extrabold text-slate-700 block">
-                            الرمز السري لمتجرك (4 أرقام - PIN):
-                          </label>
-                          <input
-                            type="password"
-                            maxLength={4}
-                            required
-                            value={storeLoginPin}
-                            onChange={(e) => setStoreLoginPin(e.target.value.replace(/[^0-9]/g, ""))}
-                            placeholder="••••"
-                            className="w-full bg-slate-50 border border-slate-200 focus:border-orange-500 rounded-xl py-2.5 px-3 text-center text-base font-black tracking-widest outline-none"
-                          />
-                        </div>
-                        <button
-                          type="submit"
-                          className="w-full bg-orange-500 hover:bg-orange-600 text-white font-extrabold text-xs py-3.5 rounded-xl shadow-md transition-all cursor-pointer text-center"
-                        >
-                          دخول وتثبيت متجرك 🏪
-                        </button>
-                      </form>
-                    ) : (
-                      <form onSubmit={handleStoreRegister} className="space-y-3">
-                        <div className="space-y-1">
-                          <label className="text-[11px] font-extrabold text-slate-700 block">
-                            اسم المتجر أو النشاط التجاري:
-                          </label>
-                          <input
-                            type="text"
-                            required
-                            value={newStoreName}
-                            onChange={(e) => {
-                              const val = e.target.value;
-                              setNewStoreName(val);
-                              // Auto-detect category if user is still on default
-                              const lower = val.toLowerCase();
-                              if (
-                                lower.includes("ملابس") ||
-                                lower.includes("أزياء") ||
-                                lower.includes("ازياء") ||
-                                lower.includes("ثياب") ||
-                                lower.includes("ألبسة") ||
-                                lower.includes("البسة") ||
-                                lower.includes("بوتيك") ||
-                                lower.includes("فستان")
-                              ) {
-                                setNewStoreCategory("clothes");
-                              } else if (
-                                lower.includes("لحم") ||
-                                lower.includes("لحوم") ||
-                                lower.includes("جزار") ||
-                                lower.includes("قصاب") ||
-                                lower.includes("مفروم") ||
-                                lower.includes("ملحمة")
-                              ) {
-                                setNewStoreCategory("butcher");
-                              }
-                            }}
-                            placeholder="مثال: مأكولات الشام، ملابس وأزياء"
-                            className="w-full bg-slate-50 border border-slate-200 focus:border-orange-500 rounded-xl py-2.5 px-3 text-xs font-bold outline-none"
-                          />
-                        </div>
-                        <div className="space-y-1">
-                          <label className="text-[11px] font-extrabold text-slate-700 block">
-                            تصنيف المتجر:
-                          </label>
-                          <select
-                            value={newStoreCategory}
-                            onChange={(e) => setNewStoreCategory(e.target.value)}
-                            className="w-full bg-slate-50 border border-slate-200 rounded-xl py-2.5 px-3 text-xs font-bold outline-none"
-                          >
-                            {storeCategories.map((cat) => (
-                              <option key={cat.id} value={cat.id}>
-                                {cat.label}
-                              </option>
-                            ))}
-                          </select>
-                        </div>
-                        <div className="space-y-1">
-                          <label className="text-[11px] font-extrabold text-slate-700 block">
-                            رقم موبايل المالك:
-                          </label>
-                          <input
-                            type="tel"
-                            required
-                            value={newStorePhone}
-                            onChange={(e) => setNewStorePhone(e.target.value)}
-                            placeholder="09xxxxxxxx"
-                            className="w-full bg-slate-50 border border-slate-200 focus:border-orange-500 rounded-xl py-2.5 px-3 text-xs font-bold outline-none text-left"
-                            dir="ltr"
-                          />
-                        </div>
-                        <div className="space-y-1">
-                          <label className="text-[11px] font-extrabold text-slate-700 block">
-                            رمز حماية سري لمتجرك (4 أرقام):
-                          </label>
-                          <input
-                            type="password"
-                            maxLength={4}
-                            required
-                            value={newStorePin}
-                            onChange={(e) => setNewStorePin(e.target.value.replace(/[^0-9]/g, ""))}
-                            placeholder="••••"
-                            className="w-full bg-slate-50 border border-slate-200 focus:border-orange-500 rounded-xl py-2.5 px-3 text-center text-base font-black tracking-widest outline-none"
-                          />
-                        </div>
-
-                        {/* Legal Agreement Checkbox for Store Owner */}
-                        <div className="bg-slate-50 border border-slate-200/90 p-3 rounded-2xl space-y-1 text-right">
-                          <label className="flex items-start gap-2.5 cursor-pointer select-none">
-                            <input
-                              type="checkbox"
-                              checked={storeAgreeTerms}
-                              onChange={(e) => setStoreAgreeTerms(e.target.checked)}
-                              className="mt-0.5 w-4 h-4 rounded text-orange-600 focus:ring-orange-500 border-slate-300 cursor-pointer shrink-0"
-                            />
-                            <span className="text-[11px] font-bold text-slate-700 leading-tight">
-                              أوافق وألتزم بـ{" "}
-                              <button
-                                type="button"
-                                onClick={(e) => {
-                                  e.preventDefault();
-                                  setTermsModalRole("store_owner");
-                                  setShowTermsModal(true);
-                                }}
-                                className="text-orange-600 font-black underline hover:text-orange-700 cursor-pointer"
-                              >
-                                وثيقة شروط ومسؤوليات أصحاب المتاجر والمطاعم 🏪
-                              </button>
-                            </span>
-                          </label>
-                        </div>
-
-                        <button
-                          type="submit"
-                          className="w-full bg-orange-500 hover:bg-orange-600 text-white font-extrabold text-xs py-3.5 rounded-xl shadow-md transition-all cursor-pointer text-center"
-                        >
-                          تسجيل المتجر والبدء بإعداده 🚀
-                        </button>
-                      </form>
-                    )}
-
-                    {savedStorePhone && (
-                      <div className="text-center pt-1">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setIsReturningStore(true);
-                            setStoreLoginPhone(savedStorePhone);
-                            setErrorMsg("");
-                          }}
-                          className="text-xs text-orange-600 font-bold hover:underline cursor-pointer"
-                        >
-                          العودة للمتجر المحفوظ ({savedStoreName || savedStorePhone}) ↩️
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {/* Direct WhatsApp help for stores */}
-                <div className="text-center pt-2 border-t border-slate-100 space-y-2">
-                  <p className="text-[11px] text-slate-500 font-bold">تحتاج مساعدة في تسجيل أو تفعيل متجرك؟</p>
-                  <div className="grid grid-cols-2 gap-2">
-                    <button
-                      type="button"
-                      onClick={() =>
-                        openWhatsApp({
-                          phone: "963951854257",
-                          message: "مرحباً إدارة المنصة، أحتاج مساعدة بخصوص تسجيل أو تفعيل حساب متجري 🏪",
-                          type: "regular"
-                        })
-                      }
-                      className="py-2 px-2 bg-[#25D366]/10 hover:bg-[#25D366]/20 text-[#128C7E] border border-[#25D366]/30 rounded-xl text-[11px] font-black transition-all flex items-center justify-center gap-1 cursor-pointer active:scale-95"
-                    >
-                      <MessageSquare className="w-3.5 h-3.5 text-[#25D366]" />
-                      <span>واتساب العادي 💬</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() =>
-                        openWhatsApp({
-                          phone: "963951854257",
-                          message: "مرحباً إدارة المنصة، أحتاج مساعدة بخصوص تسجيل أو تفعيل حساب متجري 🏪",
-                          type: "business"
-                        })
-                      }
-                      className="py-2 px-2 bg-[#075E54]/10 hover:bg-[#075E54]/20 text-[#075E54] border border-[#075E54]/30 rounded-xl text-[11px] font-black transition-all flex items-center justify-center gap-1 cursor-pointer active:scale-95"
-                    >
-                      <MessageCircle className="w-3.5 h-3.5 text-[#075E54]" />
-                      <span>واتساب الأعمال 💼</span>
-                    </button>
-                  </div>
-                </div>
-              </motion.div>
-            )}
-
-            {/* ========================================== */}
-            {/* TAB 3: DRIVER / CAPTAIN FORM               */}
-            {/* ========================================== */}
-            {role === "driver" && (
-              <motion.div
-                key="auth_driver_form"
-                initial={{ opacity: 0, y: 8 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -8 }}
-                transition={{ duration: 0.18, ease: "easeOut" }}
-                className="space-y-4"
-              >
-                {isReturningDriver && savedDriverUser ? (
-                  /* Fast PIN-only Login for Returning Captain */
-                  <form onSubmit={handleDriverSubmit} className="space-y-4">
-                    {/* Fixed Verified Driver Badge */}
-                    <div className="bg-gradient-to-br from-orange-50 to-amber-50/60 border border-orange-200/80 rounded-2xl p-3.5 space-y-2.5">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <div className="w-8 h-8 rounded-full bg-slate-900 text-orange-400 flex items-center justify-center shadow-xs">
-                            <Bike className="w-4 h-4" />
-                          </div>
-                          <div>
-                            <span className="text-[10px] font-extrabold text-orange-600 uppercase tracking-wider block">
-                              كابتن التوصيل المعتمد 🛵
-                            </span>
-                            <span className="text-sm font-black text-slate-900">
-                              {savedDriverName || "كابتن التوصيل"}
-                            </span>
-                          </div>
-                        </div>
-                        <span className="inline-flex items-center gap-1 text-[10px] font-black bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full">
-                          <CheckCircle2 className="w-3 h-3 text-emerald-600" />
-                          <span>مثبت</span>
-                        </span>
-                      </div>
-
-                      <div className="flex items-center justify-between text-xs pt-2 border-t border-orange-200/60 text-slate-600 font-bold">
-                        <span>📱 المعرف / الموبايل:</span>
-                        <span className="font-mono text-slate-900 font-black text-left" dir="ltr">
-                          {driverUser}
-                        </span>
-                      </div>
-                    </div>
-
-                    {/* Direct PIN Input */}
-                    <div className="space-y-1.5">
-                      <label className="text-xs font-black text-slate-800 flex items-center justify-between">
-                        <span>رمز المرور السري (PIN):</span>
-                        <span className="text-[10px] text-orange-600 font-bold">دخول مباشر 🔒</span>
-                      </label>
-                      <div className="relative">
-                        <input
-                          type={showDriverPin ? "text" : "password"}
-                          required
-                          autoFocus
-                          value={driverPin}
-                          onChange={(e) => setDriverPin(normalizeDigits(e.target.value))}
-                          placeholder="1111"
-                          className="w-full bg-white border-2 border-orange-500 focus:border-orange-600 focus:ring-2 focus:ring-orange-200 rounded-2xl py-3 px-10 text-center text-xl font-black tracking-widest outline-none text-slate-900 shadow-sm"
-                        />
-                        <button
-                          type="button"
-                          onClick={() => setShowDriverPin(!showDriverPin)}
-                          className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 text-xs cursor-pointer p-1"
-                        >
-                          {showDriverPin ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                        </button>
-                      </div>
-                    </div>
-
-                    <button
-                      type="submit"
-                      disabled={isAuthenticatingDriver}
-                      className="w-full bg-orange-500 hover:bg-orange-600 active:scale-98 text-white font-extrabold text-sm py-3.5 rounded-2xl shadow-lg shadow-orange-500/25 transition-all cursor-pointer text-center flex items-center justify-center gap-2 disabled:opacity-60"
-                    >
-                      {isAuthenticatingDriver ? (
-                        <>
-                          <RefreshCw className="w-4 h-4 animate-spin text-white" />
-                          <span>جارٍ التحقق...</span>
-                        </>
-                      ) : (
-                        <>
-                          <Bike className="w-4 h-4" />
-                          <span>دخول لوحة الكابتن واستلام الطلبات 🛵</span>
-                        </>
-                      )}
-                    </button>
-
-                    {/* Switch Captain Account */}
-                    <div className="text-center pt-1">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setIsReturningDriver(false);
-                          setDriverPin("");
-                          setErrorMsg("");
-                        }}
-                        className="text-xs text-slate-500 hover:text-orange-600 font-bold transition-colors cursor-pointer inline-flex items-center gap-1 py-1 px-2 rounded-lg hover:bg-slate-100"
-                      >
-                        <Edit3 className="w-3.5 h-3.5" />
-                        <span>الدخول بحساب كابتن آخر</span>
-                      </button>
-                    </div>
-                  </form>
-                ) : (
-                  /* Standard Captain Login Form */
-                  <form onSubmit={handleDriverSubmit} className="space-y-4">
-                    <div className="bg-orange-50 border border-orange-200 p-3 rounded-2xl space-y-1 text-slate-700 text-xs">
-                      <div className="flex items-center gap-2 font-black text-orange-700 text-xs">
-                        <Bike className="w-4 h-4 text-orange-600" />
-                        <span>تسجيل دخول كباتن التوصيل 🛵</span>
-                      </div>
-                      <p className="text-[11px] text-slate-600 leading-relaxed">
-                        أهلاً بك! يمكنك تسجيل الدخول بسهولة باستخدام <strong>رقم موبايلك</strong> أو <strong>اسمك</strong> مع رمز الـ PIN المعتمد (الافتراضي 1111).
-                      </p>
-                    </div>
-
-                    <div className="space-y-1.5">
-                      <label className="text-xs font-extrabold text-slate-700 block">
-                        رقم موبايل الكابتن أو الاسم أو اسم المستخدم:
-                      </label>
-                      <input
-                        type="text"
-                        required
-                        value={driverUser}
-                        onChange={(e) => setDriverUser(e.target.value)}
-                        placeholder="مثال: 0951854257 أو كابتن أحمد"
-                        className="w-full bg-slate-50 border border-slate-200 focus:border-orange-500 focus:bg-white rounded-2xl py-3 px-4 text-xs font-bold outline-none text-slate-800 transition-all text-right"
-                        dir="auto"
-                      />
-                      <p className="text-[10px] text-slate-500 font-semibold mt-0.5">
-                        💡 يمكنك كتابة رقم الموبايل (مثل 09xxxxxxxx) أو اسمك كما سجله المشرف.
-                      </p>
-                    </div>
-
-                    <div className="space-y-1.5">
-                      <label className="text-xs font-extrabold text-slate-700 flex items-center justify-between">
-                        <span>رمز المرور السري (PIN):</span>
-                        <span className="text-[10px] text-orange-600 font-bold">الافتراضي 1111</span>
-                      </label>
-                      <div className="relative">
-                        <input
-                          type={showDriverPin ? "text" : "password"}
-                          required
-                          value={driverPin}
-                          onChange={(e) => setDriverPin(normalizeDigits(e.target.value))}
-                          placeholder="1111"
-                          className="w-full bg-slate-50 border border-slate-200 focus:border-orange-500 focus:bg-white rounded-2xl py-3 px-10 text-center text-base font-black tracking-widest outline-none text-slate-900 transition-all font-mono"
-                        />
-                        <button
-                          type="button"
-                          onClick={() => setShowDriverPin(!showDriverPin)}
-                          className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 text-xs cursor-pointer p-1"
-                        >
-                          {showDriverPin ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                        </button>
-                      </div>
-                    </div>
-
-                    {/* Legal Agreement Checkbox for Driver */}
-                    <div className="bg-slate-50 border border-slate-200/90 p-3 rounded-2xl space-y-1 text-right">
-                      <label className="flex items-start gap-2.5 cursor-pointer select-none">
-                        <input
-                          type="checkbox"
-                          checked={driverAgreeTerms}
-                          onChange={(e) => setDriverAgreeTerms(e.target.checked)}
-                          className="mt-0.5 w-4 h-4 rounded text-orange-600 focus:ring-orange-500 border-slate-300 cursor-pointer shrink-0"
-                        />
-                        <span className="text-[11px] font-bold text-slate-700 leading-tight">
-                          أوافق وألتزم بـ{" "}
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.preventDefault();
-                              setTermsModalRole("driver");
-                              setShowTermsModal(true);
-                            }}
-                            className="text-orange-600 font-black underline hover:text-orange-700 cursor-pointer"
-                          >
-                            وثيقة شروط وقواعد كباتن التوصيل والعمل الحر 🛵
-                          </button>
-                        </span>
-                      </label>
-                    </div>
-
-                    <button
-                      type="submit"
-                      disabled={isAuthenticatingDriver}
-                      className="w-full bg-orange-500 hover:bg-orange-600 text-white font-extrabold text-sm py-3.5 rounded-2xl shadow-lg shadow-orange-500/25 active:scale-98 transition-all cursor-pointer text-center flex items-center justify-center gap-2 disabled:opacity-60"
-                    >
-                      {isAuthenticatingDriver ? (
-                        <>
-                          <RefreshCw className="w-4 h-4 animate-spin text-white" />
-                          <span>جارٍ التحقق وتحديث البيانات...</span>
-                        </>
-                      ) : (
-                        <>
-                          <Bike className="w-4 h-4" />
-                          <span>دخول وتثبيت حساب الكابتن 🛵</span>
-                        </>
-                      )}
-                    </button>
-
-                    {savedDriverUser && (
-                      <div className="text-center pt-1">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setIsReturningDriver(true);
-                            setDriverUser(savedDriverUser);
-                            setErrorMsg("");
-                          }}
-                          className="text-xs text-orange-600 font-bold hover:underline cursor-pointer"
-                        >
-                          العودة لحساب الكابتن المحفوظ ({savedDriverName || savedDriverUser}) ↩️
-                        </button>
-                      </div>
-                    )}
-                  </form>
-                )}
-
-                {/* Direct WhatsApp request for new drivers */}
-                <div className="text-center pt-2 border-t border-slate-100 space-y-2">
-                  <p className="text-[11px] text-slate-500 font-bold">كابتن جديد وترغب بالانضمام للأسطول؟</p>
-                  <div className="grid grid-cols-2 gap-2">
-                    <button
-                      type="button"
-                      onClick={() =>
-                        openWhatsApp({
-                          phone: "963951854257",
-                          message: "مرحباً، أرغب بالانضمام ككابتن توصيل في المنصة 🛵",
-                          type: "regular"
-                        })
-                      }
-                      className="py-2 px-2 bg-[#25D366] hover:bg-[#20ba56] text-white rounded-xl text-[11px] font-black transition-all flex items-center justify-center gap-1 shadow-xs cursor-pointer active:scale-95"
-                    >
-                      <MessageSquare className="w-3.5 h-3.5" />
-                      <span>واتساب العادي 💬</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() =>
-                        openWhatsApp({
-                          phone: "963951854257",
-                          message: "مرحباً، أرغب بالانضمام ككابتن توصيل في المنصة 🛵",
-                          type: "business"
-                        })
-                      }
-                      className="py-2 px-2 bg-[#075E54] hover:bg-[#054a43] text-white rounded-xl text-[11px] font-black transition-all flex items-center justify-center gap-1 shadow-xs cursor-pointer active:scale-95"
-                    >
-                      <MessageCircle className="w-3.5 h-3.5" />
-                      <span>واتساب الأعمال 💼</span>
-                    </button>
-                  </div>
-                </div>
-              </motion.div>
-            )}
-
-            {/* ========================================== */}
-            {/* TAB 4: STAFF & ADMIN FORM                  */}
-            {/* ========================================== */}
-            {role === "staff" && (
-              <motion.form
-                key="auth_staff_form"
-                initial={{ opacity: 0, y: 8 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -8 }}
-                transition={{ duration: 0.18, ease: "easeOut" }}
-                onSubmit={handleStaffSubmit}
-                className="space-y-4"
-              >
-                {/* Field 1: Phone number or Username */}
-                <div className="space-y-1.5">
-                  <label className="text-xs font-black text-slate-800 block">
-                    رقم هاتف الموظف أو اسم المستخدم:
-                  </label>
+              {/* Field 3: Password / PIN */}
+              <div className="space-y-1">
+                <label className="text-xs font-black text-slate-800 flex items-center justify-between">
+                  <span className="flex items-center gap-1">
+                    <Lock className="w-3.5 h-3.5 text-orange-500" />
+                    <span>كلمة المرور (الباسوورد) أو رمز PIN:</span>
+                    <span className="text-red-500">*</span>
+                  </span>
+                  <span className="text-[10px] text-slate-500 font-bold">الافتراضي 1234 للمتاجر، 1111 للكباتن</span>
+                </label>
+                <div className="relative">
                   <input
-                    type="text"
+                    type={showPassword ? "text" : "password"}
+                    required
+                    value={passwordInput}
+                    onChange={(e) => setPasswordInput(e.target.value)}
+                    placeholder="أدخل كلمة المرور أو رمز PIN..."
+                    className="w-full bg-slate-50 border border-slate-200 focus:border-orange-500 focus:bg-white rounded-2xl py-3 px-10 text-center text-sm font-black outline-none text-slate-900 transition-all font-mono tracking-widest"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 text-xs cursor-pointer p-1"
+                    title={showPassword ? "إخفاء" : "إظهار"}
+                  >
+                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
+              </div>
+
+              {/* Submit Button */}
+              <button
+                type="submit"
+                disabled={isAuthenticating}
+                className="w-full bg-gradient-to-r from-orange-500 via-amber-500 to-orange-500 hover:from-orange-600 hover:to-amber-600 active:scale-98 text-white font-black text-sm py-3.5 rounded-2xl shadow-lg shadow-orange-500/25 transition-all cursor-pointer text-center flex items-center justify-center gap-2 disabled:opacity-60"
+              >
+                {isAuthenticating ? (
+                  <>
+                    <RefreshCw className="w-4 h-4 animate-spin text-white" />
+                    <span>جارٍ التعرف على الحساب وتسجيل الدخول...</span>
+                  </>
+                ) : (
+                  <>
+                    <LogIn className="w-4 h-4" />
+                    <span>تسجيل الدخول والتعرف التلقائي 🚀</span>
+                  </>
+                )}
+              </button>
+
+              {/* Notice Banner */}
+              <div className="p-2.5 bg-orange-50/70 border border-orange-200/60 rounded-2xl text-[11px] text-slate-600 font-semibold leading-relaxed text-center">
+                💡 يتعرف التطبيق مباشرة على صفحتك: إذا كنت مسجل كـ <strong>متجر</strong> يفتح المتجر، كـ <strong>كابتن</strong> يفتح لوحة الكابتن، كـ <strong>إدارة</strong> يفتح الإدارة، وكـ <strong>زبون</strong> يفتح طلباتك.
+              </div>
+
+              {/* Dedicated Exclusive Quick PIN for Admin Only Button */}
+              <div className="pt-2 border-t border-slate-100 text-center">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setAuthMode("admin_quick_pin");
+                    setErrorMsg("");
+                    setSuccessMsg("");
+                  }}
+                  className="w-full py-2.5 px-3 bg-slate-900 hover:bg-slate-800 text-amber-300 rounded-2xl text-xs font-black transition-all flex items-center justify-center gap-2 cursor-pointer shadow-sm active:scale-98 border border-slate-700"
+                >
+                  <KeyRound className="w-4 h-4 text-amber-400" />
+                  <span>الدخول السريع للإدارة فقط (رمز PIN) 🛡️</span>
+                </button>
+                <p className="text-[10px] text-slate-400 font-bold mt-1">
+                  * خاص بإدارة المنصة والمدير العام حالياً للدخول المباشر برمز PIN
+                </p>
+              </div>
+            </form>
+          )}
+
+          {/* =============================================================== */}
+          {/* FORM 2: EXCLUSIVE ADMIN QUICK PIN ("الدخول السريع pin للادارة حاليا فقط") */}
+          {/* =============================================================== */}
+          {authMode === "admin_quick_pin" && (
+            <form onSubmit={handleAdminQuickPinSubmit} className="space-y-4">
+              <div className="bg-slate-900 text-white p-3.5 rounded-2xl border border-slate-800 space-y-1.5 text-center">
+                <div className="w-9 h-9 rounded-xl bg-amber-400/20 text-amber-300 flex items-center justify-center mx-auto border border-amber-400/30">
+                  <ShieldCheck className="w-5 h-5" />
+                </div>
+                <h3 className="text-xs font-black text-amber-300">
+                  بوابة الدخول السريع المخصصة للإدارة
+                </h3>
+                <p className="text-[10px] text-slate-300 leading-relaxed">
+                  أدخل رمز PIN السري للإدارة (4 أرقام) للدخول المباشر والفوري للوحة التحكم المركزية.
+                </p>
+              </div>
+
+              {/* PIN Input */}
+              <div className="space-y-1.5">
+                <label className="text-xs font-black text-slate-800 flex items-center justify-between">
+                  <span>رمز PIN السري للإدارة (4 أرقام):</span>
+                  <span className="text-[10px] text-orange-600 font-bold">الافتراضي 1234 🔒</span>
+                </label>
+                <div className="relative">
+                  <input
+                    type={showAdminPin ? "text" : "password"}
+                    maxLength={10}
                     required
                     autoFocus
-                    value={staffPhone}
-                    onChange={(e) => setStaffPhone(e.target.value)}
-                    placeholder="مثال: 0955123456"
-                    className="w-full bg-slate-50 border border-slate-200 focus:border-orange-500 focus:bg-white rounded-2xl py-3 px-4 text-xs font-bold outline-none text-slate-900 transition-all text-left"
-                    dir="ltr"
+                    value={adminQuickPin}
+                    onChange={(e) => setAdminQuickPin(e.target.value)}
+                    placeholder="••••"
+                    className="w-full bg-slate-50 border-2 border-slate-900 focus:border-orange-500 rounded-2xl py-3.5 px-10 text-center text-xl font-mono font-black tracking-[0.4em] outline-none text-slate-900 shadow-sm"
                   />
+                  <button
+                    type="button"
+                    onClick={() => setShowAdminPin(!showAdminPin)}
+                    className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 text-xs cursor-pointer p-1"
+                  >
+                    {showAdminPin ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
                 </div>
+              </div>
 
-                {/* Field 2: Password or PIN */}
-                <div className="space-y-1.5">
-                  <label className="text-xs font-black text-slate-800 flex items-center justify-between">
-                    <span>كلمة المرور (الباسوورد) أو رمز الـ PIN:</span>
-                    <span className="text-[10px] text-orange-600 font-bold">مشفر ومحمي 🔒</span>
+              <button
+                type="submit"
+                className="w-full bg-gradient-to-r from-slate-950 via-slate-900 to-slate-950 hover:from-slate-900 hover:to-slate-800 active:scale-98 text-white font-black text-xs sm:text-sm py-3.5 rounded-2xl shadow-lg shadow-slate-900/30 transition-all cursor-pointer flex items-center justify-center gap-2 border border-slate-700"
+              >
+                <ShieldCheck className="w-4 h-4 text-amber-400" />
+                <span>دخول لوحة إدارة المنصة والتحكم 🛡️</span>
+              </button>
+
+              <div className="text-center pt-1">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setAuthMode("login");
+                    setErrorMsg("");
+                    setSuccessMsg("");
+                  }}
+                  className="text-xs text-slate-500 hover:text-orange-600 font-bold transition-colors cursor-pointer inline-flex items-center gap-1"
+                >
+                  <ArrowRight className="w-3.5 h-3.5" />
+                  <span>الرجوع إلى تسجيل الدخول العام</span>
+                </button>
+              </div>
+            </form>
+          )}
+
+          {/* =============================================================== */}
+          {/* FORM 3: REGISTRATION (إنشاء حساب جديد)                          */}
+          {/* =============================================================== */}
+          {authMode === "register" && (
+            <form onSubmit={handleRegisterSubmit} className="space-y-3.5">
+              {/* Account Type Selector */}
+              <div className="space-y-1">
+                <label className="text-xs font-black text-slate-800 block">
+                  نوع الحساب المراد تسجيله:
+                </label>
+                <div className="grid grid-cols-3 gap-1.5 bg-slate-100 p-1 rounded-2xl border border-slate-200 text-center">
+                  <button
+                    type="button"
+                    onClick={() => setRegisterAccountType("customer")}
+                    className={`py-2 px-1 rounded-xl font-black text-[11px] transition-all flex items-center justify-center gap-1 cursor-pointer ${
+                      registerAccountType === "customer"
+                        ? "bg-white text-orange-600 shadow-xs"
+                        : "text-slate-600"
+                    }`}
+                  >
+                    <User className="w-3 h-3" />
+                    <span>زبون 🛍️</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setRegisterAccountType("store")}
+                    className={`py-2 px-1 rounded-xl font-black text-[11px] transition-all flex items-center justify-center gap-1 cursor-pointer ${
+                      registerAccountType === "store"
+                        ? "bg-white text-orange-600 shadow-xs"
+                        : "text-slate-600"
+                    }`}
+                  >
+                    <StoreIcon className="w-3 h-3" />
+                    <span>متجر 🏪</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setRegisterAccountType("driver")}
+                    className={`py-2 px-1 rounded-xl font-black text-[11px] transition-all flex items-center justify-center gap-1 cursor-pointer ${
+                      registerAccountType === "driver"
+                        ? "bg-white text-orange-600 shadow-xs"
+                        : "text-slate-600"
+                    }`}
+                  >
+                    <Bike className="w-3 h-3" />
+                    <span>كابتن 🛵</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Field 1: Full Name / Username */}
+              <div className="space-y-1">
+                <label className="text-xs font-black text-slate-800 flex items-center gap-1">
+                  <User className="w-3.5 h-3.5 text-orange-500" />
+                  <span>
+                    {registerAccountType === "store"
+                      ? "اسم المتجر أو النشاط التجاري:"
+                      : registerAccountType === "driver"
+                      ? "اسم الكابتن الثلاثي الكريم:"
+                      : "اسمك الكريم الكامل (اسم المستخدم):"}
+                  </span>
+                  <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={usernameInput}
+                  onChange={(e) => setUsernameInput(e.target.value)}
+                  placeholder={
+                    registerAccountType === "store"
+                      ? "مثال: مأكولات الشام، ألبسة الأناقة"
+                      : "مثال: أحمد العلي"
+                  }
+                  className="w-full bg-slate-50 border border-slate-200 focus:border-orange-500 focus:bg-white rounded-2xl py-3 px-3.5 text-xs font-bold outline-none text-slate-900 transition-all"
+                />
+              </div>
+
+              {/* If Store: Category Selector */}
+              {registerAccountType === "store" && (
+                <div className="space-y-1">
+                  <label className="text-xs font-black text-slate-800 block">
+                    تصنيف ونوع المتجر:
                   </label>
-                  <div className="relative">
-                    <input
-                      type={showPassword ? "text" : "password"}
-                      required
-                      disabled={isLocked}
-                      value={staffPassword}
-                      onChange={(e) => setStaffPassword(e.target.value)}
-                      placeholder="أدخل كلمة المرور أو رمز الـ PIN..."
-                      className="w-full bg-slate-50 border border-slate-200 focus:border-orange-500 focus:bg-white rounded-2xl py-3 px-10 text-center text-sm font-black outline-none text-slate-900 transition-all font-mono"
-                    />
+                  <select
+                    value={storeCategory}
+                    onChange={(e) => setStoreCategory(e.target.value)}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-2xl py-2.5 px-3 text-xs font-bold outline-none text-slate-900"
+                  >
+                    {storeCategories.map((cat) => (
+                      <option key={cat.id} value={cat.id}>
+                        {cat.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+              {/* Field 2: Phone number */}
+              <div className="space-y-1">
+                <label className="text-xs font-black text-slate-800 flex items-center gap-1">
+                  <Phone className="w-3.5 h-3.5 text-orange-500" />
+                  <span>رقم الموبايل للتواصل والتوصيل:</span>
+                  <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="tel"
+                  required
+                  value={phoneInput}
+                  onChange={(e) => setPhoneInput(e.target.value)}
+                  placeholder="0951854257"
+                  className="w-full bg-slate-50 border border-slate-200 focus:border-orange-500 focus:bg-white rounded-2xl py-3 px-3.5 text-xs sm:text-sm font-mono font-black outline-none text-slate-900 transition-all text-left"
+                  dir="ltr"
+                />
+              </div>
+
+              {/* Field 3: Password / PIN */}
+              <div className="space-y-1">
+                <label className="text-xs font-black text-slate-800 flex items-center justify-between">
+                  <span className="flex items-center gap-1">
+                    <Lock className="w-3.5 h-3.5 text-orange-500" />
+                    <span>كلمة المرور (الباسوورد) أو رمز PIN السري:</span>
+                    <span className="text-red-500">*</span>
+                  </span>
+                  <span className="text-[10px] text-orange-600 font-bold">4 أرقام أو حروف 🔒</span>
+                </label>
+                <div className="relative">
+                  <input
+                    type={showPassword ? "text" : "password"}
+                    required
+                    value={passwordInput}
+                    onChange={(e) => setPasswordInput(e.target.value)}
+                    placeholder="••••"
+                    className="w-full bg-slate-50 border border-slate-200 focus:border-orange-500 focus:bg-white rounded-2xl py-3 px-10 text-center text-sm font-black outline-none text-slate-900 transition-all font-mono tracking-widest"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 text-xs cursor-pointer p-1"
+                  >
+                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
+              </div>
+
+              {/* Legal Terms Checkbox */}
+              <div className="bg-slate-50 border border-slate-200 p-3 rounded-2xl space-y-1 text-right">
+                <label className="flex items-start gap-2.5 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={agreeTerms}
+                    onChange={(e) => setAgreeTerms(e.target.checked)}
+                    className="mt-0.5 w-4 h-4 rounded text-orange-600 focus:ring-orange-500 border-slate-300 cursor-pointer shrink-0"
+                  />
+                  <span className="text-[11px] font-bold text-slate-700 leading-tight">
+                    أوافق وألتزم بـ{" "}
                     <button
                       type="button"
-                      onClick={() => setShowPassword(!showPassword)}
-                      className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 text-xs cursor-pointer p-1"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        setTermsModalRole(
+                          registerAccountType === "store"
+                            ? "store_owner"
+                            : registerAccountType === "driver"
+                            ? "driver"
+                            : "customer"
+                        );
+                        setShowTermsModal(true);
+                      }}
+                      className="text-orange-600 font-black underline hover:text-orange-700 cursor-pointer"
                     >
-                      {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      وثيقة الشروط والمسؤوليات القانونية ⚖️
                     </button>
-                  </div>
-                </div>
+                  </span>
+                </label>
+              </div>
 
-                {/* Submit Button */}
-                <button
-                  type="submit"
-                  disabled={isLocked}
-                  className={`w-full ${
-                    isLocked ? "bg-slate-400 cursor-not-allowed" : "bg-gradient-to-r from-slate-900 to-slate-800 hover:from-orange-600 hover:to-orange-500 active:scale-98"
-                  } text-white font-extrabold text-sm py-3.5 rounded-2xl transition-all shadow-md cursor-pointer flex items-center justify-center gap-2`}
-                >
-                  <ShieldCheck className="w-4 h-4 text-amber-400" />
-                  <span>{isLocked ? "البوابة مقفلة مؤقتاً..." : "تسجيل دخول الموظف 👔"}</span>
-                </button>
-              </motion.form>
-            )}
-          </AnimatePresence>
+              {/* Submit Button */}
+              <button
+                type="submit"
+                className="w-full bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 active:scale-98 text-white font-black text-xs sm:text-sm py-3.5 rounded-2xl shadow-lg shadow-orange-500/25 transition-all cursor-pointer text-center flex items-center justify-center gap-2"
+              >
+                <UserPlus className="w-4 h-4" />
+                <span>
+                  {registerAccountType === "store"
+                    ? "تسجيل المتجر والبدء بإعداده 🚀"
+                    : registerAccountType === "driver"
+                    ? "تسجيل الكابتن والدخول للوحة العمل 🛵"
+                    : "تأكيد وتثبيت الحساب والدخول 🛍️"}
+                </span>
+              </button>
+            </form>
+          )}
 
-          {/* Security Footer Badge */}
-          <div className="bg-slate-50 p-2.5 rounded-2xl border border-slate-100 flex items-center justify-center gap-1.5 text-[11px] text-slate-500 font-bold">
+          {/* Direct WhatsApp Assistance for Stores & Drivers */}
+          <div className="text-center pt-2 border-t border-slate-100 space-y-1.5">
+            <p className="text-[11px] text-slate-500 font-bold">تحتاج لمساعدة الإدارة أو تفعيل حساب؟</p>
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() =>
+                  openWhatsApp({
+                    phone: "963951854257",
+                    message: "مرحباً إدارة المنصة، أحتاج مساعدة في تسجيل الدخول أو تفعيل الحساب 💬",
+                    type: "regular"
+                  })
+                }
+                className="py-2 px-2 bg-[#25D366]/10 hover:bg-[#25D366]/20 text-[#128C7E] border border-[#25D366]/30 rounded-xl text-[11px] font-black transition-all flex items-center justify-center gap-1 cursor-pointer active:scale-95"
+              >
+                <MessageSquare className="w-3.5 h-3.5 text-[#25D366]" />
+                <span>واتساب العادي 💬</span>
+              </button>
+              <button
+                type="button"
+                onClick={() =>
+                  openWhatsApp({
+                    phone: "963951854257",
+                    message: "مرحباً إدارة المنصة، أحتاج مساعدة في تسجيل الدخول أو تفعيل الحساب 💼",
+                    type: "business"
+                  })
+                }
+                className="py-2 px-2 bg-[#075E54]/10 hover:bg-[#075E54]/20 text-[#075E54] border border-[#075E54]/30 rounded-xl text-[11px] font-black transition-all flex items-center justify-center gap-1 cursor-pointer active:scale-95"
+              >
+                <MessageCircle className="w-3.5 h-3.5 text-[#075E54]" />
+                <span>واتساب الأعمال 💼</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Security & Offline Protection Badge */}
+          <div className="bg-slate-50 p-2.5 rounded-2xl border border-slate-100 flex items-center justify-center gap-1.5 text-[10px] text-slate-500 font-bold">
             <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
-            <span>اتصال مشفر ومحمي - تثبيت الهوية بالرمز السري فقط</span>
+            <span>اتصال مشفر ومحمي - حفظ وتثبيت تلقائي لبياناتك محلياً وسحابياً</span>
           </div>
         </div>
       </main>
@@ -1859,9 +1400,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           role={termsModalRole}
           showAcceptButton={true}
           onAccept={() => {
-            if (termsModalRole === "customer") setCustomerAgreeTerms(true);
-            if (termsModalRole === "store_owner") setStoreAgreeTerms(true);
-            if (termsModalRole === "driver") setDriverAgreeTerms(true);
+            setAgreeTerms(true);
             setShowTermsModal(false);
           }}
         />
