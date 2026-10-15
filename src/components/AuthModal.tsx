@@ -70,8 +70,8 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   categories: propCategories = [],
   onOpenManagerSecretModal
 }) => {
-  // Main view mode: "login" (تسجيل الدخول) | "register" (إنشاء حساب جديد) | "admin_quick_pin" (الدخول السريع pin للإدارة فقط)
-  const [authMode, setAuthMode] = useState<"login" | "register" | "admin_quick_pin">("login");
+  // Main view mode: "login" (تسجيل الدخول) | "register" (إنشاء حساب جديد)
+  const [authMode, setAuthMode] = useState<"login" | "register">("login");
 
   // Common Unified Input States
   // 1. اسم المستخدم (Username / Full Name)
@@ -100,10 +100,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   // 3. كلمة المرور / الباسوورد (Password / Secret PIN)
   const [passwordInput, setPasswordInput] = useState("");
   const [showPassword, setShowPassword] = useState(false);
-
-  // Dedicated Admin Quick PIN State ("الدخول السريع pin للادارة حاليا فقط")
-  const [adminQuickPin, setAdminQuickPin] = useState("");
-  const [showAdminPin, setShowAdminPin] = useState(false);
 
   // New Registration Extra State (when in "register" mode)
   const [registerAccountType, setRegisterAccountType] = useState<"customer" | "store" | "driver">("customer");
@@ -218,14 +214,12 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       if (onOpenManagerSecretModal) {
         if (onClose) onClose();
         onOpenManagerSecretModal();
-      } else {
-        setAuthMode("admin_quick_pin");
       }
     }
   };
 
   // =========================================================================
-  // 1. SMART UNIFIED LOGIN HANDLER (تسجيل الدخول والتعرف التلقائي الذكي)
+  // 1. SMART UNIFIED LOGIN HANDLER
   // =========================================================================
   const handleUnifiedLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -237,20 +231,53 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     const userEntered = usernameInput.trim();
     const passEntered = normalizeDigits(passwordInput.trim());
 
-    if (!phoneRaw && !userEntered) {
-      setErrorMsg("الرجاء إدخال رقم التلفون أو اسم المستخدم للمتابعة.");
+    if (!passEntered) {
+      setErrorMsg("الرجاء إدخال كلمة المرور (الباسوورد).");
       return;
     }
 
-    if (!passEntered) {
-      setErrorMsg("الرجاء إدخال كلمة المرور (الباسوورد) أو رمز PIN السري.");
+    const masterAdminPassword = localStorage.getItem("tw_admin_secure_password") || "Admin@Tawseel2026#";
+    const staffMembers = getAllStaffMembers();
+    const managerStaff = staffMembers.find((s) => s.role === "manager") || staffMembers[0];
+
+    // Direct Admin PIN check if phone & username are empty
+    if (!phoneRaw && !userEntered) {
+      const isPinMatch = (
+        passEntered === "1234" ||
+        (managerStaff && passEntered === managerStaff.pin) ||
+        passEntered === masterAdminPassword ||
+        passwordInput.trim() === masterAdminPassword ||
+        staffMembers.some((s) => s.pin === passEntered)
+      );
+      if (isPinMatch) {
+        setIsAuthenticating(false);
+        setIsSuccess(true);
+        setSuccessMsg("🛡️ أهلاً بك. جارٍ فتح لوحة الإدارة...");
+        const activeStaff = staffMembers.find((s) => s.pin === passEntered) || managerStaff;
+        localStorage.setItem("tw_saved_staff_phone", activeStaff?.phone || "0991234567");
+        localStorage.setItem("tw_active_staff_id", activeStaff?.id || "staff_1");
+        localStorage.setItem("tw_staff_role", activeStaff?.role || "manager");
+        setTimeout(() => {
+          onRegister(
+            {
+              name: activeStaff?.name || "المدير العام",
+              phone: activeStaff?.phone || "0991234567",
+              pin: passEntered,
+              staffId: activeStaff?.id || "staff_1",
+              role: activeStaff?.role || "manager",
+              permissions: activeStaff?.permissions
+            },
+            "admin"
+          );
+        }, 400);
+        return;
+      }
+
+      setErrorMsg("الرجاء إدخال رقم التلفون للمتابعة.");
       return;
     }
 
     setIsAuthenticating(true);
-
-    const masterAdminPassword = localStorage.getItem("tw_admin_secure_password") || "Admin@Tawseel2026#";
-    const staffMembers = getAllStaffMembers();
 
     // -----------------------------------------------------------------------
     // A. فحص الإدارة / المدير العام / الكادر الإداري (Staff / Admin Recognition)
@@ -587,62 +614,11 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     }
 
     setIsAuthenticating(false);
-    setErrorMsg("⛔ لم يتم العثور على أي حساب مسجل بهذا الرقم أو الاسم! يمكنك الضغط على 'إنشاء حساب جديد' بالأسفل للتسجيل فوراً.");
+    setErrorMsg("⛔ لم يتم العثور على أي حساب مسجل بهذا الرقم أو الاسم! يمكنك الانتقال إلى 'إنشاء حساب جديد' للتسجيل.");
   };
 
   // =========================================================================
-  // 2. DEDICATED QUICK PIN LOGIN FOR ADMIN ONLY ("الدخول السريع pin للادارة حاليا فقط")
-  // =========================================================================
-  const handleAdminQuickPinSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    setErrorMsg("");
-    setSuccessMsg("");
-
-    const pinEntered = normalizeDigits(adminQuickPin.trim());
-    if (!pinEntered) {
-      setErrorMsg("الرجاء إدخال رمز PIN السري للإدارة المكون من 4 أرقام.");
-      return;
-    }
-
-    const masterAdminPassword = localStorage.getItem("tw_admin_secure_password") || "Admin@Tawseel2026#";
-    const staffMembers = getAllStaffMembers();
-    const managerStaff = staffMembers.find((s) => s.role === "manager") || staffMembers[0];
-
-    const isMatch =
-      pinEntered === "1234" ||
-      pinEntered === managerStaff?.pin ||
-      pinEntered === masterAdminPassword ||
-      staffMembers.some((s) => s.pin === pinEntered);
-
-    if (isMatch) {
-      setIsSuccess(true);
-      setSuccessMsg("⚡ تم التحقق من رمز PIN للإدارة بنجاح! جارٍ تحويلك للوحة الإدارة والتحكم...");
-
-      const activeStaff = staffMembers.find((s) => s.pin === pinEntered) || managerStaff;
-      localStorage.setItem("tw_saved_staff_phone", activeStaff.phone);
-      localStorage.setItem("tw_active_staff_id", activeStaff.id);
-      localStorage.setItem("tw_staff_role", activeStaff.role);
-
-      setTimeout(() => {
-        onRegister(
-          {
-            name: activeStaff.name,
-            phone: activeStaff.phone,
-            pin: pinEntered,
-            staffId: activeStaff.id,
-            role: activeStaff.role,
-            permissions: activeStaff.permissions
-          },
-          "admin"
-        );
-      }, 400);
-    } else {
-      setErrorMsg("⛔ رمز PIN للإدارة غير صحيح! يرجى التأكد من الرمز (الافتراضي: 1234).");
-    }
-  };
-
-  // =========================================================================
-  // 3. NEW REGISTRATION SUBMIT HANDLER (إنشاء حساب جديد موحد)
+  // 2. NEW REGISTRATION SUBMIT HANDLER (إنشاء حساب جديد)
   // =========================================================================
   const handleRegisterSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -840,11 +816,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           <div>
             <h1 className="text-sm font-black tracking-tight text-white flex items-center gap-1.5">
               <span>تطبيق توصيل</span>
-              <span className="text-[10px] bg-orange-500/30 text-orange-200 border border-orange-400/40 px-1.5 py-0.2 rounded-md">
-                ذكي وموحد
-              </span>
             </h1>
-            <p className="text-[10px] text-slate-300 font-medium">تسجيل الدخول والتعرف المباشر على الحساب</p>
           </div>
         </div>
 
@@ -888,20 +860,11 @@ export const AuthModal: React.FC<AuthModalProps> = ({
               onClick={handleSecretIconClick}
               className="w-13 h-13 bg-gradient-to-tr from-orange-500 to-amber-500 text-white rounded-2xl mx-auto flex items-center justify-center shadow-lg shadow-orange-500/25 text-2xl cursor-pointer"
             >
-              {authMode === "admin_quick_pin" ? "🛡️" : authMode === "register" ? "✨" : "🔑"}
+              {authMode === "register" ? "✨" : "🔑"}
             </div>
             <h2 className="text-lg sm:text-xl font-black text-slate-900 tracking-tight">
-              {authMode === "admin_quick_pin"
-                ? "الدخول السريع للإدارة (رمز PIN) 🛡️"
-                : authMode === "register"
-                ? "إنشاء حساب جديد في توصيل ✨"
-                : "تسجيل الدخول الذكي 🛵"}
+              {authMode === "register" ? "إنشاء حساب جديد ✨" : "تسجيل الدخول"}
             </h2>
-            <p className="text-xs text-slate-500 font-medium">
-              {authMode === "admin_quick_pin"
-                ? "خاص بالمدير العام وكادر الإدارة فقط للدخول الفوري"
-                : "أدخل اسم المستخدم ورقم التلفون والباسوورد - يتعرف التطبيق تلقائياً على حسابك (متجر، كابتن، إدارة، زبون)"}
-            </p>
           </div>
 
           {/* Mode Switcher Tabs */}
@@ -957,7 +920,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           )}
 
           {/* =============================================================== */}
-          {/* FORM 1: UNIFIED SMART LOGIN (تسجيل الدخول الذكي)               */}
+          {/* FORM 1: LOGIN (تسجيل الدخول)                                    */}
           {/* =============================================================== */}
           {authMode === "login" && (
             <form onSubmit={handleUnifiedLogin} className="space-y-3.5">
@@ -968,26 +931,23 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                     <User className="w-3.5 h-3.5 text-orange-500" />
                     <span>اسم المستخدم:</span>
                   </span>
-                  <span className="text-[10px] text-slate-400 font-semibold">(اختياري / للتحية والتعرف)</span>
+                  <span className="text-[10px] text-slate-400 font-semibold">(اختياري)</span>
                 </label>
                 <input
                   type="text"
                   value={usernameInput}
                   onChange={(e) => setUsernameInput(e.target.value)}
-                  placeholder="مثال: أحمد العلي أو اسم المتجر أو الكابتن"
+                  placeholder="اسم المستخدم أو الاسم الكامل"
                   className="w-full bg-slate-50 border border-slate-200 focus:border-orange-500 focus:bg-white rounded-2xl py-3 px-3.5 text-xs font-bold outline-none text-slate-900 transition-all"
                 />
               </div>
 
               {/* Field 2: Phone number */}
               <div className="space-y-1">
-                <label className="text-xs font-black text-slate-800 flex items-center justify-between">
-                  <span className="flex items-center gap-1">
-                    <Phone className="w-3.5 h-3.5 text-orange-500" />
-                    <span>رقم التلفون (الموبايل):</span>
-                    <span className="text-red-500">*</span>
-                  </span>
-                  <span className="text-[10px] text-orange-600 font-bold">المعرف الأساسي للحساب 📱</span>
+                <label className="text-xs font-black text-slate-800 flex items-center gap-1">
+                  <Phone className="w-3.5 h-3.5 text-orange-500" />
+                  <span>رقم التلفون:</span>
+                  <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="tel"
@@ -995,7 +955,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                   autoFocus
                   value={phoneInput}
                   onChange={(e) => setPhoneInput(e.target.value)}
-                  placeholder="09xxxxxxxx (مثال: 0951854257)"
+                  placeholder="09xxxxxxxx"
                   className="w-full bg-slate-50 border border-slate-200 focus:border-orange-500 focus:bg-white rounded-2xl py-3 px-3.5 text-xs sm:text-sm font-mono font-black outline-none text-slate-900 transition-all text-left"
                   dir="ltr"
                 />
@@ -1003,13 +963,10 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
               {/* Field 3: Password / PIN */}
               <div className="space-y-1">
-                <label className="text-xs font-black text-slate-800 flex items-center justify-between">
-                  <span className="flex items-center gap-1">
-                    <Lock className="w-3.5 h-3.5 text-orange-500" />
-                    <span>كلمة المرور (الباسوورد) أو رمز PIN:</span>
-                    <span className="text-red-500">*</span>
-                  </span>
-                  <span className="text-[10px] text-slate-500 font-bold">الافتراضي 1234 للمتاجر، 1111 للكباتن</span>
+                <label className="text-xs font-black text-slate-800 flex items-center gap-1">
+                  <Lock className="w-3.5 h-3.5 text-orange-500" />
+                  <span>كلمة المرور / الباسوورد:</span>
+                  <span className="text-red-500">*</span>
                 </label>
                 <div className="relative">
                   <input
@@ -1017,7 +974,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                     required
                     value={passwordInput}
                     onChange={(e) => setPasswordInput(e.target.value)}
-                    placeholder="أدخل كلمة المرور أو رمز PIN..."
+                    placeholder="كلمة المرور..."
                     className="w-full bg-slate-50 border border-slate-200 focus:border-orange-500 focus:bg-white rounded-2xl py-3 px-10 text-center text-sm font-black outline-none text-slate-900 transition-all font-mono tracking-widest"
                   />
                   <button
@@ -1040,113 +997,20 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                 {isAuthenticating ? (
                   <>
                     <RefreshCw className="w-4 h-4 animate-spin text-white" />
-                    <span>جارٍ التعرف على الحساب وتسجيل الدخول...</span>
+                    <span>جارٍ تسجيل الدخول...</span>
                   </>
                 ) : (
                   <>
                     <LogIn className="w-4 h-4" />
-                    <span>تسجيل الدخول والتعرف التلقائي 🚀</span>
+                    <span>تسجيل الدخول</span>
                   </>
                 )}
               </button>
-
-              {/* Notice Banner */}
-              <div className="p-2.5 bg-orange-50/70 border border-orange-200/60 rounded-2xl text-[11px] text-slate-600 font-semibold leading-relaxed text-center">
-                💡 يتعرف التطبيق مباشرة على صفحتك: إذا كنت مسجل كـ <strong>متجر</strong> يفتح المتجر، كـ <strong>كابتن</strong> يفتح لوحة الكابتن، كـ <strong>إدارة</strong> يفتح الإدارة، وكـ <strong>زبون</strong> يفتح طلباتك.
-              </div>
-
-              {/* Dedicated Exclusive Quick PIN for Admin Only Button */}
-              <div className="pt-2 border-t border-slate-100 text-center">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setAuthMode("admin_quick_pin");
-                    setErrorMsg("");
-                    setSuccessMsg("");
-                  }}
-                  className="w-full py-2.5 px-3 bg-slate-900 hover:bg-slate-800 text-amber-300 rounded-2xl text-xs font-black transition-all flex items-center justify-center gap-2 cursor-pointer shadow-sm active:scale-98 border border-slate-700"
-                >
-                  <KeyRound className="w-4 h-4 text-amber-400" />
-                  <span>الدخول السريع للإدارة فقط (رمز PIN) 🛡️</span>
-                </button>
-                <p className="text-[10px] text-slate-400 font-bold mt-1">
-                  * خاص بإدارة المنصة والمدير العام حالياً للدخول المباشر برمز PIN
-                </p>
-              </div>
             </form>
           )}
 
           {/* =============================================================== */}
-          {/* FORM 2: EXCLUSIVE ADMIN QUICK PIN ("الدخول السريع pin للادارة حاليا فقط") */}
-          {/* =============================================================== */}
-          {authMode === "admin_quick_pin" && (
-            <form onSubmit={handleAdminQuickPinSubmit} className="space-y-4">
-              <div className="bg-slate-900 text-white p-3.5 rounded-2xl border border-slate-800 space-y-1.5 text-center">
-                <div className="w-9 h-9 rounded-xl bg-amber-400/20 text-amber-300 flex items-center justify-center mx-auto border border-amber-400/30">
-                  <ShieldCheck className="w-5 h-5" />
-                </div>
-                <h3 className="text-xs font-black text-amber-300">
-                  بوابة الدخول السريع المخصصة للإدارة
-                </h3>
-                <p className="text-[10px] text-slate-300 leading-relaxed">
-                  أدخل رمز PIN السري للإدارة (4 أرقام) للدخول المباشر والفوري للوحة التحكم المركزية.
-                </p>
-              </div>
-
-              {/* PIN Input */}
-              <div className="space-y-1.5">
-                <label className="text-xs font-black text-slate-800 flex items-center justify-between">
-                  <span>رمز PIN السري للإدارة (4 أرقام):</span>
-                  <span className="text-[10px] text-orange-600 font-bold">الافتراضي 1234 🔒</span>
-                </label>
-                <div className="relative">
-                  <input
-                    type={showAdminPin ? "text" : "password"}
-                    maxLength={10}
-                    required
-                    autoFocus
-                    value={adminQuickPin}
-                    onChange={(e) => setAdminQuickPin(e.target.value)}
-                    placeholder="••••"
-                    className="w-full bg-slate-50 border-2 border-slate-900 focus:border-orange-500 rounded-2xl py-3.5 px-10 text-center text-xl font-mono font-black tracking-[0.4em] outline-none text-slate-900 shadow-sm"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowAdminPin(!showAdminPin)}
-                    className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 text-xs cursor-pointer p-1"
-                  >
-                    {showAdminPin ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                  </button>
-                </div>
-              </div>
-
-              <button
-                type="submit"
-                className="w-full bg-gradient-to-r from-slate-950 via-slate-900 to-slate-950 hover:from-slate-900 hover:to-slate-800 active:scale-98 text-white font-black text-xs sm:text-sm py-3.5 rounded-2xl shadow-lg shadow-slate-900/30 transition-all cursor-pointer flex items-center justify-center gap-2 border border-slate-700"
-              >
-                <ShieldCheck className="w-4 h-4 text-amber-400" />
-                <span>دخول لوحة إدارة المنصة والتحكم 🛡️</span>
-              </button>
-
-              <div className="text-center pt-1">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setAuthMode("login");
-                    setErrorMsg("");
-                    setSuccessMsg("");
-                  }}
-                  className="text-xs text-slate-500 hover:text-orange-600 font-bold transition-colors cursor-pointer inline-flex items-center gap-1"
-                >
-                  <ArrowRight className="w-3.5 h-3.5" />
-                  <span>الرجوع إلى تسجيل الدخول العام</span>
-                </button>
-              </div>
-            </form>
-          )}
-
-          {/* =============================================================== */}
-          {/* FORM 3: REGISTRATION (إنشاء حساب جديد)                          */}
+          {/* FORM 2: REGISTRATION (إنشاء حساب جديد)                          */}
           {/* =============================================================== */}
           {authMode === "register" && (
             <form onSubmit={handleRegisterSubmit} className="space-y-3.5">
