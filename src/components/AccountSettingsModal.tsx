@@ -26,11 +26,13 @@ import {
   FileText,
   Camera,
   Trash2,
-  Image as ImageIcon
+  Image as ImageIcon,
+  SlidersHorizontal
 } from "lucide-react";
 import { UserProfile, Store, DriverMember, StaffMember, AppSettings } from "../types";
 import { TermsAgreementModal } from "./TermsAgreementModal";
 import { ImageUploader } from "./ImageUploader";
+import { ToolbarReorderModal } from "./ToolbarReorderModal";
 
 interface AccountSettingsModalProps {
   isOpen: boolean;
@@ -92,6 +94,7 @@ export const AccountSettingsModal: React.FC<AccountSettingsModalProps> = ({
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+  const [showToolbarReorderModal, setShowToolbarReorderModal] = useState(false);
 
   // Sync state whenever modal opens or profile changes
   useEffect(() => {
@@ -1023,21 +1026,25 @@ export const AccountSettingsModal: React.FC<AccountSettingsModalProps> = ({
               )}
             </div>
 
-            {/* Quick in-app refresh & data sync */}
+            {/* Toolbar Customization & Reordering Button */}
             <div className="pt-2 border-t border-slate-100">
               <button
                 type="button"
-                onClick={() => {
-                  window.dispatchEvent(new CustomEvent("tw_stores_updated"));
-                  window.dispatchEvent(new CustomEvent("tw_products_updated"));
-                  window.dispatchEvent(new CustomEvent("tw_orders_updated"));
-                  window.location.reload();
-                }}
-                className="w-full py-2.5 px-3 bg-orange-50 hover:bg-orange-100 text-orange-950 border border-orange-200/90 rounded-2xl text-xs font-black transition-all flex items-center justify-center gap-2 cursor-pointer active:scale-98"
-                title="تحديث التطبيق والبيانات من الداخل"
+                onClick={() => setShowToolbarReorderModal(true)}
+                className="w-full py-3 px-3.5 bg-gradient-to-r from-slate-900 via-slate-850 to-slate-900 hover:from-slate-850 hover:to-slate-800 text-white rounded-2xl text-xs sm:text-sm font-black transition-all flex items-center justify-between gap-2 cursor-pointer shadow-md active:scale-98 border border-slate-700"
               >
-                <RefreshCw className="w-3.5 h-3.5 text-orange-600" />
-                <span>تحديث التطبيق والبيانات فورا 🔄</span>
+                <div className="flex items-center gap-2.5">
+                  <div className="w-8 h-8 rounded-xl bg-orange-500/20 text-orange-400 flex items-center justify-center border border-orange-500/30 shrink-0">
+                    <SlidersHorizontal className="w-4 h-4" />
+                  </div>
+                  <div className="text-right">
+                    <span className="block font-black text-white text-xs sm:text-sm">تخصيص وترتيب شريط الأدوات 🎛️</span>
+                    <span className="text-[10px] text-slate-300 font-normal">وضع الأيقونة الأكثر أهمية لك في البداية</span>
+                  </div>
+                </div>
+                <span className="text-amber-300 text-xs font-bold bg-amber-400/15 px-2.5 py-1 rounded-xl border border-amber-400/30 whitespace-nowrap">
+                  ترتيب ↕️
+                </span>
               </button>
             </div>
 
@@ -1105,6 +1112,16 @@ export const AccountSettingsModal: React.FC<AccountSettingsModalProps> = ({
           onClose={() => setShowTermsModal(false)}
           role={userRole}
           showAcceptButton={false}
+        />
+      )}
+
+      {/* Toolbar & Navigation Reorder Modal */}
+      {showToolbarReorderModal && (
+        <ToolbarReorderModal
+          isOpen={showToolbarReorderModal}
+          onClose={() => setShowToolbarReorderModal(false)}
+          userRole={userRole}
+          initialTab={userRole === "admin" ? "bottom_nav" : "bottom_nav"}
         />
       )}
     </div>

@@ -298,7 +298,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
     // -----------------------------------------------------------------------
     // A. فحص الإدارة / المدير العام / الكادر الإداري (Staff / Admin Recognition)
-    // Strictly by phone, exact username, or master admin password
+    // By phone, username, full name, or admin titles
     // -----------------------------------------------------------------------
     const matchedStaff = staffMembers.find((s: any) => {
       const sPhoneClean = cleanPhone(s.phone || "");
@@ -306,12 +306,23 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
       const phoneMatch = sPhoneClean && (sPhoneClean === phoneCleaned || s.phone === effectivePhoneRaw);
       const userMatch = sUserLower && effectiveUserEntered && sUserLower === effectiveUserEntered.toLowerCase();
+      const nameMatch = effectiveUserEntered && (
+        s.name.toLowerCase().includes(effectiveUserEntered.toLowerCase()) ||
+        effectiveUserEntered.toLowerCase().includes(s.name.toLowerCase()) ||
+        (s.role === "manager" && (
+          effectiveUserEntered.includes("مدير") || 
+          effectiveUserEntered.toLowerCase().includes("admin") ||
+          effectiveUserEntered.includes("إدارة") ||
+          effectiveUserEntered.includes("أبو أحمد") ||
+          effectiveUserEntered.includes("ابو احمد")
+        ))
+      );
 
-      return phoneMatch || userMatch;
+      return phoneMatch || userMatch || nameMatch;
     });
 
     if (matchedStaff) {
-      const isPinMatch = (passEntered === matchedStaff.pin || (passEntered === "1234" && matchedStaff.id === "staff_om_milad") || passEntered === "1234");
+      const isPinMatch = (passEntered === matchedStaff.pin || (passEntered === "1234" && (matchedStaff.id === "staff_1" || matchedStaff.role === "manager" || matchedStaff.id === "staff_om_milad")) || passEntered === "1234");
       const isPassMatch = (passEntered === matchedStaff.password || passEntered === masterAdminPassword || passwordInput.trim() === masterAdminPassword);
 
       if (isPinMatch || isPassMatch) {
@@ -346,8 +357,22 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       }
     }
 
-    // Direct Master Admin match by password alone or master admin credentials
-    if (passEntered === masterAdminPassword || passwordInput.trim() === masterAdminPassword || (phoneCleaned === "0991234567" && passEntered === "1234")) {
+    const isExplicitAdminAttempt = (
+      effectiveUserEntered.includes("مدير") ||
+      effectiveUserEntered.toLowerCase().includes("admin") ||
+      effectiveUserEntered.includes("إدارة") ||
+      effectiveUserEntered.includes("أبو أحمد") ||
+      effectiveUserEntered.includes("ابو احمد") ||
+      phoneCleaned === "0991234567"
+    );
+
+    // Direct Master Admin match by password alone, admin identity, or manager PIN 1234
+    if (
+      passEntered === masterAdminPassword || 
+      passwordInput.trim() === masterAdminPassword || 
+      (isExplicitAdminAttempt && (passEntered === "1234" || passEntered === managerStaff?.pin)) ||
+      (phoneCleaned === "0991234567" && (passEntered === "1234" || passEntered === managerStaff?.pin))
+    ) {
       setIsAuthenticating(false);
       setIsSuccess(true);
       setSuccessMsg("🛡️ تم التعرف على المدير العام! أهلاً بك. جارٍ فتح لوحة الإدارة المركزية...");

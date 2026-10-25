@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { motion } from "motion/react";
 import { 
   Home, 
@@ -9,16 +9,11 @@ import {
   Package, 
   Archive, 
   Bike, 
-  Layers, 
-  BarChart3, 
   ShieldCheck, 
-  Users,
-  Settings,
-  Flame,
-  CheckCircle2,
-  FileText,
-  Wallet
+  Wallet,
+  SlidersHorizontal
 } from "lucide-react";
+import { ToolbarReorderModal, DEFAULT_BOTTOM_NAV_ITEMS } from "./ToolbarReorderModal";
 
 interface BottomNavigationProps {
   userRole: "customer" | "store_owner" | "driver" | "admin" | "guest";
@@ -36,6 +31,7 @@ interface BottomNavigationProps {
   portalRole?: "admin" | "driver" | "store_owner";
   portalLabel?: string;
   onReturnToPortal?: () => void;
+  onOpenToolbarReorder?: () => void;
 }
 
 export const BottomNavigation: React.FC<BottomNavigationProps> = ({
@@ -54,14 +50,71 @@ export const BottomNavigation: React.FC<BottomNavigationProps> = ({
   portalRole,
   portalLabel,
   onReturnToPortal,
+  onOpenToolbarReorder,
 }) => {
-  // Render tabs depending on role
+  const [showReorderModal, setShowReorderModal] = useState(false);
+
+  // Load custom order of navigation item IDs
+  const [navOrder, setNavOrder] = useState<string[]>(() => {
+    try {
+      const saved = localStorage.getItem(`tw_bottom_nav_order_${userRole}`);
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
+
+  useEffect(() => {
+    const handleUpdate = () => {
+      try {
+        const saved = localStorage.getItem(`tw_bottom_nav_order_${userRole}`);
+        if (saved) {
+          setNavOrder(JSON.parse(saved));
+        } else {
+          setNavOrder([]);
+        }
+      } catch {}
+    };
+    window.addEventListener("tw_bottom_nav_order_updated", handleUpdate);
+    return () => window.removeEventListener("tw_bottom_nav_order_updated", handleUpdate);
+  }, [userRole]);
+
+  // Helper to order a dictionary of elements according to navOrder
+  const sortNavElements = (elementsMap: Record<string, React.ReactNode>, defaultOrder: string[]) => {
+    const effectiveOrder = navOrder.length > 0 ? navOrder : defaultOrder;
+    const ordered: React.ReactNode[] = [];
+    const used = new Set<string>();
+
+    // 1. Add matching items in user's preferred order
+    effectiveOrder.forEach((id) => {
+      if (elementsMap[id]) {
+        ordered.push(elementsMap[id]);
+        used.add(id);
+      }
+    });
+
+    // 2. Append any remaining default items not in navOrder
+    defaultOrder.forEach((id) => {
+      if (!used.has(id) && elementsMap[id]) {
+        ordered.push(elementsMap[id]);
+        used.add(id);
+      }
+    });
+
+    return ordered;
+  };
+
+  // Render navigation buttons based on user role and customized order
   const renderNavButtons = () => {
+    // -------------------------------------------------------------------------
+    // 1. STORE OWNER
+    // -------------------------------------------------------------------------
     if (userRole === "store_owner") {
-      return (
-        <>
-          {/* 1. Home / Active Orders */}
+      const defaultOrder = ["orders", "products", "archive", "account"];
+      const elementsMap: Record<string, React.ReactNode> = {
+        orders: (
           <button
+            key="orders"
             type="button"
             onClick={() => {
               if (onSelectRoleTab) onSelectRoleTab("orders");
@@ -86,9 +139,10 @@ export const BottomNavigation: React.FC<BottomNavigationProps> = ({
               <motion.div layoutId="nav_dot" className="w-1.5 h-1.5 rounded-full bg-orange-600 mt-0.5" />
             )}
           </button>
-
-          {/* 2. Products */}
+        ),
+        products: (
           <button
+            key="products"
             type="button"
             onClick={() => onSelectRoleTab && onSelectRoleTab("products")}
             className={`relative flex-1 py-1.5 px-2 flex flex-col items-center justify-center gap-0.5 rounded-xl transition-all cursor-pointer ${
@@ -103,9 +157,10 @@ export const BottomNavigation: React.FC<BottomNavigationProps> = ({
               <motion.div layoutId="nav_dot" className="w-1.5 h-1.5 rounded-full bg-orange-600 mt-0.5" />
             )}
           </button>
-
-          {/* 3. Archive */}
+        ),
+        archive: (
           <button
+            key="archive"
             type="button"
             onClick={() => onSelectRoleTab && onSelectRoleTab("archive")}
             className={`relative flex-1 py-1.5 px-2 flex flex-col items-center justify-center gap-0.5 rounded-xl transition-all cursor-pointer ${
@@ -120,9 +175,10 @@ export const BottomNavigation: React.FC<BottomNavigationProps> = ({
               <motion.div layoutId="nav_dot" className="w-1.5 h-1.5 rounded-full bg-orange-600 mt-0.5" />
             )}
           </button>
-
-          {/* 4. My Account */}
+        ),
+        account: (
           <button
+            key="account"
             type="button"
             onClick={onOpenAccount}
             className="relative flex-1 py-1.5 px-2 flex flex-col items-center justify-center gap-0.5 rounded-xl text-slate-700 hover:text-orange-600 font-bold transition-all cursor-pointer group"
@@ -136,15 +192,21 @@ export const BottomNavigation: React.FC<BottomNavigationProps> = ({
             </div>
             <span className="text-[10px] font-black truncate max-w-[65px]">حسابي</span>
           </button>
-        </>
-      );
+        )
+      };
+
+      return sortNavElements(elementsMap, defaultOrder);
     }
 
+    // -------------------------------------------------------------------------
+    // 2. DELIVERY DRIVER / CAPTAIN
+    // -------------------------------------------------------------------------
     if (userRole === "driver") {
-      return (
-        <>
-          {/* 1. Home / My Assigned Orders */}
+      const defaultOrder = ["my_orders", "available_orders", "wallet", "history", "account"];
+      const elementsMap: Record<string, React.ReactNode> = {
+        my_orders: (
           <button
+            key="my_orders"
             type="button"
             onClick={() => {
               if (onSelectRoleTab) onSelectRoleTab("my_orders");
@@ -169,9 +231,10 @@ export const BottomNavigation: React.FC<BottomNavigationProps> = ({
               <motion.div layoutId="nav_dot_driver" className="w-1.5 h-1.5 rounded-full bg-emerald-600 mt-0.5" />
             )}
           </button>
-
-          {/* 2. Available Orders */}
+        ),
+        available_orders: (
           <button
+            key="available_orders"
             type="button"
             onClick={() => onSelectRoleTab && onSelectRoleTab("available_orders")}
             className={`relative flex-1 py-1.5 px-2 flex flex-col items-center justify-center gap-0.5 rounded-xl transition-all cursor-pointer ${
@@ -186,9 +249,10 @@ export const BottomNavigation: React.FC<BottomNavigationProps> = ({
               <motion.div layoutId="nav_dot_driver" className="w-1.5 h-1.5 rounded-full bg-emerald-600 mt-0.5" />
             )}
           </button>
-
-          {/* 3. Captain Financial Wallet */}
+        ),
+        wallet: (
           <button
+            key="wallet"
             type="button"
             onClick={() => onSelectRoleTab && onSelectRoleTab("wallet")}
             className={`relative flex-1 py-1.5 px-2 flex flex-col items-center justify-center gap-0.5 rounded-xl transition-all cursor-pointer ${
@@ -203,9 +267,10 @@ export const BottomNavigation: React.FC<BottomNavigationProps> = ({
               <motion.div layoutId="nav_dot_driver" className="w-1.5 h-1.5 rounded-full bg-emerald-600 mt-0.5" />
             )}
           </button>
-
-          {/* 4. History */}
+        ),
+        history: (
           <button
+            key="history"
             type="button"
             onClick={() => onSelectRoleTab && onSelectRoleTab("history")}
             className={`relative flex-1 py-1.5 px-2 flex flex-col items-center justify-center gap-0.5 rounded-xl transition-all cursor-pointer ${
@@ -220,9 +285,10 @@ export const BottomNavigation: React.FC<BottomNavigationProps> = ({
               <motion.div layoutId="nav_dot_driver" className="w-1.5 h-1.5 rounded-full bg-emerald-600 mt-0.5" />
             )}
           </button>
-
-          {/* 5. My Account */}
+        ),
+        account: (
           <button
+            key="account"
             type="button"
             onClick={onOpenAccount}
             className="relative flex-1 py-1.5 px-2 flex flex-col items-center justify-center gap-0.5 rounded-xl text-slate-700 hover:text-emerald-600 font-bold transition-all cursor-pointer group"
@@ -236,15 +302,21 @@ export const BottomNavigation: React.FC<BottomNavigationProps> = ({
             </div>
             <span className="text-[10px] font-black truncate max-w-[65px]">حسابي</span>
           </button>
-        </>
-      );
+        )
+      };
+
+      return sortNavElements(elementsMap, defaultOrder);
     }
 
+    // -------------------------------------------------------------------------
+    // 3. ADMIN / MANAGEMENT (المدير العام وكادر الإدارة)
+    // -------------------------------------------------------------------------
     if (userRole === "admin") {
-      return (
-        <>
-          {/* 1. Home / Stats */}
+      const defaultOrder = ["home", "orders", "stores", "account"];
+      const elementsMap: Record<string, React.ReactNode> = {
+        home: (
           <button
+            key="home"
             type="button"
             onClick={() => {
               if (onSelectRoleTab) onSelectRoleTab("stats");
@@ -262,9 +334,10 @@ export const BottomNavigation: React.FC<BottomNavigationProps> = ({
               <motion.div layoutId="nav_dot_admin" className="w-1.5 h-1.5 rounded-full bg-purple-600 mt-0.5" />
             )}
           </button>
-
-          {/* 2. Orders */}
+        ),
+        orders: (
           <button
+            key="orders"
             type="button"
             onClick={() => onSelectRoleTab && onSelectRoleTab("orders")}
             className={`relative flex-1 py-1.5 px-2 flex flex-col items-center justify-center gap-0.5 rounded-xl transition-all cursor-pointer ${
@@ -286,9 +359,10 @@ export const BottomNavigation: React.FC<BottomNavigationProps> = ({
               <motion.div layoutId="nav_dot_admin" className="w-1.5 h-1.5 rounded-full bg-purple-600 mt-0.5" />
             )}
           </button>
-
-          {/* 3. Stores */}
+        ),
+        stores: (
           <button
+            key="stores"
             type="button"
             onClick={() => onSelectRoleTab && onSelectRoleTab("stores")}
             className={`relative flex-1 py-1.5 px-2 flex flex-col items-center justify-center gap-0.5 rounded-xl transition-all cursor-pointer ${
@@ -303,9 +377,10 @@ export const BottomNavigation: React.FC<BottomNavigationProps> = ({
               <motion.div layoutId="nav_dot_admin" className="w-1.5 h-1.5 rounded-full bg-purple-600 mt-0.5" />
             )}
           </button>
-
-          {/* 4. My Account / Admin Profile */}
+        ),
+        account: (
           <button
+            key="account"
             type="button"
             onClick={onOpenAccount}
             className="relative flex-1 py-1.5 px-2 flex flex-col items-center justify-center gap-0.5 rounded-xl text-slate-700 hover:text-purple-600 font-bold transition-all cursor-pointer group"
@@ -319,15 +394,20 @@ export const BottomNavigation: React.FC<BottomNavigationProps> = ({
             </div>
             <span className="text-[10px] font-black truncate max-w-[65px]">حسابي</span>
           </button>
-        </>
-      );
+        )
+      };
+
+      return sortNavElements(elementsMap, defaultOrder);
     }
 
-    // Default: Customer View
-    return (
-      <>
-        {/* 1. Home */}
+    // -------------------------------------------------------------------------
+    // 4. CUSTOMER VIEW & GUEST (الزبائن والمتسوقين)
+    // -------------------------------------------------------------------------
+    const defaultOrder = ["home", "archive", "cart", "account"];
+    const elementsMap: Record<string, React.ReactNode> = {
+      home: (
         <button
+          key="home"
           type="button"
           onClick={() => {
             if (onNavigateHome) onNavigateHome();
@@ -345,9 +425,10 @@ export const BottomNavigation: React.FC<BottomNavigationProps> = ({
             <motion.div layoutId="nav_dot_cust" className="w-1.5 h-1.5 rounded-full bg-orange-600 mt-0.5" />
           )}
         </button>
-
-        {/* 2. My Orders Archive */}
+      ),
+      archive: (
         <button
+          key="archive"
           type="button"
           onClick={() => {
             if (onOpenOrdersArchive) {
@@ -375,42 +456,10 @@ export const BottomNavigation: React.FC<BottomNavigationProps> = ({
             <motion.div layoutId="nav_dot_cust" className="w-1.5 h-1.5 rounded-full bg-orange-600 mt-0.5" />
           )}
         </button>
-
-        {/* Special Direct Return to Portal Button if browsing as customer */}
-        {isBrowsingAsCustomer && onReturnToPortal && (
-          <button
-            type="button"
-            onClick={onReturnToPortal}
-            className={`relative flex-1 py-1.5 px-1 flex flex-col items-center justify-center gap-0.5 rounded-xl transition-all cursor-pointer group active:scale-95 border ${
-              portalRole === "admin"
-                ? "bg-gradient-to-b from-purple-50 to-indigo-50/70 border-purple-300 text-purple-800 shadow-xs"
-                : portalRole === "driver"
-                ? "bg-gradient-to-b from-blue-50 to-emerald-50/70 border-blue-300 text-blue-800 shadow-xs"
-                : "bg-gradient-to-b from-emerald-50 to-teal-50/70 border-emerald-300 text-emerald-800 shadow-xs"
-            }`}
-            title={portalLabel || "العودة المباشرة إلى لوحة العمل"}
-          >
-            <div className="relative">
-              {portalRole === "admin" ? (
-                <ShieldCheck className="w-5 h-5 text-purple-600 animate-pulse" />
-              ) : portalRole === "driver" ? (
-                <Bike className="w-5 h-5 text-blue-600 animate-pulse" />
-              ) : (
-                <StoreIcon className="w-5 h-5 text-emerald-600 animate-pulse" />
-              )}
-              <span className="absolute -top-1 -right-1 flex h-2 w-2">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-2 w-2 bg-amber-500"></span>
-              </span>
-            </div>
-            <span className="text-[9.5px] font-black truncate max-w-[70px] text-center leading-tight">
-              {portalLabel || (portalRole === "admin" ? "لوحة مهامي 🛡️" : portalRole === "driver" ? "لوحة الكابتن 🚴" : "إدارة متجري 🏪")}
-            </span>
-          </button>
-        )}
-
-        {/* 3. Shopping Cart */}
+      ),
+      cart: (
         <button
+          key="cart"
           type="button"
           onClick={() => {
             if (onOpenCart) {
@@ -438,9 +487,10 @@ export const BottomNavigation: React.FC<BottomNavigationProps> = ({
             <motion.div layoutId="nav_dot_cust" className="w-1.5 h-1.5 rounded-full bg-orange-600 mt-0.5" />
           )}
         </button>
-
-        {/* 4. My Account */}
+      ),
+      account: (
         <button
+          key="account"
           type="button"
           onClick={onOpenAccount}
           className="relative flex-1 py-1.5 px-2 flex flex-col items-center justify-center gap-0.5 rounded-xl text-slate-700 hover:text-orange-600 font-bold transition-all cursor-pointer group"
@@ -454,19 +504,88 @@ export const BottomNavigation: React.FC<BottomNavigationProps> = ({
           </div>
           <span className="text-[10px] font-black truncate max-w-[65px]">حسابي</span>
         </button>
-      </>
-    );
+      )
+    };
+
+    // If browsing as customer from a management portal, insert return portal button
+    if (isBrowsingAsCustomer && onReturnToPortal) {
+      elementsMap["return_portal"] = (
+        <button
+          key="return_portal"
+          type="button"
+          onClick={onReturnToPortal}
+          className={`relative flex-1 py-1.5 px-1 flex flex-col items-center justify-center gap-0.5 rounded-xl transition-all cursor-pointer group active:scale-95 border ${
+            portalRole === "admin"
+              ? "bg-gradient-to-b from-purple-50 to-indigo-50/70 border-purple-300 text-purple-800 shadow-xs"
+              : portalRole === "driver"
+              ? "bg-gradient-to-b from-blue-50 to-emerald-50/70 border-blue-300 text-blue-800 shadow-xs"
+              : "bg-gradient-to-b from-emerald-50 to-teal-50/70 border-emerald-300 text-emerald-800 shadow-xs"
+          }`}
+          title={portalLabel || "العودة المباشرة إلى لوحة العمل"}
+        >
+          <div className="relative">
+            {portalRole === "admin" ? (
+              <ShieldCheck className="w-5 h-5 text-purple-600 animate-pulse" />
+            ) : portalRole === "driver" ? (
+              <Bike className="w-5 h-5 text-blue-600 animate-pulse" />
+            ) : (
+              <StoreIcon className="w-5 h-5 text-emerald-600 animate-pulse" />
+            )}
+            <span className="absolute -top-1 -right-1 flex h-2 w-2">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-amber-500"></span>
+            </span>
+          </div>
+          <span className="text-[9.5px] font-black truncate max-w-[70px] text-center leading-tight">
+            {portalLabel || (portalRole === "admin" ? "لوحة مهامي 🛡️" : portalRole === "driver" ? "لوحة الكابتن 🚴" : "إدارة متجري 🏪")}
+          </span>
+        </button>
+      );
+      defaultOrder.splice(2, 0, "return_portal");
+    }
+
+    return sortNavElements(elementsMap, defaultOrder);
+  };
+
+  const handleOpenReorder = () => {
+    if (onOpenToolbarReorder) {
+      onOpenToolbarReorder();
+    } else {
+      setShowReorderModal(true);
+    }
   };
 
   return (
-    <div
-      className="fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-lg border-t border-slate-200/90 shadow-[0_-4px_20px_rgba(0,0,0,0.06)]"
-      dir="rtl"
-      style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}
-    >
-      <nav className="max-w-md mx-auto px-2 py-1.5 sm:py-2 flex items-center justify-around">
-        {renderNavButtons()}
-      </nav>
-    </div>
+    <>
+      <div
+        className="fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-lg border-t border-slate-200/90 shadow-[0_-4px_20px_rgba(0,0,0,0.06)]"
+        dir="rtl"
+        style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}
+      >
+        <nav className="max-w-md mx-auto px-1.5 sm:px-2 py-1.5 sm:py-2 flex items-center justify-around relative">
+          {renderNavButtons()}
+
+          {/* Quick Customization Button: Allows user to reorder toolbar icons on the fly */}
+          <button
+            type="button"
+            onClick={handleOpenReorder}
+            className="p-1 sm:p-1.5 rounded-xl text-slate-400 hover:text-orange-600 hover:bg-orange-50 active:scale-90 transition-all cursor-pointer shrink-0 ml-0.5 border border-transparent hover:border-orange-200 flex items-center justify-center"
+            title="تخصيص وترتيب شريط الأدوات (ضع الأيقونة الأهم في البداية 🎛️)"
+          >
+            <SlidersHorizontal className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+          </button>
+        </nav>
+      </div>
+
+      {/* Internal Toolbar Customizer Modal */}
+      {showReorderModal && (
+        <ToolbarReorderModal
+          isOpen={showReorderModal}
+          onClose={() => setShowReorderModal(false)}
+          userRole={userRole}
+          initialTab="bottom_nav"
+        />
+      )}
+    </>
   );
 };

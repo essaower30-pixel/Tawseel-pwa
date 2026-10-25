@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { 
   BarChart3, 
   Store as StoreIcon, 
@@ -31,11 +31,14 @@ import {
   Bell,
   Stethoscope,
   Car,
-  RefreshCw
+  RefreshCw,
+  SlidersHorizontal,
+  ArrowUpDown
 } from "lucide-react";
 import { StaffMember, StaffPermission } from "../../types";
 import { playOrderAlertSound, isSoundEnabled, setSoundEnabled, requestNotificationPermission, showSystemNotification } from "../../utils/soundNotifications";
 import { subscribeToPushNotifications } from "../../utils/pushManager";
+import { ToolbarReorderModal } from "../ToolbarReorderModal";
 
 export type AdminTab = 
   | "platform_features"
@@ -187,15 +190,61 @@ export const AdminHeader: React.FC<AdminHeaderProps> = ({
     return userPermissions.includes(tab.id as StaffPermission);
   });
 
+  const [showReorderModal, setShowReorderModal] = useState(false);
+
+  // Custom ordering for admin tabs
+  const [tabsOrder, setTabsOrder] = useState<string[]>(() => {
+    try {
+      const saved = localStorage.getItem("tw_admin_tabs_order");
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
+
+  useEffect(() => {
+    const handleTabsOrderUpdate = () => {
+      try {
+        const saved = localStorage.getItem("tw_admin_tabs_order");
+        if (saved) setTabsOrder(JSON.parse(saved));
+        else setTabsOrder([]);
+      } catch {}
+    };
+    window.addEventListener("tw_admin_tabs_order_updated", handleTabsOrderUpdate);
+    return () => window.removeEventListener("tw_admin_tabs_order_updated", handleTabsOrderUpdate);
+  }, []);
+
+  const sortedVisibleTabs = useMemo(() => {
+    if (tabsOrder.length === 0) return visibleTabs;
+    const orderMap = new Map<string, number>();
+    tabsOrder.forEach((id, idx) => orderMap.set(id, idx));
+
+    return [...visibleTabs].sort((a, b) => {
+      const posA = orderMap.has(a.id) ? orderMap.get(a.id)! : 999;
+      const posB = orderMap.has(b.id) ? orderMap.get(b.id)! : 999;
+      return posA - posB;
+    });
+  }, [visibleTabs, tabsOrder]);
+
+  // Fast 1-click move to first position
+  const handlePutFirst = (tabId: string) => {
+    const allIds = sortedVisibleTabs.map(t => t.id);
+    const remaining = allIds.filter(id => id !== tabId);
+    const newOrder = [tabId, ...remaining];
+    setTabsOrder(newOrder);
+    localStorage.setItem("tw_admin_tabs_order", JSON.stringify(newOrder));
+    window.dispatchEvent(new CustomEvent("tw_admin_tabs_order_updated", { detail: { order: newOrder } }));
+  };
+
   // Ensure active tab is within allowed tabs
   useEffect(() => {
-    if (visibleTabs.length > 0) {
-      const isAllowed = visibleTabs.some(t => t.id === activeTab);
+    if (sortedVisibleTabs.length > 0) {
+      const isAllowed = sortedVisibleTabs.some(t => t.id === activeTab);
       if (!isAllowed) {
-        setActiveTab(visibleTabs[0].id as AdminTab);
+        setActiveTab(sortedVisibleTabs[0].id as AdminTab);
       }
     }
-  }, [currentStaff, visibleTabs, activeTab, setActiveTab]);
+  }, [currentStaff, sortedVisibleTabs, activeTab, setActiveTab]);
 
   const getRoleBadge = (role?: string) => {
     switch (role) {
@@ -336,6 +385,19 @@ export const AdminHeader: React.FC<AdminHeaderProps> = ({
             <span className="hidden xs:inline">تحديث 🔄</span>
           </button>
 
+          {/* Customer Shopping Mode Button for Admin */}
+          {onBackToCustomerView && (
+            <button
+              type="button"
+              onClick={onBackToCustomerView}
+              className="px-2.5 sm:px-3.5 py-1.5 bg-gradient-to-r from-orange-500 via-amber-500 to-orange-500 hover:from-orange-600 hover:to-amber-600 text-white font-black text-xs rounded-2xl transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-md shadow-orange-500/20 active:scale-95 border border-orange-300"
+              title="التصفح والتسوق كزبون في المنصة"
+            >
+              <ShoppingBag className="w-3.5 h-3.5 text-amber-200" />
+              <span>تصفح كمتسوق 🛍️</span>
+            </button>
+          )}
+
           <div className="bg-slate-800/90 border border-slate-700/80 rounded-2xl px-2.5 sm:px-3 py-1.5 flex items-center justify-center gap-1.5 text-xs truncate">
             <span className="text-slate-400 font-bold hidden xs:inline shrink-0">الحساب:</span>
             <span className="font-black text-orange-400 flex items-center gap-1 truncate">
@@ -383,39 +445,140 @@ export const AdminHeader: React.FC<AdminHeaderProps> = ({
         </button>
       </div>
 
+      {/* Middle Toolbar Control Bar (Directly below freeze orders banner) */}
+      <div className="bg-slate-900/95 text-white p-2.5 sm:p-3 rounded-2xl border border-slate-800 flex flex-col md:flex-row md:items-center justify-between gap-2 shadow-sm">
+        <div className="flex items-center gap-2">
+          <div className="w-8 h-8 rounded-xl bg-orange-500/20 text-orange-400 flex items-center justify-center shrink-0">
+            <SlidersHorizontal className="w-4 h-4" />
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="text-xs sm:text-sm font-black text-white">
+                شريط تبويبات وأيقونات الإدارة
+              </span>
+              <span className="text-[10px] bg-gradient-to-r from-orange-500 to-amber-500 text-white px-2 py-0.5 rounded-full font-bold">
+                تحكم بالترتيب 🎛️
+              </span>
+            </div>
+            <p className="text-[11px] text-slate-300">
+              الأيقونة الأولى (في أقصى اليمين) هي الأكثر ظهوراً وأهمية — يمكنك تقديم أي أيقونة للبداية بنقرة واحدة
+            </p>
+          </div>
+        </div>
+
+        {/* 1-Click Quick Placements */}
+        <div className="flex items-center gap-1.5 flex-wrap">
+          <button
+            type="button"
+            onClick={() => handlePutFirst("platform_features")}
+            className="px-2.5 py-1 bg-purple-950/80 hover:bg-purple-900 border border-purple-700/60 text-purple-200 rounded-xl text-[11px] font-bold cursor-pointer transition-all active:scale-95"
+            title="وضع ميزات واستطاعة المنصة في بداية الشريط أولاً"
+          >
+            💎 ميزات التطبيق أولاً
+          </button>
+          <button
+            type="button"
+            onClick={() => handlePutFirst("share")}
+            className="px-2.5 py-1 bg-indigo-950/80 hover:bg-indigo-900 border border-indigo-700/60 text-indigo-200 rounded-xl text-[11px] font-bold cursor-pointer transition-all active:scale-95"
+            title="وضع نشر وتوزيع التطبيق في بداية الشريط أولاً"
+          >
+            📢 نشر التطبيق أولاً
+          </button>
+          <button
+            type="button"
+            onClick={() => handlePutFirst("stats")}
+            className="px-2.5 py-1 bg-blue-950/80 hover:bg-blue-900 border border-blue-700/60 text-blue-200 rounded-xl text-[11px] font-bold cursor-pointer transition-all active:scale-95"
+            title="وضع الإحصائيات والأرباح في بداية الشريط أولاً"
+          >
+            📊 الإحصائيات أولاً
+          </button>
+          <button
+            type="button"
+            onClick={() => handlePutFirst("orders")}
+            className="px-2.5 py-1 bg-emerald-950/80 hover:bg-emerald-900 border border-emerald-700/60 text-emerald-200 rounded-xl text-[11px] font-bold cursor-pointer transition-all active:scale-95"
+            title="وضع الطلبات النشطة في بداية الشريط أولاً"
+          >
+            🕒 الطلبات أولاً
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setShowReorderModal(true)}
+            className="px-3 py-1.5 bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white rounded-xl text-xs font-black flex items-center gap-1.5 cursor-pointer shadow-sm active:scale-95 transition-all"
+            title="فتح نافذة الترتيب والتخصيص الشامل لجميع الأيقونات"
+          >
+            <SlidersHorizontal className="w-3.5 h-3.5 text-white" />
+            <span>تخصيص الترتيب الكامل ↕️</span>
+          </button>
+        </div>
+      </div>
+
       {/* Authorized Navigation Tabs */}
       <div className="w-full max-w-full bg-white border border-slate-200 rounded-3xl p-2 shadow-xs overflow-x-auto scrollbar-none touch-pan-x flex items-center gap-1.5">
-        {visibleTabs.map((tab) => {
+        {/* Quick Button to Reorder Admin Tabs */}
+        <button
+          type="button"
+          onClick={() => setShowReorderModal(true)}
+          className="whitespace-nowrap px-3.5 py-2.5 rounded-2xl bg-slate-900 text-amber-300 hover:bg-slate-800 font-black text-xs transition-all flex items-center gap-1.5 cursor-pointer shrink-0 border border-slate-700 shadow-sm active:scale-95"
+          title="تخصيص وترتيب التبويبات (وضع الأهم في البداية 🎛️)"
+        >
+          <SlidersHorizontal className="w-3.5 h-3.5 text-amber-400" />
+          <span>ترتيب التبويبات 🎛️</span>
+        </button>
+
+        {sortedVisibleTabs.map((tab, idx) => {
           const isActive = activeTab === tab.id;
+          const isFirst = idx === 0;
+
           return (
-            <button
-              key={tab.id}
-              type="button"
-              onClick={() => setActiveTab(tab.id as AdminTab)}
-              className={`whitespace-nowrap px-3.5 py-2.5 rounded-2xl font-black text-xs transition-all flex items-center gap-2 cursor-pointer shrink-0 ${
-                isActive
-                  ? "bg-orange-500 text-white shadow-md shadow-orange-500/20 scale-[1.02]"
-                  : "bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-100"
-              }`}
-            >
-              <span>{tab.emoji}</span>
-              <span>{tab.label}</span>
-              {tab.id === "stores" && pendingStoresCount > 0 && (
-                <span className="px-2 py-0.5 rounded-full bg-amber-500 text-white text-[10px] font-black animate-pulse shadow-xs flex items-center gap-1">
-                  <span>{pendingStoresCount} متجر جديد</span>
-                  <span>🔔</span>
-                </span>
-              )}
-              {tab.id === "products" && pendingProductsCount > 0 && (
-                <span className="px-2 py-0.5 rounded-full bg-amber-500 text-white text-[10px] font-black animate-pulse shadow-xs flex items-center gap-1">
-                  <span>{pendingProductsCount} منتج بانتظار الاعتماد</span>
-                  <span>⏳</span>
-                </span>
-              )}
-            </button>
+            <div key={tab.id} className="relative group shrink-0">
+              <button
+                type="button"
+                onClick={() => setActiveTab(tab.id as AdminTab)}
+                className={`whitespace-nowrap px-3.5 py-2.5 rounded-2xl font-black text-xs transition-all flex items-center gap-2 cursor-pointer ${
+                  isActive
+                    ? "bg-orange-500 text-white shadow-md shadow-orange-500/20 scale-[1.02]"
+                    : "bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-100"
+                }`}
+              >
+                <span>{tab.emoji}</span>
+                <span>{tab.label}</span>
+
+                {isFirst && (
+                  <span className={`px-1.5 py-0.5 rounded-full text-[9px] font-black ${
+                    isActive ? "bg-white/25 text-white" : "bg-purple-100 text-purple-700"
+                  }`}>
+                    الأول 🥇
+                  </span>
+                )}
+
+                {tab.id === "stores" && pendingStoresCount > 0 && (
+                  <span className="px-2 py-0.5 rounded-full bg-amber-500 text-white text-[10px] font-black animate-pulse shadow-xs flex items-center gap-1">
+                    <span>{pendingStoresCount} متجر جديد</span>
+                    <span>🔔</span>
+                  </span>
+                )}
+                {tab.id === "products" && pendingProductsCount > 0 && (
+                  <span className="px-2 py-0.5 rounded-full bg-amber-500 text-white text-[10px] font-black animate-pulse shadow-xs flex items-center gap-1">
+                    <span>{pendingProductsCount} منتج بانتظار الاعتماد</span>
+                    <span>⏳</span>
+                  </span>
+                )}
+              </button>
+            </div>
           );
         })}
       </div>
+
+      {/* Toolbar & Tabs Reorder Modal */}
+      {showReorderModal && (
+        <ToolbarReorderModal
+          isOpen={showReorderModal}
+          onClose={() => setShowReorderModal(false)}
+          userRole="admin"
+          initialTab="admin_tabs"
+        />
+      )}
     </div>
   );
 };
