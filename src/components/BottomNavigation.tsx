@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import { motion } from "motion/react";
 import { 
   Home, 
@@ -14,6 +14,7 @@ import {
   SlidersHorizontal
 } from "lucide-react";
 import { ToolbarReorderModal, DEFAULT_BOTTOM_NAV_ITEMS } from "./ToolbarReorderModal";
+import { playOrderAlertSound } from "../utils/soundNotifications";
 
 interface BottomNavigationProps {
   userRole: "customer" | "store_owner" | "driver" | "admin" | "guest";
@@ -25,6 +26,9 @@ interface BottomNavigationProps {
   onSelectRoleTab?: (tab: string) => void;
   cartCount?: number;
   activeOrdersCount?: number;
+  pendingStoresCount?: number;
+  pendingProductsCount?: number;
+  availableOrdersCount?: number;
   userName?: string;
   userAvatar?: string;
   isBrowsingAsCustomer?: boolean;
@@ -44,6 +48,9 @@ export const BottomNavigation: React.FC<BottomNavigationProps> = ({
   onSelectRoleTab,
   cartCount = 0,
   activeOrdersCount = 0,
+  pendingStoresCount = 0,
+  pendingProductsCount = 0,
+  availableOrdersCount = 0,
   userName,
   userAvatar,
   isBrowsingAsCustomer = false,
@@ -53,6 +60,32 @@ export const BottomNavigation: React.FC<BottomNavigationProps> = ({
   onOpenToolbarReorder,
 }) => {
   const [showReorderModal, setShowReorderModal] = useState(false);
+
+  // Sound Alerts upon activity arrivals (new active order, new available order, cart addition)
+  const prevActiveOrdersRef = useRef(activeOrdersCount);
+  const prevAvailableOrdersRef = useRef(availableOrdersCount);
+  const prevPendingStoresRef = useRef(pendingStoresCount);
+
+  useEffect(() => {
+    if (activeOrdersCount > (prevActiveOrdersRef.current || 0)) {
+      playOrderAlertSound("ringtone");
+    }
+    prevActiveOrdersRef.current = activeOrdersCount;
+  }, [activeOrdersCount]);
+
+  useEffect(() => {
+    if (availableOrdersCount > (prevAvailableOrdersRef.current || 0)) {
+      playOrderAlertSound("ringtone");
+    }
+    prevAvailableOrdersRef.current = availableOrdersCount;
+  }, [availableOrdersCount]);
+
+  useEffect(() => {
+    if (pendingStoresCount > (prevPendingStoresRef.current || 0)) {
+      playOrderAlertSound("chime");
+    }
+    prevPendingStoresRef.current = pendingStoresCount;
+  }, [pendingStoresCount]);
 
   // Load custom order of navigation item IDs
   const [navOrder, setNavOrder] = useState<string[]>(() => {
@@ -111,6 +144,8 @@ export const BottomNavigation: React.FC<BottomNavigationProps> = ({
     // -------------------------------------------------------------------------
     if (userRole === "store_owner") {
       const defaultOrder = ["orders", "products", "archive", "account"];
+      const hasStoreOrdersActivity = (activeOrdersCount || 0) > 0;
+
       const elementsMap: Record<string, React.ReactNode> = {
         orders: (
           <button
@@ -121,20 +156,28 @@ export const BottomNavigation: React.FC<BottomNavigationProps> = ({
               onNavigateHome();
             }}
             className={`relative flex-1 py-1.5 px-2 flex flex-col items-center justify-center gap-0.5 rounded-xl transition-all cursor-pointer ${
-              activeTab === "orders" || activeTab === "home"
+              activeTab === "orders" || activeTab === "home" || hasStoreOrdersActivity
                 ? "text-orange-600 font-black"
                 : "text-slate-500 hover:text-slate-800 font-bold"
             }`}
           >
             <div className="relative">
-              <Home className={`w-5 h-5 ${activeTab === "orders" || activeTab === "home" ? "text-orange-600 scale-110" : "text-slate-500"}`} />
-              {activeOrdersCount > 0 && (
-                <span className="absolute -top-1.5 -right-2 bg-gradient-to-r from-amber-500 to-orange-600 text-white text-[9px] font-black w-4 h-4 rounded-full flex items-center justify-center animate-pulse shadow-[0_0_10px_rgba(249,115,22,0.85)] ring-2 ring-white">
+              <div className={`p-1 rounded-xl transition-all ${
+                hasStoreOrdersActivity
+                  ? "bg-gradient-to-br from-orange-500/20 to-amber-500/25 text-orange-600 ring-2 ring-orange-500/60 shadow-[0_0_14px_rgba(249,115,22,0.45)] animate-pulse"
+                  : ""
+              }`}>
+                <Home className={`w-5 h-5 ${hasStoreOrdersActivity || activeTab === "orders" || activeTab === "home" ? "text-orange-600 scale-110" : "text-slate-500"}`} />
+              </div>
+              {hasStoreOrdersActivity && (
+                <span className="absolute -top-1 -right-1.5 bg-gradient-to-r from-red-500 via-orange-500 to-amber-500 text-white text-[9px] font-black min-w-4 h-4 px-1 rounded-full flex items-center justify-center animate-bounce shadow-md ring-2 ring-white">
                   {activeOrdersCount}
                 </span>
               )}
             </div>
-            <span className="text-[10px] truncate max-w-[65px]">الرئيسية</span>
+            <span className={`text-[10px] truncate max-w-[65px] ${hasStoreOrdersActivity ? "text-orange-700 font-black" : ""}`}>
+              الرئيسية {hasStoreOrdersActivity ? "🔔" : ""}
+            </span>
             {(activeTab === "orders" || activeTab === "home") && (
               <motion.div layoutId="nav_dot" className="w-1.5 h-1.5 rounded-full bg-orange-600 mt-0.5" />
             )}
@@ -203,6 +246,9 @@ export const BottomNavigation: React.FC<BottomNavigationProps> = ({
     // -------------------------------------------------------------------------
     if (userRole === "driver") {
       const defaultOrder = ["my_orders", "available_orders", "wallet", "history", "account"];
+      const hasMyOrdersActivity = (activeOrdersCount || 0) > 0;
+      const hasAvailableActivity = (availableOrdersCount || 0) > 0;
+
       const elementsMap: Record<string, React.ReactNode> = {
         my_orders: (
           <button
@@ -213,20 +259,28 @@ export const BottomNavigation: React.FC<BottomNavigationProps> = ({
               onNavigateHome();
             }}
             className={`relative flex-1 py-1.5 px-2 flex flex-col items-center justify-center gap-0.5 rounded-xl transition-all cursor-pointer ${
-              activeTab === "my_orders" || activeTab === "home"
+              activeTab === "my_orders" || activeTab === "home" || hasMyOrdersActivity
                 ? "text-emerald-600 font-black"
                 : "text-slate-500 hover:text-slate-800 font-bold"
             }`}
           >
             <div className="relative">
-              <Home className={`w-5 h-5 ${activeTab === "my_orders" || activeTab === "home" ? "text-emerald-600 scale-110" : "text-slate-500"}`} />
-              {activeOrdersCount > 0 && (
-                <span className="absolute -top-1.5 -right-2 bg-emerald-600 text-white text-[9px] font-black w-4 h-4 rounded-full flex items-center justify-center animate-pulse shadow-xs">
+              <div className={`p-1 rounded-xl transition-all ${
+                hasMyOrdersActivity
+                  ? "bg-gradient-to-br from-teal-500/20 to-emerald-500/25 text-teal-600 ring-2 ring-teal-500/60 shadow-[0_0_14px_rgba(20,184,166,0.45)] animate-pulse"
+                  : ""
+              }`}>
+                <Home className={`w-5 h-5 ${hasMyOrdersActivity || activeTab === "my_orders" || activeTab === "home" ? "text-emerald-600 scale-110" : "text-slate-500"}`} />
+              </div>
+              {hasMyOrdersActivity && (
+                <span className="absolute -top-1 -right-1.5 bg-gradient-to-r from-teal-600 to-emerald-600 text-white text-[9px] font-black min-w-4 h-4 px-1 rounded-full flex items-center justify-center animate-bounce shadow-md ring-2 ring-white">
                   {activeOrdersCount}
                 </span>
               )}
             </div>
-            <span className="text-[10px] truncate max-w-[65px]">الرئيسية</span>
+            <span className={`text-[10px] truncate max-w-[65px] ${hasMyOrdersActivity ? "text-teal-700 font-black" : ""}`}>
+              مهامي {hasMyOrdersActivity ? "🛵" : ""}
+            </span>
             {(activeTab === "my_orders" || activeTab === "home") && (
               <motion.div layoutId="nav_dot_driver" className="w-1.5 h-1.5 rounded-full bg-emerald-600 mt-0.5" />
             )}
@@ -238,13 +292,28 @@ export const BottomNavigation: React.FC<BottomNavigationProps> = ({
             type="button"
             onClick={() => onSelectRoleTab && onSelectRoleTab("available_orders")}
             className={`relative flex-1 py-1.5 px-2 flex flex-col items-center justify-center gap-0.5 rounded-xl transition-all cursor-pointer ${
-              activeTab === "available_orders"
+              activeTab === "available_orders" || hasAvailableActivity
                 ? "text-emerald-600 font-black"
                 : "text-slate-500 hover:text-slate-800 font-bold"
             }`}
           >
-            <Package className={`w-5 h-5 ${activeTab === "available_orders" ? "text-emerald-600 scale-110" : "text-slate-500"}`} />
-            <span className="text-[10px] truncate max-w-[65px]">طلبات متاحة</span>
+            <div className="relative">
+              <div className={`p-1 rounded-xl transition-all ${
+                hasAvailableActivity
+                  ? "bg-gradient-to-br from-emerald-500/20 to-teal-500/25 text-emerald-600 ring-2 ring-emerald-500/60 shadow-[0_0_14px_rgba(16,185,129,0.45)] animate-pulse"
+                  : ""
+              }`}>
+                <Package className={`w-5 h-5 ${hasAvailableActivity || activeTab === "available_orders" ? "text-emerald-600 scale-110" : "text-slate-500"}`} />
+              </div>
+              {hasAvailableActivity && (
+                <span className="absolute -top-1 -right-1.5 bg-gradient-to-r from-emerald-600 to-teal-600 text-white text-[9px] font-black min-w-4 h-4 px-1 rounded-full flex items-center justify-center animate-bounce shadow-md ring-2 ring-white">
+                  {availableOrdersCount}
+                </span>
+              )}
+            </div>
+            <span className={`text-[10px] truncate max-w-[65px] ${hasAvailableActivity ? "text-emerald-700 font-black" : ""}`}>
+              طلبات متاحة {hasAvailableActivity ? "⚡" : ""}
+            </span>
             {activeTab === "available_orders" && (
               <motion.div layoutId="nav_dot_driver" className="w-1.5 h-1.5 rounded-full bg-emerald-600 mt-0.5" />
             )}
@@ -313,6 +382,9 @@ export const BottomNavigation: React.FC<BottomNavigationProps> = ({
     // -------------------------------------------------------------------------
     if (userRole === "admin") {
       const defaultOrder = ["home", "orders", "stores", "account"];
+      const hasAdminOrdersActivity = (activeOrdersCount || 0) > 0;
+      const hasStoresPendingActivity = (pendingStoresCount || 0) > 0;
+
       const elementsMap: Record<string, React.ReactNode> = {
         home: (
           <button
@@ -341,22 +413,30 @@ export const BottomNavigation: React.FC<BottomNavigationProps> = ({
             type="button"
             onClick={() => onSelectRoleTab && onSelectRoleTab("orders")}
             className={`relative flex-1 py-1.5 px-2 flex flex-col items-center justify-center gap-0.5 rounded-xl transition-all cursor-pointer ${
-              activeTab === "orders"
-                ? "text-purple-600 font-black"
+              activeTab === "orders" || hasAdminOrdersActivity
+                ? "text-emerald-600 font-black"
                 : "text-slate-500 hover:text-slate-800 font-bold"
             }`}
           >
             <div className="relative">
-              <Package className={`w-5 h-5 ${activeTab === "orders" ? "text-purple-600 scale-110" : "text-slate-500"}`} />
-              {activeOrdersCount > 0 && (
-                <span className="absolute -top-1.5 -right-2 bg-gradient-to-r from-purple-500 to-indigo-600 text-white text-[9px] font-black w-4 h-4 rounded-full flex items-center justify-center animate-pulse shadow-[0_0_12px_rgba(168,85,247,0.9)] ring-2 ring-white">
+              <div className={`p-1 rounded-xl transition-all ${
+                hasAdminOrdersActivity
+                  ? "bg-gradient-to-br from-emerald-500/20 to-teal-500/25 text-emerald-600 ring-2 ring-emerald-500/60 shadow-[0_0_16px_rgba(16,185,129,0.5)] animate-pulse"
+                  : ""
+              }`}>
+                <Package className={`w-5 h-5 ${hasAdminOrdersActivity || activeTab === "orders" ? "text-emerald-600 scale-110" : "text-slate-500"}`} />
+              </div>
+              {hasAdminOrdersActivity && (
+                <span className="absolute -top-1 -right-1.5 bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 text-white text-[9px] font-black min-w-4 h-4 px-1 rounded-full flex items-center justify-center animate-bounce shadow-md ring-2 ring-white">
                   {activeOrdersCount}
                 </span>
               )}
             </div>
-            <span className="text-[10px] truncate max-w-[65px]">الطلبات</span>
+            <span className={`text-[10px] truncate max-w-[65px] ${hasAdminOrdersActivity ? "text-emerald-700 font-black" : ""}`}>
+              الطلبات {hasAdminOrdersActivity ? "🔔" : ""}
+            </span>
             {activeTab === "orders" && (
-              <motion.div layoutId="nav_dot_admin" className="w-1.5 h-1.5 rounded-full bg-purple-600 mt-0.5" />
+              <motion.div layoutId="nav_dot_admin" className="w-1.5 h-1.5 rounded-full bg-emerald-600 mt-0.5" />
             )}
           </button>
         ),
@@ -366,15 +446,30 @@ export const BottomNavigation: React.FC<BottomNavigationProps> = ({
             type="button"
             onClick={() => onSelectRoleTab && onSelectRoleTab("stores")}
             className={`relative flex-1 py-1.5 px-2 flex flex-col items-center justify-center gap-0.5 rounded-xl transition-all cursor-pointer ${
-              activeTab === "stores"
-                ? "text-purple-600 font-black"
+              activeTab === "stores" || hasStoresPendingActivity
+                ? "text-amber-600 font-black"
                 : "text-slate-500 hover:text-slate-800 font-bold"
             }`}
           >
-            <StoreIcon className={`w-5 h-5 ${activeTab === "stores" ? "text-purple-600 scale-110" : "text-slate-500"}`} />
-            <span className="text-[10px] truncate max-w-[65px]">المتاجر</span>
+            <div className="relative">
+              <div className={`p-1 rounded-xl transition-all ${
+                hasStoresPendingActivity
+                  ? "bg-gradient-to-br from-amber-500/20 to-orange-500/25 text-amber-600 ring-2 ring-amber-500/60 shadow-[0_0_14px_rgba(245,158,11,0.45)] animate-pulse"
+                  : ""
+              }`}>
+                <StoreIcon className={`w-5 h-5 ${hasStoresPendingActivity || activeTab === "stores" ? "text-amber-600 scale-110" : "text-slate-500"}`} />
+              </div>
+              {hasStoresPendingActivity && (
+                <span className="absolute -top-1 -right-1.5 bg-gradient-to-r from-amber-500 to-orange-600 text-white text-[9px] font-black min-w-4 h-4 px-1 rounded-full flex items-center justify-center animate-pulse shadow-md ring-2 ring-white">
+                  {pendingStoresCount}
+                </span>
+              )}
+            </div>
+            <span className={`text-[10px] truncate max-w-[65px] ${hasStoresPendingActivity ? "text-amber-700 font-black" : ""}`}>
+              المتاجر {hasStoresPendingActivity ? "⏳" : ""}
+            </span>
             {activeTab === "stores" && (
-              <motion.div layoutId="nav_dot_admin" className="w-1.5 h-1.5 rounded-full bg-purple-600 mt-0.5" />
+              <motion.div layoutId="nav_dot_admin" className="w-1.5 h-1.5 rounded-full bg-amber-600 mt-0.5" />
             )}
           </button>
         ),
@@ -404,6 +499,9 @@ export const BottomNavigation: React.FC<BottomNavigationProps> = ({
     // 4. CUSTOMER VIEW & GUEST (الزبائن والمتسوقين)
     // -------------------------------------------------------------------------
     const defaultOrder = ["home", "archive", "cart", "account"];
+    const hasCustomerOrdersActivity = (activeOrdersCount || 0) > 0;
+    const hasCartItemsActivity = (cartCount || 0) > 0;
+
     const elementsMap: Record<string, React.ReactNode> = {
       home: (
         <button
@@ -438,22 +536,30 @@ export const BottomNavigation: React.FC<BottomNavigationProps> = ({
             }
           }}
           className={`relative flex-1 py-1.5 px-2 flex flex-col items-center justify-center gap-0.5 rounded-xl transition-all cursor-pointer ${
-            activeTab === "archive" || activeTab === "orders"
-              ? "text-orange-600 font-black"
+            activeTab === "archive" || activeTab === "orders" || hasCustomerOrdersActivity
+              ? "text-emerald-600 font-black"
               : "text-slate-500 hover:text-slate-800 font-bold"
           }`}
         >
           <div className="relative">
-            <Clock className={`w-5 h-5 ${activeTab === "archive" || activeTab === "orders" ? "text-orange-600 scale-110" : "text-slate-500"}`} />
-            {activeOrdersCount > 0 && (
-              <span className="absolute -top-1.5 -right-2 bg-gradient-to-r from-amber-500 to-orange-600 text-white text-[9px] font-black w-4 h-4 rounded-full flex items-center justify-center animate-pulse shadow-[0_0_10px_rgba(249,115,22,0.85)] ring-2 ring-white">
+            <div className={`p-1 rounded-xl transition-all ${
+              hasCustomerOrdersActivity
+                ? "bg-gradient-to-br from-emerald-500/20 to-teal-500/25 text-emerald-600 ring-2 ring-emerald-500/60 shadow-[0_0_16px_rgba(16,185,129,0.5)] animate-pulse"
+                : ""
+            }`}>
+              <Clock className={`w-5 h-5 ${hasCustomerOrdersActivity || activeTab === "archive" || activeTab === "orders" ? "text-emerald-600 scale-110" : "text-slate-500"}`} />
+            </div>
+            {hasCustomerOrdersActivity && (
+              <span className="absolute -top-1 -right-1.5 bg-gradient-to-r from-emerald-600 to-teal-600 text-white text-[9px] font-black min-w-4 h-4 px-1 rounded-full flex items-center justify-center animate-bounce shadow-md ring-2 ring-white">
                 {activeOrdersCount}
               </span>
             )}
           </div>
-          <span className="text-[10px] truncate max-w-[65px]">طلباتي</span>
+          <span className={`text-[10px] truncate max-w-[65px] ${hasCustomerOrdersActivity ? "text-emerald-700 font-black" : ""}`}>
+            طلباتي {hasCustomerOrdersActivity ? "🛵" : ""}
+          </span>
           {(activeTab === "archive" || activeTab === "orders") && (
-            <motion.div layoutId="nav_dot_cust" className="w-1.5 h-1.5 rounded-full bg-orange-600 mt-0.5" />
+            <motion.div layoutId="nav_dot_cust" className="w-1.5 h-1.5 rounded-full bg-emerald-600 mt-0.5" />
           )}
         </button>
       ),
@@ -469,20 +575,28 @@ export const BottomNavigation: React.FC<BottomNavigationProps> = ({
             }
           }}
           className={`relative flex-1 py-1.5 px-2 flex flex-col items-center justify-center gap-0.5 rounded-xl transition-all cursor-pointer ${
-            activeTab === "cart"
+            activeTab === "cart" || hasCartItemsActivity
               ? "text-orange-600 font-black"
               : "text-slate-500 hover:text-slate-800 font-bold"
           }`}
         >
           <div className="relative">
-            <ShoppingBag className={`w-5 h-5 ${activeTab === "cart" ? "text-orange-600 scale-110" : "text-slate-500"}`} />
-            {cartCount > 0 && (
-              <span className="absolute -top-1.5 -right-2.5 bg-orange-500 text-white text-[9px] font-black px-1.5 py-0.2 rounded-full flex items-center justify-center shadow-xs">
+            <div className={`p-1 rounded-xl transition-all ${
+              hasCartItemsActivity
+                ? "bg-gradient-to-br from-orange-500/20 to-amber-500/25 text-orange-600 ring-2 ring-orange-500/60 shadow-[0_0_16px_rgba(249,115,22,0.45)] animate-pulse"
+                : ""
+            }`}>
+              <ShoppingBag className={`w-5 h-5 ${hasCartItemsActivity || activeTab === "cart" ? "text-orange-600 scale-110" : "text-slate-500"}`} />
+            </div>
+            {hasCartItemsActivity && (
+              <span className="absolute -top-1 -right-1.5 bg-gradient-to-r from-orange-500 to-amber-600 text-white text-[9px] font-black min-w-4.5 h-4.5 px-1 rounded-full flex items-center justify-center animate-bounce shadow-md ring-2 ring-white">
                 {cartCount}
               </span>
             )}
           </div>
-          <span className="text-[10px] truncate max-w-[65px]">السلة</span>
+          <span className={`text-[10px] truncate max-w-[65px] ${hasCartItemsActivity ? "text-orange-700 font-black" : ""}`}>
+            السلة {hasCartItemsActivity ? "🛍️" : ""}
+          </span>
           {activeTab === "cart" && (
             <motion.div layoutId="nav_dot_cust" className="w-1.5 h-1.5 rounded-full bg-orange-600 mt-0.5" />
           )}

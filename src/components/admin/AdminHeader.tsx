@@ -73,6 +73,8 @@ interface AdminHeaderProps {
   onBackToCustomerView?: () => void;
   pendingStoresCount?: number;
   pendingProductsCount?: number;
+  activeOrdersCount?: number;
+  pendingOrdersCount?: number;
 }
 
 export const AdminHeader: React.FC<AdminHeaderProps> = ({
@@ -87,7 +89,9 @@ export const AdminHeader: React.FC<AdminHeaderProps> = ({
   onOpenAccount,
   onBackToCustomerView,
   pendingStoresCount = 0,
-  pendingProductsCount = 0
+  pendingProductsCount = 0,
+  activeOrdersCount = 0,
+  pendingOrdersCount = 0
 }) => {
   const [soundOn, setSoundOn] = useState<boolean>(() => isSoundEnabled());
   const [notifPermission, setNotifPermission] = useState<string>(
@@ -95,6 +99,44 @@ export const AdminHeader: React.FC<AdminHeaderProps> = ({
   );
   const [isPushRegistering, setIsPushRegistering] = useState<boolean>(false);
   const [testSoundPlaying, setTestSoundPlaying] = useState<boolean>(false);
+
+  // Sound & Visual Alert when new activity arrives (orders, stores, products)
+  const prevActiveOrdersRef = React.useRef(activeOrdersCount);
+  const prevPendingStoresRef = React.useRef(pendingStoresCount);
+  const prevPendingProductsRef = React.useRef(pendingProductsCount);
+
+  useEffect(() => {
+    // When active orders increase -> ringtone chime alert
+    if (activeOrdersCount > prevActiveOrdersRef.current) {
+      playOrderAlertSound("ringtone");
+      showSystemNotification("طلب جديد ورد للتو! 🔔", {
+        body: `يوجد الآن (${activeOrdersCount}) طلبات نشطة بحاجة للمتابعة والتوجيه.`,
+        soundType: "ringtone",
+        requireInteraction: true
+      }).catch(() => {});
+    }
+    prevActiveOrdersRef.current = activeOrdersCount;
+  }, [activeOrdersCount]);
+
+  useEffect(() => {
+    // When pending store applications increase -> chime alert
+    if (pendingStoresCount > prevPendingStoresRef.current) {
+      playOrderAlertSound("chime");
+      showSystemNotification("طلب انضمام متجر جديد! 🏪", {
+        body: `متجر جديد بانتظار موافقة الإدارة والاعتماد.`,
+        soundType: "chime"
+      }).catch(() => {});
+    }
+    prevPendingStoresRef.current = pendingStoresCount;
+  }, [pendingStoresCount]);
+
+  useEffect(() => {
+    // When pending products increase -> chime alert
+    if (pendingProductsCount > prevPendingProductsRef.current) {
+      playOrderAlertSound("chime");
+    }
+    prevPendingProductsRef.current = pendingProductsCount;
+  }, [pendingProductsCount]);
 
   useEffect(() => {
     if (typeof window !== "undefined" && "Notification" in window) {
@@ -452,18 +494,62 @@ export const AdminHeader: React.FC<AdminHeaderProps> = ({
           const isActive = activeTab === tab.id;
           const isFirst = idx === 0;
 
+          // Dynamic Activity Detection for each tab
+          const isOrdersTab = tab.id === "orders";
+          const hasOrdersActivity = isOrdersTab && activeOrdersCount > 0;
+
+          const isStoresTab = tab.id === "stores";
+          const hasStoresActivity = isStoresTab && pendingStoresCount > 0;
+
+          const isProductsTab = tab.id === "products";
+          const hasProductsActivity = isProductsTab && pendingProductsCount > 0;
+
+          const hasAnyActivity = hasOrdersActivity || hasStoresActivity || hasProductsActivity;
+
+          // Dynamic styling for tabs experiencing live activity or arrivals
+          let tabStyle = "bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-200/80";
+          if (isActive) {
+            if (hasOrdersActivity) {
+              tabStyle = "bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 text-white shadow-lg shadow-emerald-600/35 scale-[1.03] ring-2 ring-emerald-300 font-black";
+            } else if (hasStoresActivity) {
+              tabStyle = "bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600 text-white shadow-lg shadow-amber-500/35 scale-[1.03] ring-2 ring-amber-300 font-black";
+            } else if (hasProductsActivity) {
+              tabStyle = "bg-gradient-to-r from-blue-600 via-sky-600 to-indigo-600 text-white shadow-lg shadow-blue-500/35 scale-[1.03] ring-2 ring-blue-300 font-black";
+            } else {
+              tabStyle = "bg-orange-500 text-white shadow-md shadow-orange-500/20 scale-[1.02] font-black";
+            }
+          } else {
+            if (hasOrdersActivity) {
+              tabStyle = "bg-gradient-to-r from-emerald-50 via-teal-50 to-emerald-100 text-emerald-950 border-2 border-emerald-500 shadow-[0_0_16px_rgba(16,185,129,0.35)] ring-2 ring-emerald-400/50 hover:bg-emerald-100 animate-pulse font-black";
+            } else if (hasStoresActivity) {
+              tabStyle = "bg-gradient-to-r from-amber-50 via-orange-50 to-amber-100 text-amber-950 border-2 border-amber-500 shadow-[0_0_16px_rgba(245,158,11,0.35)] ring-2 ring-amber-400/50 hover:bg-amber-100 animate-pulse font-black";
+            } else if (hasProductsActivity) {
+              tabStyle = "bg-gradient-to-r from-blue-50 via-sky-50 to-blue-100 text-blue-950 border-2 border-blue-500 shadow-[0_0_16px_rgba(59,130,246,0.35)] ring-2 ring-blue-400/50 hover:bg-blue-100 animate-pulse font-black";
+            }
+          }
+
           return (
             <div key={tab.id} className="relative group shrink-0">
               <button
                 type="button"
                 onClick={() => setActiveTab(tab.id as AdminTab)}
-                className={`whitespace-nowrap px-3.5 py-2.5 rounded-2xl font-black text-xs transition-all flex items-center gap-2 cursor-pointer ${
-                  isActive
-                    ? "bg-orange-500 text-white shadow-md shadow-orange-500/20 scale-[1.02]"
-                    : "bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-100"
-                }`}
+                className={`whitespace-nowrap px-3.5 py-2.5 rounded-2xl text-xs transition-all flex items-center gap-2 cursor-pointer ${tabStyle}`}
               >
-                <span>{tab.emoji}</span>
+                {/* Icon / Emoji with animated activity ping indicator */}
+                <div className="relative flex items-center justify-center shrink-0">
+                  <span className={`text-sm ${hasAnyActivity ? "animate-bounce" : ""}`}>{tab.emoji}</span>
+                  {hasAnyActivity && (
+                    <span className="absolute -top-1 -right-1.5 flex h-2.5 w-2.5">
+                      <span className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${
+                        hasOrdersActivity ? "bg-emerald-400" : hasStoresActivity ? "bg-amber-400" : "bg-blue-400"
+                      }`} />
+                      <span className={`relative inline-flex rounded-full h-2.5 w-2.5 ${
+                        hasOrdersActivity ? "bg-emerald-500" : hasStoresActivity ? "bg-amber-500" : "bg-blue-500"
+                      }`} />
+                    </span>
+                  )}
+                </div>
+
                 <span>{tab.label}</span>
 
                 {isFirst && (
@@ -474,15 +560,37 @@ export const AdminHeader: React.FC<AdminHeaderProps> = ({
                   </span>
                 )}
 
-                {tab.id === "stores" && pendingStoresCount > 0 && (
-                  <span className="px-2 py-0.5 rounded-full bg-amber-500 text-white text-[10px] font-black animate-pulse shadow-xs flex items-center gap-1">
-                    <span>{pendingStoresCount} متجر جديد</span>
+                {/* Orders Activity Badge */}
+                {isOrdersTab && activeOrdersCount > 0 && (
+                  <span className={`px-2 py-0.5 rounded-full text-[10px] font-black shadow-xs flex items-center gap-1 shrink-0 ${
+                    isActive ? "bg-white text-emerald-800" : "bg-emerald-600 text-white animate-pulse"
+                  }`}>
+                    <span>{activeOrdersCount} نشط</span>
+                    {pendingOrdersCount > 0 && (
+                      <span className="bg-red-500 text-white px-1 rounded-sm text-[9px] font-black">
+                        {pendingOrdersCount} جديد
+                      </span>
+                    )}
                     <span>🔔</span>
                   </span>
                 )}
-                {tab.id === "products" && pendingProductsCount > 0 && (
-                  <span className="px-2 py-0.5 rounded-full bg-amber-500 text-white text-[10px] font-black animate-pulse shadow-xs flex items-center gap-1">
-                    <span>{pendingProductsCount} منتج بانتظار الاعتماد</span>
+
+                {/* Stores Activity Badge */}
+                {isStoresTab && pendingStoresCount > 0 && (
+                  <span className={`px-2 py-0.5 rounded-full text-[10px] font-black shadow-xs flex items-center gap-1 shrink-0 ${
+                    isActive ? "bg-white text-amber-900" : "bg-amber-600 text-white animate-pulse"
+                  }`}>
+                    <span>{pendingStoresCount} متجر بانتظار الاعتماد</span>
+                    <span>🏪</span>
+                  </span>
+                )}
+
+                {/* Products Activity Badge */}
+                {isProductsTab && pendingProductsCount > 0 && (
+                  <span className={`px-2 py-0.5 rounded-full text-[10px] font-black shadow-xs flex items-center gap-1 shrink-0 ${
+                    isActive ? "bg-white text-blue-900" : "bg-blue-600 text-white animate-pulse"
+                  }`}>
+                    <span>{pendingProductsCount} صنف جديد</span>
                     <span>⏳</span>
                   </span>
                 )}

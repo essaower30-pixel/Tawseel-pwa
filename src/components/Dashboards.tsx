@@ -643,6 +643,15 @@ export const Dashboard: React.FC<DashboardProps> = ({
     (p) => p.isApproved === false || p.approvalStatus === "pending"
   ).length;
 
+  // Active and pending orders counts for dynamic activity highlight & alerts
+  const activeOrdersCount = orders.filter(
+    (o) => o.status !== "delivered" && o.status !== "cancelled"
+  ).length;
+
+  const pendingOrdersCount = orders.filter(
+    (o) => o.status === "pending" || o.status === "accepted"
+  ).length;
+
   return (
     <div className="max-w-7xl mx-auto px-3 sm:px-6 py-4 sm:py-6 space-y-6 pb-28">
       {/* Header & Tabs Navigation */}
@@ -659,6 +668,8 @@ export const Dashboard: React.FC<DashboardProps> = ({
         onBackToCustomerView={onBackToCustomerView}
         pendingStoresCount={pendingStoresCount}
         pendingProductsCount={pendingProductsCount}
+        activeOrdersCount={activeOrdersCount}
+        pendingOrdersCount={pendingOrdersCount}
       />
 
       {/* Main Tab Content */}
@@ -862,9 +873,9 @@ export const Dashboard: React.FC<DashboardProps> = ({
         onNavigateHome={() => setActiveTab("stats")}
         onSelectRoleTab={(tab) => setActiveTab(tab as any)}
         onOpenAccount={() => setShowAccountModal(true)}
-        activeOrdersCount={orders.filter(
-          (o) => o.status === "pending" || o.status === "accepted" || o.status === "preparing"
-        ).length}
+        activeOrdersCount={activeOrdersCount}
+        pendingStoresCount={pendingStoresCount}
+        pendingProductsCount={pendingProductsCount}
         userName={currentStaff?.name || userProfile.name}
         userAvatar={currentStaff?.avatar || userProfile.avatar}
       />

@@ -903,6 +903,7 @@ export const DriverPortal: React.FC<DriverPortalProps> = ({
         onSelectRoleTab={(tab) => setActiveTab(tab as any)}
         onOpenAccount={() => setShowAccountModal(true)}
         activeOrdersCount={myOrders.length}
+        availableOrdersCount={availableOrders.length}
         userName={currentDriver.name}
         userAvatar={currentDriver.avatar || userProfile.avatar}
       />
