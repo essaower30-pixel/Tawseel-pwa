@@ -226,16 +226,6 @@ export const AdminHeader: React.FC<AdminHeaderProps> = ({
     });
   }, [visibleTabs, tabsOrder]);
 
-  // Fast 1-click move to first position
-  const handlePutFirst = (tabId: string) => {
-    const allIds = sortedVisibleTabs.map(t => t.id);
-    const remaining = allIds.filter(id => id !== tabId);
-    const newOrder = [tabId, ...remaining];
-    setTabsOrder(newOrder);
-    localStorage.setItem("tw_admin_tabs_order", JSON.stringify(newOrder));
-    window.dispatchEvent(new CustomEvent("tw_admin_tabs_order_updated", { detail: { order: newOrder } }));
-  };
-
   // Ensure active tab is within allowed tabs
   useEffect(() => {
     if (sortedVisibleTabs.length > 0) {
@@ -445,82 +435,14 @@ export const AdminHeader: React.FC<AdminHeaderProps> = ({
         </button>
       </div>
 
-      {/* Middle Toolbar Control Bar (Directly below freeze orders banner) */}
-      <div className="bg-slate-900/95 text-white p-2.5 sm:p-3 rounded-2xl border border-slate-800 flex flex-col md:flex-row md:items-center justify-between gap-2 shadow-sm">
-        <div className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-xl bg-orange-500/20 text-orange-400 flex items-center justify-center shrink-0">
-            <SlidersHorizontal className="w-4 h-4" />
-          </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <span className="text-xs sm:text-sm font-black text-white">
-                شريط تبويبات وأيقونات الإدارة
-              </span>
-              <span className="text-[10px] bg-gradient-to-r from-orange-500 to-amber-500 text-white px-2 py-0.5 rounded-full font-bold">
-                تحكم بالترتيب 🎛️
-              </span>
-            </div>
-            <p className="text-[11px] text-slate-300">
-              الأيقونة الأولى (في أقصى اليمين) هي الأكثر ظهوراً وأهمية — يمكنك تقديم أي أيقونة للبداية بنقرة واحدة
-            </p>
-          </div>
-        </div>
-
-        {/* 1-Click Quick Placements */}
-        <div className="flex items-center gap-1.5 flex-wrap">
-          <button
-            type="button"
-            onClick={() => handlePutFirst("platform_features")}
-            className="px-2.5 py-1 bg-purple-950/80 hover:bg-purple-900 border border-purple-700/60 text-purple-200 rounded-xl text-[11px] font-bold cursor-pointer transition-all active:scale-95"
-            title="وضع ميزات واستطاعة المنصة في بداية الشريط أولاً"
-          >
-            💎 ميزات التطبيق أولاً
-          </button>
-          <button
-            type="button"
-            onClick={() => handlePutFirst("share")}
-            className="px-2.5 py-1 bg-indigo-950/80 hover:bg-indigo-900 border border-indigo-700/60 text-indigo-200 rounded-xl text-[11px] font-bold cursor-pointer transition-all active:scale-95"
-            title="وضع نشر وتوزيع التطبيق في بداية الشريط أولاً"
-          >
-            📢 نشر التطبيق أولاً
-          </button>
-          <button
-            type="button"
-            onClick={() => handlePutFirst("stats")}
-            className="px-2.5 py-1 bg-blue-950/80 hover:bg-blue-900 border border-blue-700/60 text-blue-200 rounded-xl text-[11px] font-bold cursor-pointer transition-all active:scale-95"
-            title="وضع الإحصائيات والأرباح في بداية الشريط أولاً"
-          >
-            📊 الإحصائيات أولاً
-          </button>
-          <button
-            type="button"
-            onClick={() => handlePutFirst("orders")}
-            className="px-2.5 py-1 bg-emerald-950/80 hover:bg-emerald-900 border border-emerald-700/60 text-emerald-200 rounded-xl text-[11px] font-bold cursor-pointer transition-all active:scale-95"
-            title="وضع الطلبات النشطة في بداية الشريط أولاً"
-          >
-            🕒 الطلبات أولاً
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setShowReorderModal(true)}
-            className="px-3 py-1.5 bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white rounded-xl text-xs font-black flex items-center gap-1.5 cursor-pointer shadow-sm active:scale-95 transition-all"
-            title="فتح نافذة الترتيب والتخصيص الشامل لجميع الأيقونات"
-          >
-            <SlidersHorizontal className="w-3.5 h-3.5 text-white" />
-            <span>تخصيص الترتيب الكامل ↕️</span>
-          </button>
-        </div>
-      </div>
-
       {/* Authorized Navigation Tabs */}
       <div className="w-full max-w-full bg-white border border-slate-200 rounded-3xl p-2 shadow-xs overflow-x-auto scrollbar-none touch-pan-x flex items-center gap-1.5">
-        {/* Quick Button to Reorder Admin Tabs */}
+        {/* Sleek, Elegant Button to Reorder Admin Tabs */}
         <button
           type="button"
           onClick={() => setShowReorderModal(true)}
           className="whitespace-nowrap px-3.5 py-2.5 rounded-2xl bg-slate-900 text-amber-300 hover:bg-slate-800 font-black text-xs transition-all flex items-center gap-1.5 cursor-pointer shrink-0 border border-slate-700 shadow-sm active:scale-95"
-          title="تخصيص وترتيب التبويبات (وضع الأهم في البداية 🎛️)"
+          title="ترتيب وتخصيص الأيقونات (وضع الأهم في البداية 🎛️)"
         >
           <SlidersHorizontal className="w-3.5 h-3.5 text-amber-400" />
           <span>ترتيب التبويبات 🎛️</span>
