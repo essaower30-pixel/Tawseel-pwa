@@ -165,6 +165,7 @@ export interface Order {
   deliveryOtp?: string;
   deliveredAt?: string;
   cancelledAt?: string;
+  cancellationReason?: string;
   readyForPickupAt?: string;
   pickedUpAt?: string;
   statusUpdatedAt?: string;

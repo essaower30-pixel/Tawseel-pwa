@@ -133,6 +133,7 @@ import {
   saveCategoryOnServer,
   reorderCategoriesOnServer,
   deleteCategoryOnServer,
+  deleteCustomerOnServer,
   cleanSlateOnServer,
   restoreDefaultsOnServer,
   saveSystemStatusOnServer,
@@ -154,6 +155,7 @@ import {
   deleteProductFromFirestore,
   saveDriverToFirestore,
   deleteDriverFromFirestore,
+  deleteCustomerFromFirestore,
   saveCategoryToFirestore,
   syncCategoriesToFirestore,
   subscribeToCategories,
@@ -4453,6 +4455,329 @@ export default function App() {
     });
   };
 
+  const handleDeleteAccount = async () => {
+    const currentRole = userRole;
+    const profile = userProfile;
+    const cleanP = (p?: string) => (p || "").replace(/[^0-9]/g, "");
+    const userPhone = cleanP(profile?.phone);
+
+    // 1. =====================================================================
+    // ROLE: CUSTOMER (حساب الزبون)
+    // =====================================================================
+    if (currentRole === "customer" || (!currentRole || currentRole === "guest")) {
+      // A. Remove customer from registered customers list
+      try {
+        const rawC = localStorage.getItem("tw_registered_customers");
+        if (rawC) {
+          const list = JSON.parse(rawC);
+          const filtered = list.filter((c: any) => {
+            const cPhone = cleanP(c.phone);
+            return (userPhone ? cPhone !== userPhone : true) && c.id !== profile?.id && c.name !== profile?.name;
+          });
+          localStorage.setItem("tw_registered_customers", JSON.stringify(filtered));
+        }
+      } catch {}
+
+      // Add to deleted customer phones to prevent resurrection
+      if (userPhone) {
+        try {
+          const rawDel = localStorage.getItem("tw_deleted_customer_phones") || "[]";
+          const delList = JSON.parse(rawDel);
+          if (!delList.includes(userPhone)) {
+            delList.push(userPhone);
+            localStorage.setItem("tw_deleted_customer_phones", JSON.stringify(delList));
+          }
+        } catch {}
+      }
+
+      // B. Cancel and unlink any active orders placed by this customer
+      const myOrderIds = getMyCustomerOrderIds();
+      const updatedOrdersToSync: Order[] = [];
+      setAllOrders((prev) =>
+        prev.map((o) => {
+          const oPhone = cleanP(o.customerPhone);
+          const isMyOrder = (userPhone && oPhone === userPhone) || myOrderIds.includes(o.id) || (activeOrder && activeOrder.id === o.id);
+          if (isMyOrder && o.status !== "delivered" && o.status !== "cancelled") {
+            const cancelled: Order = {
+              ...o,
+              status: "cancelled",
+              cancellationReason: "تم إلغاء الطلب بسبب حذف حساب الزبون"
+            };
+            updatedOrdersToSync.push(cancelled);
+            return cancelled;
+          }
+          return o;
+        })
+      );
+
+      // C. Clear customer active sessions and storage
+      setCartItems([]);
+      setActiveOrder(null);
+      localStorage.removeItem("tw_cart_items");
+      localStorage.removeItem("tw_active_order");
+      localStorage.removeItem("tw_last_submitted_order_id");
+      localStorage.removeItem("tw_my_order_ids");
+      localStorage.removeItem("tw_saved_customer_name");
+      localStorage.removeItem("tw_saved_customer_phone");
+      localStorage.removeItem("tw_saved_customer_pin");
+      localStorage.removeItem("tw_saved_customer_address");
+      localStorage.removeItem("tw_remembered_name");
+      localStorage.removeItem("tw_remembered_phone");
+      localStorage.removeItem("tw_customer_user");
+      localStorage.removeItem("tw_user_profile");
+      localStorage.removeItem("tw_user_role");
+      localStorage.removeItem("tw_last_active_role");
+
+      // D. Cloud & Server cleanup
+      await Promise.allSettled([
+        userPhone ? deleteCustomerFromFirestore(userPhone) : Promise.resolve(true),
+        userPhone ? deleteCustomerOnServer(userPhone) : Promise.resolve(true),
+        ...updatedOrdersToSync.flatMap((ord) => [
+          updateOrderStatusInFirestore(ord.id, { status: "cancelled", cancellationReason: "تم إلغاء الطلب بسبب حذف حساب الزبون" } as any),
+          updateOrderOnServer(ord.id, { status: "cancelled", cancellationReason: "تم إلغاء الطلب بسبب حذف حساب الزبون" } as any)
+        ])
+      ]);
+
+      setUserProfile(null);
+      setUserRole("guest");
+      setShowAccountModal(false);
+      setShowAuthModal(true);
+
+      addToastNotification({
+        title: "تم حذف حسابك بنجاح ✅",
+        message: "تم حذف حساب الزبون وتفريغ السلة وإلغاء الطلبات النشطة ومزامنة البيانات في المنصة.",
+        type: "success"
+      });
+      return;
+    }
+
+    // 2. =====================================================================
+    // ROLE: STORE OWNER (حساب صاحب المتجر)
+    // =====================================================================
+    if (currentRole === "store_owner") {
+      const targetStore = stores.find(
+        (s) =>
+          (currentStoreId && s.id === currentStoreId) ||
+          (profile?.storeId && s.id === profile.storeId) ||
+          (userPhone && (cleanP(s.ownerPhone) === userPhone || cleanP(s.contactPhone) === userPhone)) ||
+          (profile?.name && s.name.includes(profile.name))
+      );
+      const storeIdToDelete = targetStore?.id || currentStoreId || profile?.storeId;
+
+      if (storeIdToDelete) {
+        // A. Add to deleted store IDs
+        let deletedStoreIds: string[] = [];
+        try {
+          deletedStoreIds = JSON.parse(localStorage.getItem("tw_deleted_store_ids") || "[]");
+          if (!deletedStoreIds.includes(storeIdToDelete)) {
+            deletedStoreIds.push(storeIdToDelete);
+            localStorage.setItem("tw_deleted_store_ids", JSON.stringify(deletedStoreIds));
+          }
+        } catch {}
+
+        // B. Remove store from state & localStorage
+        setStores((prev) => {
+          const next = prev.filter((s) => s.id !== storeIdToDelete);
+          localStorage.setItem("tw_stores", JSON.stringify(next));
+          return next;
+        });
+
+        // C. Remove all products belonging to this store
+        const productsToDelete = products.filter((p) => p.storeId === storeIdToDelete);
+        let deletedProdIds: string[] = [];
+        try {
+          deletedProdIds = JSON.parse(localStorage.getItem("tw_deleted_product_ids") || "[]");
+          productsToDelete.forEach((p) => {
+            if (!deletedProdIds.includes(p.id)) deletedProdIds.push(p.id);
+          });
+          localStorage.setItem("tw_deleted_product_ids", JSON.stringify(deletedProdIds));
+        } catch {}
+
+        setProducts((prev) => {
+          const next = prev.filter((p) => p.storeId !== storeIdToDelete);
+          localStorage.setItem("tw_products", JSON.stringify(next));
+          return next;
+        });
+
+        // D. Cancel any pending or preparing orders for this store
+        const storeOrdersToCancel: Order[] = [];
+        setAllOrders((prev) =>
+          prev.map((o) => {
+            if (o.storeId === storeIdToDelete && o.status !== "delivered" && o.status !== "cancelled") {
+              const cancelled: Order = {
+                ...o,
+                status: "cancelled",
+                cancellationReason: "تم إغلاق وحذف المتجر من المنصة"
+              };
+              storeOrdersToCancel.push(cancelled);
+              return cancelled;
+            }
+            return o;
+          })
+        );
+
+        // E. Cloud & Server cleanup for store & products
+        await Promise.allSettled([
+          deleteStoreFromFirestore(storeIdToDelete),
+          deleteStoreOnServer(storeIdToDelete),
+          ...productsToDelete.flatMap((p) => [
+            deleteProductFromFirestore(p.id),
+            deleteProductOnServer(p.id)
+          ]),
+          ...storeOrdersToCancel.flatMap((ord) => [
+            updateOrderStatusInFirestore(ord.id, { status: "cancelled", cancellationReason: "تم إغلاق وحذف المتجر من المنصة" } as any),
+            updateOrderOnServer(ord.id, { status: "cancelled", cancellationReason: "تم إغلاق وحذف المتجر من المنصة" } as any)
+          ])
+        ]);
+      }
+
+      // F. Clear store owner credentials
+      localStorage.removeItem("tw_saved_store_phone");
+      localStorage.removeItem("tw_saved_store_name");
+      localStorage.removeItem("tw_saved_store_id");
+      localStorage.removeItem("tw_saved_store_pin");
+      localStorage.removeItem("tw_current_store_id");
+      localStorage.removeItem("tw_user_profile");
+      localStorage.removeItem("tw_customer_user");
+      localStorage.removeItem("tw_user_role");
+      localStorage.removeItem("tw_last_active_role");
+      sessionStorage.removeItem("tw_store_browsing_customer");
+
+      setCurrentStoreId(null);
+      setIsStoreOwnerBrowsingAsCustomer(false);
+      setUserProfile(null);
+      setUserRole("guest");
+      setShowAccountModal(false);
+      setShowAuthModal(true);
+
+      addToastNotification({
+        title: "تم حذف حساب المتجر بنجاح 🏪❌",
+        message: `تم حذف المتجر (${targetStore?.name || "المتجر"}) وكافة الأصناف التابعة له وإلغاء الطلبات المعلقة ومزامنة الحذف عبر المنصة.`,
+        type: "success"
+      });
+      return;
+    }
+
+    // 3. =====================================================================
+    // ROLE: DRIVER (حساب كابتن التوصيل)
+    // =====================================================================
+    if (currentRole === "driver") {
+      const targetDriver = driversList.find(
+        (d) =>
+          (userPhone && cleanP(d.phone) === userPhone) ||
+          (profile?.name && (d.name === profile.name || d.name.includes(profile.name) || profile.name.includes(d.name))) ||
+          (profile?.id && d.id === profile.id)
+      );
+      const driverIdToDelete = targetDriver?.id;
+      const driverPhoneToDelete = targetDriver?.phone || profile?.phone;
+
+      if (driverIdToDelete) {
+        // A. Add to deleted driver IDs
+        let deletedDriverIds: string[] = [];
+        try {
+          deletedDriverIds = JSON.parse(localStorage.getItem("tw_deleted_driver_ids") || "[]");
+          if (!deletedDriverIds.includes(driverIdToDelete)) {
+            deletedDriverIds.push(driverIdToDelete);
+            localStorage.setItem("tw_deleted_driver_ids", JSON.stringify(deletedDriverIds));
+          }
+        } catch {}
+
+        // B. Remove from driversList state & localStorage
+        setDriversList((prev) => {
+          const next = prev.filter((d) => d.id !== driverIdToDelete && cleanP(d.phone) !== cleanP(driverPhoneToDelete));
+          localStorage.setItem("tw_drivers_list", JSON.stringify(next));
+          localStorage.setItem("tw_drivers", JSON.stringify(next));
+          return next;
+        });
+
+        // C. Unassign any orders assigned to this driver so other drivers/admin can assign them
+        const unassignedOrdersToSync: Order[] = [];
+        setAllOrders((prev) =>
+          prev.map((o) => {
+            const ordDriverPhone = cleanP(o.driverPhone);
+            const isAssignedToThis =
+              (driverPhoneToDelete && ordDriverPhone === cleanP(driverPhoneToDelete)) ||
+              (driverIdToDelete && o.driverId === driverIdToDelete) ||
+              (targetDriver?.name && o.driverName === targetDriver.name);
+
+            if (isAssignedToThis && o.status !== "delivered" && o.status !== "cancelled") {
+              const unassigned: Order = {
+                ...o,
+                driverId: undefined,
+                driverName: undefined,
+                driverPhone: undefined,
+                driverVehicle: undefined,
+                assignedAt: undefined,
+                status: o.status === "picked_up" ? "preparing" : o.status
+              };
+              unassignedOrdersToSync.push(unassigned);
+              return unassigned;
+            }
+            return o;
+          })
+        );
+
+        // D. Cloud & Server cleanup for driver
+        await Promise.allSettled([
+          deleteDriverFromFirestore(driverIdToDelete),
+          deleteDriverOnServer(driverIdToDelete),
+          ...unassignedOrdersToSync.flatMap((ord) => [
+            updateOrderStatusInFirestore(ord.id, {
+              driverId: null,
+              driverName: null,
+              driverPhone: null,
+              driverVehicle: null,
+              assignedAt: null,
+              status: ord.status
+            } as any),
+            updateOrderOnServer(ord.id, {
+              driverId: undefined,
+              driverName: undefined,
+              driverPhone: undefined,
+              driverVehicle: undefined,
+              assignedAt: undefined,
+              status: ord.status
+            } as any)
+          ])
+        ]);
+      }
+
+      // E. Clear driver credentials
+      localStorage.removeItem("tw_saved_driver_user");
+      localStorage.removeItem("tw_saved_driver_name");
+      localStorage.removeItem("tw_saved_driver_phone");
+      localStorage.removeItem("tw_saved_driver_pin");
+      localStorage.removeItem("tw_viewing_driver");
+      localStorage.removeItem("tw_user_profile");
+      localStorage.removeItem("tw_customer_user");
+      localStorage.removeItem("tw_user_role");
+      localStorage.removeItem("tw_last_active_role");
+
+      setIsDriverMode(false);
+      setUserProfile(null);
+      setUserRole("guest");
+      setShowAccountModal(false);
+      setShowAuthModal(true);
+
+      addToastNotification({
+        title: "تم حذف حساب الكابتن بنجاح 🛵❌",
+        message: `تم حذف حساب الكابتن (${targetDriver?.name || "الكابتن"}) وإلغاء تخصيص المهام بنجاح ومزامنة أسطول التوصيل.`,
+        type: "success"
+      });
+      return;
+    }
+
+    // 4. Admin Protection
+    if (currentRole === "admin") {
+      addToastNotification({
+        title: "حساب الإدارة محمي 🛡️",
+        message: "حساب المدير العام والإدارة المركزية محمي ومحصن ولا يمكن حذفه تلقائياً للحفاظ على استقرار تشغيل المنصة.",
+        type: "warning"
+      });
+      return;
+    }
+  };
+
   const handleCleanSlateData = async (options: { target: "all" | "orders_only" | "restore_defaults" | "zero_transactions" }) => {
     if (options.target === "restore_defaults") {
       localStorage.removeItem("tw_clean_slate_active");
@@ -5210,6 +5535,7 @@ export default function App() {
                     onUpdateOrderStatus={handleUpdateOrderStatus}
                     onAcknowledgeBroadcast={handleAcknowledgeBroadcast}
                     onLogout={handleLogout}
+                    onDeleteAccount={handleDeleteAccount}
                     onBackToCustomerView={() => {
                       handleToggleStoreOwnerCustomerBrowsing(true);
                     }}
@@ -5298,6 +5624,7 @@ export default function App() {
                   onUpdateOrderStatus={handleUpdateOrderStatus}
                   onAssignDriver={handleAssignDriverToOrder}
                   onLogout={handleLogout}
+                  onDeleteAccount={handleDeleteAccount}
                   onBackToCustomerView={() => {
                     setSelectedStore(null);
                     setIsViewingCart(false);
@@ -7437,6 +7764,7 @@ export default function App() {
           )}
           onUpdateProfile={handleUpdateUserProfile}
           onLogout={handleLogout}
+          onDeleteAccount={handleDeleteAccount}
           onGoToAdmin={() => {
             setSelectedStore(null);
             setIsViewingCart(false);

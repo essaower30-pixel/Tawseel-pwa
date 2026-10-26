@@ -401,6 +401,11 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     // Strictly by store contact phone or store ID
     // -----------------------------------------------------------------------
     let allStoresList: Store[] = [...stores];
+    let deletedStoreIds: string[] = [];
+    try {
+      deletedStoreIds = JSON.parse(localStorage.getItem("tw_deleted_store_ids") || "[]");
+    } catch {}
+
     try {
       const rawStoredStores = localStorage.getItem("tw_stores_list") || localStorage.getItem("tw_stores");
       if (rawStoredStores) {
@@ -408,11 +413,13 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         if (Array.isArray(parsed)) {
           const idSet = new Set(allStoresList.map((s) => s.id));
           parsed.forEach((s: Store) => {
-            if (!idSet.has(s.id)) allStoresList.push(s);
+            if (!idSet.has(s.id) && !deletedStoreIds.includes(s.id)) allStoresList.push(s);
           });
         }
       }
     } catch {}
+
+    allStoresList = allStoresList.filter((s) => !deletedStoreIds.includes(s.id));
 
     const matchedStore = allStoresList.find((s) => {
       const sOwnerPhoneClean = cleanPhone(s.ownerPhone || "");
@@ -466,6 +473,11 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     // Strictly by driver phone
     // -----------------------------------------------------------------------
     let allDrivers: DriverMember[] = [];
+    let deletedDriverIds: string[] = [];
+    try {
+      deletedDriverIds = JSON.parse(localStorage.getItem("tw_deleted_driver_ids") || "[]");
+    } catch {}
+
     try {
       const raw1 = localStorage.getItem("tw_drivers_list");
       const raw2 = localStorage.getItem("tw_drivers");
@@ -474,14 +486,24 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       const propList = propDriversList || [];
 
       const map = new Map<string, DriverMember>();
-      initialDrivers.forEach((d) => map.set(d.id, d));
-      list2.forEach((d: DriverMember) => map.set(d.id, d));
-      list1.forEach((d: DriverMember) => map.set(d.id, d));
-      propList.forEach((d) => map.set(d.id, d));
+      initialDrivers.forEach((d) => {
+        if (!deletedDriverIds.includes(d.id)) map.set(d.id, d);
+      });
+      list2.forEach((d: DriverMember) => {
+        if (!deletedDriverIds.includes(d.id)) map.set(d.id, d);
+      });
+      list1.forEach((d: DriverMember) => {
+        if (!deletedDriverIds.includes(d.id)) map.set(d.id, d);
+      });
+      propList.forEach((d) => {
+        if (!deletedDriverIds.includes(d.id)) map.set(d.id, d);
+      });
       allDrivers = Array.from(map.values());
     } catch {
-      allDrivers = propDriversList || initialDrivers;
+      allDrivers = (propDriversList || initialDrivers).filter(d => !deletedDriverIds.includes(d.id));
     }
+
+    allDrivers = allDrivers.filter(d => !deletedDriverIds.includes(d.id));
 
     // Driver match strictly by phone or driver ID/username
     const driverInputKey = effectivePhoneRaw;
@@ -549,16 +571,21 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     // D. فحص حسابات الزبائن المسجلين (Customer Recognition)
     // -----------------------------------------------------------------------
     let registeredCustomers: RegisteredCustomer[] = [];
+    let deletedCustPhones: string[] = [];
+    try {
+      deletedCustPhones = JSON.parse(localStorage.getItem("tw_deleted_customer_phones") || "[]");
+    } catch {}
+
     try {
       const rawC = localStorage.getItem("tw_registered_customers");
       const parsed = rawC ? JSON.parse(rawC) : [];
-      registeredCustomers = [...initialCustomers, ...parsed];
+      registeredCustomers = [...initialCustomers, ...parsed].filter(c => !deletedCustPhones.includes(cleanPhone(c.phone)));
 
-      // Also include current saved user profile if customer
+      // Also include current saved user profile if customer and not deleted
       const rawProfile = localStorage.getItem("tw_customer_user") || localStorage.getItem("tw_user_profile");
       if (rawProfile) {
         const parsedP = JSON.parse(rawProfile);
-        if (parsedP && parsedP.phone && !registeredCustomers.some(c => cleanPhone(c.phone) === cleanPhone(parsedP.phone))) {
+        if (parsedP && parsedP.phone && !deletedCustPhones.includes(cleanPhone(parsedP.phone)) && !registeredCustomers.some(c => cleanPhone(c.phone) === cleanPhone(parsedP.phone))) {
           registeredCustomers.push({
             id: parsedP.id || "cust_saved",
             name: parsedP.name || "زبون متسوق",
@@ -570,8 +597,10 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         }
       }
     } catch {
-      registeredCustomers = initialCustomers;
+      registeredCustomers = initialCustomers.filter(c => !deletedCustPhones.includes(cleanPhone(c.phone)));
     }
+
+    registeredCustomers = registeredCustomers.filter(c => !deletedCustPhones.includes(cleanPhone(c.phone)));
 
     // Match customer by phone or exact username
     let matchedCustomer = registeredCustomers.find((c) => {

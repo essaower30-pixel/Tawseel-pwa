@@ -645,6 +645,37 @@ export async function fetchCustomersFromFirestore(): Promise<RegisteredCustomer[
   }
 }
 
+export async function deleteCustomerFromFirestore(idOrPhone: string): Promise<boolean> {
+  try {
+    const cleanP = (p?: string) => (p || "").replace(/[^0-9]/g, "");
+    const targetClean = cleanP(idOrPhone);
+
+    // Try direct doc deletion if id matches
+    try {
+      await deleteDoc(doc(db, "customers", idOrPhone));
+    } catch {}
+
+    // Also find and delete any matching records by phone or ID
+    const custSnap = await getDocs(collection(db, "customers"));
+    const deletePromises: Promise<any>[] = [];
+    custSnap.forEach((d) => {
+      const data = d.data();
+      const pClean = cleanP(data.phone);
+      if (d.id === idOrPhone || (targetClean && pClean === targetClean) || data.id === idOrPhone) {
+        deletePromises.push(deleteDoc(d.ref));
+      }
+    });
+
+    if (deletePromises.length > 0) {
+      await Promise.all(deletePromises);
+    }
+    return true;
+  } catch (err) {
+    console.error("Error deleting customer from Firestore:", err);
+    return false;
+  }
+}
+
 export async function saveStaffToFirestore(staff: StaffMember): Promise<boolean> {
   try {
     const docRef = doc(db, "staff", staff.id);

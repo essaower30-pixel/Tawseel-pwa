@@ -1661,6 +1661,44 @@ app.post("/api/customers", (req, res) => {
   res.json({ success: true, customer: newCust });
 });
 
+app.delete("/api/customers/:idOrPhone", (req, res) => {
+  const target = req.params.idOrPhone;
+  const data = readServerData();
+  const cleanP = (p?: string) => (p || "").replace(/[^0-9]/g, "");
+  const targetClean = cleanP(target);
+
+  if (!data.deletedCustomerPhones) data.deletedCustomerPhones = [];
+  if (targetClean && !data.deletedCustomerPhones.includes(targetClean)) {
+    data.deletedCustomerPhones.push(targetClean);
+  }
+
+  if (data.customers && Array.isArray(data.customers)) {
+    data.customers = data.customers.filter((c: any) => {
+      if (c.id === target) return false;
+      if (targetClean && cleanP(c.phone) === targetClean) return false;
+      return true;
+    });
+  }
+
+  // Cancel any active orders of this customer
+  if (data.orders && Array.isArray(data.orders)) {
+    data.orders = data.orders.map((o: any) => {
+      const oPhoneClean = cleanP(o.customerPhone);
+      if (oPhoneClean && targetClean && oPhoneClean === targetClean && o.status !== "delivered" && o.status !== "cancelled") {
+        return {
+          ...o,
+          status: "cancelled",
+          cancellationReason: "تم إلغاء الطلب بسبب حذف حساب الزبون"
+        };
+      }
+      return o;
+    });
+  }
+
+  writeServerData(data);
+  res.json({ success: true });
+});
+
 // 11. API: Clean Slate (Zero out demo data while preserving server data structures)
 app.post("/api/clean-slate", (req, res) => {
   const { preserveCustomOnly, target } = req.body || {};

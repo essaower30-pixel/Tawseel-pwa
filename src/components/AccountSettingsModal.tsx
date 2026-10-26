@@ -27,7 +27,9 @@ import {
   Camera,
   Trash2,
   Image as ImageIcon,
-  SlidersHorizontal
+  SlidersHorizontal,
+  AlertTriangle,
+  ShieldAlert
 } from "lucide-react";
 import { UserProfile, Store, DriverMember, StaffMember, AppSettings } from "../types";
 import { TermsAgreementModal } from "./TermsAgreementModal";
@@ -41,6 +43,7 @@ interface AccountSettingsModalProps {
   userProfile: UserProfile | null;
   onUpdateProfile: (updatedProfile: UserProfile, extraData?: any) => Promise<boolean | void> | boolean | void;
   onLogout: () => void;
+  onDeleteAccount?: () => Promise<void> | void;
   currentStore?: Store | null;
   currentDriver?: DriverMember | null;
   currentStaff?: StaffMember | null;
@@ -59,6 +62,7 @@ export const AccountSettingsModal: React.FC<AccountSettingsModalProps> = ({
   userProfile,
   onUpdateProfile,
   onLogout,
+  onDeleteAccount,
   currentStore,
   currentDriver,
   currentStaff,
@@ -94,12 +98,16 @@ export const AccountSettingsModal: React.FC<AccountSettingsModalProps> = ({
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [isDeletingAccount, setIsDeletingAccount] = useState(false);
   const [showToolbarReorderModal, setShowToolbarReorderModal] = useState(false);
 
   // Sync state whenever modal opens or profile changes
   useEffect(() => {
     if (isOpen) {
       setShowLogoutConfirm(false);
+      setShowDeleteConfirm(false);
+      setIsDeletingAccount(false);
       if (userRole === "admin" && currentStaff) {
         setName(currentStaff.name || userProfile?.name || "");
         setPhone(currentStaff.phone || userProfile?.phone || "");
@@ -266,6 +274,21 @@ export const AccountSettingsModal: React.FC<AccountSettingsModalProps> = ({
       setErrorMessage("حدث خطأ أثناء حفظ التعديلات. الرجاء المحاولة مجدداً.");
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  const handleExecuteDeleteAccount = async () => {
+    if (!onDeleteAccount) return;
+    setIsDeletingAccount(true);
+    setErrorMessage("");
+    try {
+      await onDeleteAccount();
+      setShowDeleteConfirm(false);
+      onClose();
+    } catch (err: any) {
+      console.error("Account deletion failed:", err);
+      setErrorMessage("حدث خطأ أثناء حذف الحساب. يرجى المحاولة مرة أخرى.");
+      setIsDeletingAccount(false);
     }
   };
 
@@ -1047,6 +1070,150 @@ export const AccountSettingsModal: React.FC<AccountSettingsModalProps> = ({
                 </span>
               </button>
             </div>
+
+            {/* Account Deletion Feature (حذف الحساب نهائياً ومزامنة البيانات في المرحلة التجريبية) */}
+            {userRole !== "admin" ? (
+              <div className="pt-2 border-t border-slate-100 space-y-2">
+                {showDeleteConfirm ? (
+                  <div className="w-full bg-red-50/95 border-2 border-red-300 rounded-2xl p-4 space-y-3.5 animate-in fade-in zoom-in-95 duration-200 text-right shadow-sm">
+                    <div className="flex items-start gap-2.5">
+                      <div className="w-9 h-9 rounded-xl bg-red-100 text-red-600 flex items-center justify-center shrink-0 border border-red-200">
+                        <AlertTriangle className="w-5 h-5 text-red-600 animate-pulse" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <h4 className="text-xs sm:text-sm font-black text-red-950">
+                          {userRole === "store_owner"
+                            ? `تأكيد حذف متجر (${storeName || currentStore?.name || "المتجر"}) نهائياً ⚠️`
+                            : userRole === "driver"
+                            ? `تأكيد حذف حساب الكابتن (${name || currentDriver?.name || "الكابتن"}) نهائياً ⚠️`
+                            : `تأكيد حذف حساب الزبون (${name || userProfile?.name || "الزبون"}) نهائياً ⚠️`}
+                        </h4>
+                        <p className="text-[11px] text-red-800 font-bold mt-1 leading-relaxed">
+                          هذا الإجراء نهائي ولا يمكن التراجع عنه. يتم تطبيق المزامنة الفورية لمسح البيانات المرتبطة خلال المرحلة التجريبية:
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="bg-white/90 rounded-xl p-3 border border-red-200/80 text-[11px] text-red-900 space-y-1.5 font-bold">
+                      {userRole === "customer" && (
+                        <>
+                          <div className="flex items-center gap-1.5">
+                            <span className="w-1.5 h-1.5 rounded-full bg-red-500 shrink-0" />
+                            <span>حذف بيانات ملف الزبون ورقم الهاتف وسجل الدخول نهائياً.</span>
+                          </div>
+                          <div className="flex items-center gap-1.5">
+                            <span className="w-1.5 h-1.5 rounded-full bg-red-500 shrink-0" />
+                            <span>إلغاء أي طلبات نشطة جارية وتفريغ سلة التسوق.</span>
+                          </div>
+                          <div className="flex items-center gap-1.5">
+                            <span className="w-1.5 h-1.5 rounded-full bg-red-500 shrink-0" />
+                            <span>مسح العناوين المحفوظة وسجل المفضلات والتحويل لصفحة الدخول.</span>
+                          </div>
+                        </>
+                      )}
+
+                      {userRole === "store_owner" && (
+                        <>
+                          <div className="flex items-center gap-1.5">
+                            <span className="w-1.5 h-1.5 rounded-full bg-red-500 shrink-0" />
+                            <span>إزالة متجر ({storeName || currentStore?.name}) بالكامل من السوق ودليل المتاجر والبحث.</span>
+                          </div>
+                          <div className="flex items-center gap-1.5">
+                            <span className="w-1.5 h-1.5 rounded-full bg-red-500 shrink-0" />
+                            <span>حذف جميع المنتجات وقوائم الأسعار والعروض التابعة للمتجر سحابياً ومحلياً.</span>
+                          </div>
+                          <div className="flex items-center gap-1.5">
+                            <span className="w-1.5 h-1.5 rounded-full bg-red-500 shrink-0" />
+                            <span>إلغاء الطلبات غير المسلّمة التابعة للمتجر وتصفية الصلاحيات.</span>
+                          </div>
+                        </>
+                      )}
+
+                      {userRole === "driver" && (
+                        <>
+                          <div className="flex items-center gap-1.5">
+                            <span className="w-1.5 h-1.5 rounded-full bg-red-500 shrink-0" />
+                            <span>حذف حساب الكابتن ({name || currentDriver?.name}) وإزالته من أسطول التوصيل.</span>
+                          </div>
+                          <div className="flex items-center gap-1.5">
+                            <span className="w-1.5 h-1.5 rounded-full bg-red-500 shrink-0" />
+                            <span>فك وإلغاء تخصيص أي طلبات جارية بحوزتك وإعادتها للنظام لتسليمها لزملائك الكباتن.</span>
+                          </div>
+                          <div className="flex items-center gap-1.5">
+                            <span className="w-1.5 h-1.5 rounded-full bg-red-500 shrink-0" />
+                            <span>مسح بيانات دخول الكابتن ومزامنة إحصائيات الأسطول.</span>
+                          </div>
+                        </>
+                      )}
+                    </div>
+
+                    <div className="flex flex-col sm:flex-row items-center gap-2 pt-1">
+                      <button
+                        type="button"
+                        disabled={isDeletingAccount}
+                        onClick={handleExecuteDeleteAccount}
+                        className="w-full sm:flex-1 py-2.5 px-4 bg-gradient-to-r from-red-600 via-rose-600 to-red-700 hover:from-red-700 hover:to-rose-700 text-white rounded-xl text-xs font-black shadow-md transition-all cursor-pointer flex items-center justify-center gap-2 active:scale-95 disabled:opacity-50"
+                      >
+                        {isDeletingAccount ? (
+                          <>
+                            <RefreshCw className="w-4 h-4 animate-spin" />
+                            <span>جاري الحذف ومزامنة البيانات...</span>
+                          </>
+                        ) : (
+                          <>
+                            <Trash2 className="w-4 h-4 text-white" />
+                            <span>نعم، احذف حسابي وكافة بياناتي نهائياً 🗑️</span>
+                          </>
+                        )}
+                      </button>
+                      <button
+                        type="button"
+                        disabled={isDeletingAccount}
+                        onClick={() => setShowDeleteConfirm(false)}
+                        className="w-full sm:w-auto py-2.5 px-4 bg-white hover:bg-slate-100 text-slate-700 rounded-xl text-xs font-bold border border-slate-300 transition-all cursor-pointer"
+                      >
+                        إلغاء وتراجع ✕
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setShowDeleteConfirm(true)}
+                    className="w-full py-2.5 px-3 bg-red-50/70 hover:bg-red-100/80 active:scale-98 text-red-700 rounded-2xl text-xs font-black transition-all flex items-center justify-between gap-2 cursor-pointer border border-red-200"
+                  >
+                    <div className="flex items-center gap-2">
+                      <div className="w-7 h-7 rounded-lg bg-red-200/70 text-red-700 flex items-center justify-center shrink-0">
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </div>
+                      <div className="text-right">
+                        <span className="block text-red-800 font-black">حذف الحساب نهائياً 🗑️</span>
+                        <span className="text-[10px] text-red-600/90 font-medium">
+                          {userRole === "store_owner"
+                            ? "حذف المتجر وكافة الأصناف والمنتجات والطلبات"
+                            : userRole === "driver"
+                            ? "حذف الكابتن وإلغاء تخصيص المهام لزملائك"
+                            : "حذف حساب الزبون وإلغاء الطلبات ومسح السلة"}
+                        </span>
+                      </div>
+                    </div>
+                    <span className="text-[11px] font-black bg-red-200/80 text-red-900 px-2 py-1 rounded-xl">
+                      منطقة الخطر ⚠️
+                    </span>
+                  </button>
+                )}
+              </div>
+            ) : (
+              <div className="p-2.5 bg-slate-100 rounded-2xl border border-slate-200 flex items-center justify-between text-xs text-slate-600 font-bold">
+                <div className="flex items-center gap-2">
+                  <ShieldCheck className="w-4 h-4 text-purple-600" />
+                  <span>حساب المدير العام والإدارة المركزية محمي ومحصن مركزياً.</span>
+                </div>
+                <span className="text-[10px] text-purple-700 bg-purple-100 px-2 py-0.5 rounded-full font-black">
+                  حساب محمي 🛡️
+                </span>
+              </div>
+            )}
 
 
 

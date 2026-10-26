@@ -390,6 +390,19 @@ export async function deleteDriverOnServer(driverId: string): Promise<boolean> {
   }
 }
 
+// Delete customer on central server
+export async function deleteCustomerOnServer(idOrPhone: string): Promise<boolean> {
+  try {
+    const res = await fetch(`${API_BASE}/api/customers/${encodeURIComponent(idOrPhone)}`, {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" }
+    });
+    return res.ok;
+  } catch (err) {
+    return false;
+  }
+}
+
 // Clean Slate: Zero out demo/sample data on central server
 export async function cleanSlateOnServer(target?: "all" | "orders_only" | "zero_transactions"): Promise<boolean> {
   try {

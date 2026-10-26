@@ -49,6 +49,7 @@ interface DriverPortalProps {
   onAssignDriver: (orderId: string, driver: DriverMember | null) => void;
   onUpdateDriverProfile?: (driver: DriverMember) => void;
   onLogout: () => void;
+  onDeleteAccount?: () => void;
   onBackToCustomerView?: () => void;
   currency?: string;
 }
@@ -62,6 +63,7 @@ export const DriverPortal: React.FC<DriverPortalProps> = ({
   onAssignDriver,
   onUpdateDriverProfile,
   onLogout,
+  onDeleteAccount,
   onBackToCustomerView,
   currency = "ل.س"
 }) => {
@@ -1177,6 +1179,7 @@ export const DriverPortal: React.FC<DriverPortalProps> = ({
           currentDriver={currentDriver}
           onUpdateProfile={handleProfileUpdate}
           onLogout={onLogout}
+          onDeleteAccount={onDeleteAccount}
         />
       )}
 

@@ -70,6 +70,7 @@ interface StoreOwnerPortalProps {
   onUpdateOrderStatus: (orderId: string, status: any) => void;
   onAcknowledgeBroadcast?: (broadcastId: string) => void;
   onLogout: () => void;
+  onDeleteAccount?: () => void;
   onBackToCustomerView?: () => void;
   currency?: string;
 }
@@ -89,6 +90,7 @@ export const StoreOwnerPortal: React.FC<StoreOwnerPortalProps> = ({
   onUpdateOrderStatus,
   onAcknowledgeBroadcast,
   onLogout,
+  onDeleteAccount,
   onBackToCustomerView,
   currency = "ل.س"
 }) => {
@@ -2181,6 +2183,7 @@ export const StoreOwnerPortal: React.FC<StoreOwnerPortalProps> = ({
           currentStore={currentStore}
           onUpdateProfile={handleProfileUpdate}
           onLogout={onLogout}
+          onDeleteAccount={onDeleteAccount}
         />
       )}
 
