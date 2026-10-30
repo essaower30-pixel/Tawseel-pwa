@@ -219,6 +219,11 @@ export const PrescriptionModal: React.FC<PrescriptionModalProps> = ({
       return;
     }
 
+    if (activeStore && activeStore.status === "closed") {
+      alert(`عذراً، (${activeStore.name}) مغلق حالياً من قِبل صاحبه ولا يستقبل طلبات جديدة حتى يعاد فتحه.`);
+      return;
+    }
+
     const currentTargetStore = activeStore || {
       id: "store_shifa",
       name: activeTab === "pharmacy" ? "صيدلية الشفاء المركزية" : "العيادة الطبية"
@@ -556,11 +561,19 @@ export const PrescriptionModal: React.FC<PrescriptionModalProps> = ({
           <div className="pt-2">
             <button
               type="submit"
-              disabled={isCompressing}
-              className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-black text-sm py-3.5 rounded-2xl shadow-lg shadow-emerald-600/25 transition-all cursor-pointer flex items-center justify-center gap-2 active:scale-98 disabled:opacity-50"
+              disabled={isCompressing || activeStore?.status === "closed"}
+              className={`w-full font-black text-sm py-3.5 rounded-2xl shadow-lg transition-all flex items-center justify-center gap-2 ${
+                activeStore?.status === "closed"
+                  ? "bg-rose-600/90 text-white cursor-not-allowed shadow-rose-500/20 border border-rose-700"
+                  : "bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-600/25 cursor-pointer active:scale-98 disabled:opacity-50"
+              }`}
             >
               <Send className="w-4 h-4" />
-              <span>إرسال طلب الراشيتة والأدوية فوراً 📋</span>
+              <span>
+                {activeStore?.status === "closed"
+                  ? "🔒 المتجر مغلق حالياً - غير متاح للطلب"
+                  : "إرسال طلب الراشيتة والأدوية فوراً 📋"}
+              </span>
             </button>
           </div>
         </form>

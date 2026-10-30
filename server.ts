@@ -1106,6 +1106,18 @@ app.post("/api/orders", (req, res) => {
     });
   }
 
+  // Validate that the target store is not closed
+  const targetStoreId = newOrder.storeId || (newOrder.items && newOrder.items[0]?.product?.storeId);
+  if (targetStoreId && data.stores && Array.isArray(data.stores)) {
+    const targetStore = data.stores.find((s: any) => s.id === targetStoreId);
+    if (targetStore && targetStore.status === "closed") {
+      return res.status(403).json({
+        error: `متجر "${targetStore.name}" مغلق حالياً من قِبل صاحبه ولا يستقبل أي طلبات جديدة`,
+        storeClosed: true
+      });
+    }
+  }
+
   data.orders = [newOrder, ...(data.orders || []).filter((o: any) => o.id !== newOrder.id)];
 
   // Deduct product stock on server with each sale until out of stock

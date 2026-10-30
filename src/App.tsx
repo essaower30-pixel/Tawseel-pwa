@@ -2117,6 +2117,7 @@ export default function App() {
       sanitizedStore.description = isFood ? "متجر مواد غذائية وتموينية طازجة معتمد في المنصة" : "متجر معتمد ونشط في المنصة";
     }
     setStores((prev) => prev.map((item) => (item.id === sanitizedStore.id ? sanitizedStore : item)));
+    setSelectedStore((curr) => (curr && curr.id === sanitizedStore.id ? sanitizedStore : curr));
 
     // Accurate contextual notifications for store actions:
     if (sanitizedStore.isHidden === true && (!prevStore || !prevStore.isHidden)) {
@@ -2958,6 +2959,17 @@ export default function App() {
           return merged;
         }
         return prev;
+      });
+
+      // Synchronize active selectedStore view in real-time when store owner toggles status
+      setSelectedStore((curr) => {
+        if (!curr) return curr;
+        const fresh = cloudStores.find((s) => s.id === curr.id);
+        if (!fresh) return curr;
+        if (fresh.status !== curr.status || JSON.stringify(fresh) !== JSON.stringify(curr)) {
+          return fresh;
+        }
+        return curr;
       });
     });
 
@@ -3991,6 +4003,17 @@ export default function App() {
       return;
     }
 
+    // Check if target store is closed
+    const targetStore = stores.find((s) => s.id === product.storeId);
+    if (targetStore && targetStore.status === "closed") {
+      addToastNotification({
+        title: "المتجر مغلق حالياً 🔴",
+        message: `عذراً، متجر "${targetStore.name}" مغلق حالياً من قِبل صاحبه ولا يستقبل طلبات جديدة حتى يعاد فتحه.`,
+        type: "warning"
+      });
+      return;
+    }
+
     // 1. Check if product is out of stock
     const isOutOfStock = product.isAvailable === false || product.inStock === false || (product.stock !== undefined && product.stock <= 0);
     if (isOutOfStock) {
@@ -4119,6 +4142,14 @@ export default function App() {
     }
 
     const store = stores.find((s) => s.id === orderData.storeId);
+    if (store && store.status === "closed") {
+      addToastNotification({
+        title: "المتجر مغلق حالياً 🔴",
+        message: `عذراً، متجر "${store.name}" مغلق حالياً من قِبل صاحبه ولا يستقبل طلبات جديدة.`,
+        type: "warning"
+      });
+      return;
+    }
     const subtotal = cartItems.reduce((sum, item) => sum + item.product.price * item.quantity, 0);
     const deliveryFee = orderData.deliveryFee !== undefined && orderData.deliveryFee !== null
       ? Number(orderData.deliveryFee)
@@ -4263,6 +4294,18 @@ export default function App() {
         type: "warning"
       });
       return;
+    }
+
+    if (customData.storeId) {
+      const store = stores.find((s) => s.id === customData.storeId);
+      if (store && store.status === "closed") {
+        addToastNotification({
+          title: "المتجر مغلق حالياً 🔴",
+          message: `عذراً، متجر "${store.name}" مغلق حالياً من قِبل صاحبه ولا يستقبل طلبات خاصة حتى يعاد فتحه.`,
+          type: "warning"
+        });
+        return;
+      }
     }
 
     const orderId = "tw-" + Math.floor(Math.random() * 90000 + 10000);
@@ -6199,7 +6242,11 @@ export default function App() {
                                 )}
                               </div>
 
-                              {isOutOfStock ? (
+                              {storeOfProduct?.status === "closed" ? (
+                                <span className="bg-rose-50 text-rose-600 border border-rose-200 font-bold text-xs py-1.5 px-3 rounded-xl cursor-not-allowed">
+                                  المتجر مغلق 🔒
+                                </span>
+                              ) : isOutOfStock ? (
                                 <span className="bg-slate-100 text-slate-400 border border-slate-200 font-bold text-xs py-1.5 px-3 rounded-xl cursor-not-allowed">
                                   غير متوفر
                                 </span>
@@ -7084,26 +7131,42 @@ export default function App() {
                               <div
                                 key={store.id}
                                 onClick={() => setSelectedStore(store)}
-                                className="bg-white rounded-2xl sm:rounded-3xl border border-slate-200/80 overflow-hidden shadow-xs hover:shadow-xl hover:border-orange-500/25 transition-all duration-300 cursor-pointer flex flex-col group h-full text-right"
+                                className={`bg-white rounded-2xl sm:rounded-3xl border border-slate-200/80 overflow-hidden shadow-xs hover:shadow-xl hover:border-orange-500/25 transition-all duration-300 cursor-pointer flex flex-col group h-full text-right ${
+                                  store.status === "closed" ? "opacity-90" : ""
+                                }`}
                               >
                                 <div className="h-28 xs:h-36 sm:h-44 bg-slate-100 relative overflow-hidden">
                                   <img
                                     src={store.image}
                                     alt={store.name}
-                                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                                    className={`w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 ${
+                                      store.status === "closed" ? "grayscale-[0.3]" : ""
+                                    }`}
                                     referrerPolicy="no-referrer"
                                   />
                                   <div className="absolute top-2 right-2 sm:top-3 sm:right-3 bg-slate-900/85 backdrop-blur-md text-white font-extrabold text-[8px] sm:text-[10px] py-0.5 px-1.5 sm:py-1 sm:px-2.5 rounded-full flex items-center gap-1 shadow">
                                     <Star className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-orange-400 fill-current" />
                                     <span>{store.rating !== undefined && store.rating !== null ? (store.rating === 0 ? "0 (جديد)" : store.rating) : "0 (جديد)"}</span>
                                   </div>
+                                  {store.status === "closed" && (
+                                    <div className="absolute top-2 left-2 sm:top-3 sm:left-3 bg-rose-600/95 backdrop-blur-md text-white font-black text-[8px] sm:text-[10px] py-0.5 px-2 rounded-full flex items-center gap-1 shadow">
+                                      <span>مغلق 🔴</span>
+                                    </div>
+                                  )}
                                 </div>
 
                                 <div className="p-3 sm:p-5 flex-1 flex flex-col justify-between space-y-2 sm:space-y-4">
                                   <div className="space-y-1 sm:space-y-1.5 min-w-0">
-                                    <span className="text-[8px] sm:text-[10px] font-extrabold text-orange-600 bg-orange-500/10 py-0.5 px-1.5 sm:py-1 sm:px-2.5 rounded-full inline-block">
-                                      {categoryObj?.label || store.category}
-                                    </span>
+                                    <div className="flex items-center gap-1.5 flex-wrap">
+                                      <span className="text-[8px] sm:text-[10px] font-extrabold text-orange-600 bg-orange-500/10 py-0.5 px-1.5 sm:py-1 sm:px-2.5 rounded-full inline-block">
+                                        {categoryObj?.label || store.category}
+                                      </span>
+                                      {store.status === "closed" && (
+                                        <span className="text-[8px] sm:text-[10px] font-black text-rose-700 bg-rose-50 border border-rose-200 py-0.5 px-2 rounded-full inline-block">
+                                          مغلق مؤقتاً
+                                        </span>
+                                      )}
+                                    </div>
                                     <h4 className="font-extrabold text-slate-800 text-xs sm:text-base group-hover:text-orange-600 transition-colors truncate">
                                       {store.name}
                                     </h4>

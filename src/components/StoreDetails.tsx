@@ -52,6 +52,7 @@ export const StoreDetails: React.FC<StoreDetailsProps> = ({
   isEmergencyRush,
   initialOnlyOffers = false
 }) => {
+  const isStoreClosed = store.status === "closed";
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [selectedSize, setSelectedSize] = useState<StoreSize | null>(null);
@@ -299,6 +300,10 @@ export const StoreDetails: React.FC<StoreDetailsProps> = ({
   const totalCartCount = cartItems.reduce((sum, item) => sum + item.quantity, 0);
 
   const handleOpenCustomization = (product: Product) => {
+    if (isStoreClosed) {
+      alert(`عذراً، متجر (${store.name}) مغلق حالياً من قِبل صاحبه ولا يستقبل طلبات جديدة.`);
+      return;
+    }
     if (isEmergencyRush) {
       alert("عذراً، تم تجميد استقبال الطلبات مؤقتاً بسبب ضغط العمل العالي. لا يمكن إضافة أصناف للسلة حالياً.");
       return;
@@ -321,6 +326,10 @@ export const StoreDetails: React.FC<StoreDetailsProps> = ({
   };
 
   const confirmCustomizationAdd = () => {
+    if (isStoreClosed) {
+      alert(`عذراً، متجر (${store.name}) مغلق حالياً.`);
+      return;
+    }
     if (isEmergencyRush) {
       alert("عذراً، تم تجميد استقبال الطلبات مؤقتاً بسبب ضغط العمل العالي.");
       return;
@@ -475,10 +484,17 @@ export const StoreDetails: React.FC<StoreDetailsProps> = ({
                   <span>{activityInfo.label}</span>
                 </span>
 
-                <span className="bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 text-[11px] font-black px-2.5 py-0.5 rounded-full flex items-center gap-1">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                  <span>{store.status === "closed" ? "مغلق حالياً" : "مفتوح ومتاح الآن"}</span>
-                </span>
+                {store.status === "closed" ? (
+                  <span className="bg-rose-500/25 text-rose-300 border border-rose-500/40 text-[11px] font-black px-2.5 py-0.5 rounded-full flex items-center gap-1.5 shadow-sm">
+                    <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse" />
+                    <span>مغلق حالياً 🔴</span>
+                  </span>
+                ) : (
+                  <span className="bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 text-[11px] font-black px-2.5 py-0.5 rounded-full flex items-center gap-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                    <span>مفتوح ومتاح الآن 🟢</span>
+                  </span>
+                )}
               </div>
             </div>
 
@@ -492,6 +508,29 @@ export const StoreDetails: React.FC<StoreDetailsProps> = ({
           </div>
         </div>
       </div>
+
+      {/* Store Closed Warning Banner */}
+      {store.status === "closed" && (
+        <div
+          className="bg-rose-600 text-white p-4 sm:p-5 rounded-2xl sm:rounded-3xl shadow-xl flex items-center justify-between gap-4 border border-rose-500 text-right animate-fade-in"
+          dir="rtl"
+        >
+          <div className="flex items-center gap-3">
+            <span className="text-3xl shrink-0">🔒</span>
+            <div>
+              <h4 className="font-black text-sm sm:text-base">
+                تنبيه: متجر ({store.name}) مغلق حالياً
+              </h4>
+              <p className="text-xs text-rose-100 mt-1 leading-relaxed">
+                قام صاحب المتجر بإغلاقه مؤقتاً، وتم إيقاف استقبال الطلبات والإضافة للسلة حتى يعاد فتحه من جديد.
+              </p>
+            </div>
+          </div>
+          <span className="bg-white/20 text-white text-[11px] font-black px-3 py-1.5 rounded-xl shrink-0 whitespace-nowrap">
+            مغلق مؤقتاً 🔴
+          </span>
+        </div>
+      )}
 
       {/* Emergency Rush Freeze Notice Banner */}
       {isEmergencyRush && (
@@ -1196,7 +1235,15 @@ export const StoreDetails: React.FC<StoreDetailsProps> = ({
                     {product.unit && <span className="text-[9px] sm:text-[10px] text-slate-900 font-black block mt-0.5">{product.unit}</span>}
                   </div>
 
-                  {isOutOfStock ? (
+                  {isStoreClosed ? (
+                    <button
+                      type="button"
+                      disabled
+                      className="w-full xs:w-auto bg-rose-50 text-rose-600 border border-rose-200 font-black text-[10px] sm:text-xs py-1.5 px-2.5 rounded-xl cursor-not-allowed flex items-center justify-center gap-1 opacity-80"
+                    >
+                      <span>المتجر مغلق 🔒</span>
+                    </button>
+                  ) : isOutOfStock ? (
                     <button
                       type="button"
                       disabled
@@ -1265,11 +1312,22 @@ export const StoreDetails: React.FC<StoreDetailsProps> = ({
           </div>
           <button
             type="button"
-            onClick={() => setShowPrescriptionModal(true)}
-            className="w-full sm:w-auto bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs py-2.5 px-5 rounded-xl shadow-sm transition-all cursor-pointer whitespace-nowrap flex items-center justify-center gap-1.5"
+            onClick={() => {
+              if (isStoreClosed) {
+                alert(`عذراً، الصيدلية (${store.name}) مغلقة حالياً من قبل الصيدلاني ولا تستقبل طلبات.`);
+                return;
+              }
+              setShowPrescriptionModal(true);
+            }}
+            disabled={isStoreClosed}
+            className={`w-full sm:w-auto text-white font-black text-xs py-2.5 px-5 rounded-xl shadow-sm transition-all whitespace-nowrap flex items-center justify-center gap-1.5 ${
+              isStoreClosed
+                ? "bg-slate-400 cursor-not-allowed opacity-75"
+                : "bg-emerald-600 hover:bg-emerald-700 cursor-pointer"
+            }`}
           >
             <Pill className="w-4 h-4" />
-            <span>طلب أدوية وراشيتة طبية 📋</span>
+            <span>{isStoreClosed ? "الصيدلية مغلقة 🔒" : "طلب أدوية وراشيتة طبية 📋"}</span>
           </button>
         </div>
       )}
@@ -1284,11 +1342,22 @@ export const StoreDetails: React.FC<StoreDetailsProps> = ({
           </div>
           <button
             type="button"
-            onClick={() => setShowPrescriptionModal(true)}
-            className="w-full sm:w-auto bg-cyan-700 hover:bg-cyan-800 text-white font-black text-xs py-2.5 px-5 rounded-xl shadow-sm transition-all cursor-pointer whitespace-nowrap flex items-center justify-center gap-1.5"
+            onClick={() => {
+              if (isStoreClosed) {
+                alert(`عذراً، (${store.name}) غير متاح حالياً.`);
+                return;
+              }
+              setShowPrescriptionModal(true);
+            }}
+            disabled={isStoreClosed}
+            className={`w-full sm:w-auto text-white font-black text-xs py-2.5 px-5 rounded-xl shadow-sm transition-all whitespace-nowrap flex items-center justify-center gap-1.5 ${
+              isStoreClosed
+                ? "bg-slate-400 cursor-not-allowed opacity-75"
+                : "bg-cyan-700 hover:bg-cyan-800 cursor-pointer"
+            }`}
           >
             <Stethoscope className="w-4 h-4" />
-            <span>إرسال راشيتة / استشارة للطبيب 📋</span>
+            <span>{isStoreClosed ? "العيادة مغلقة 🔒" : "إرسال راشيتة / استشارة للطبيب 📋"}</span>
           </button>
         </div>
       )}
@@ -1330,25 +1399,34 @@ export const StoreDetails: React.FC<StoreDetailsProps> = ({
         <button
           type="button"
           onClick={() => {
+            if (isStoreClosed) {
+              alert(`عذراً، متجر (${store.name}) مغلق حالياً من قبل صاحبه ولا يستقبل طلبات جديدة.`);
+              return;
+            }
             if (isEmergencyRush) {
               alert("عذراً، تم تجميد استقبال الطلبات مؤقتاً بسبب ضغط العمل العالي لدى المحلات وأسطول التوصيل. يرجى المحاولة لاحقاً بعد انتهاء الضغط.");
               return;
             }
             setShowCustomOrderModal(true);
           }}
-          className={`w-full sm:w-auto text-white font-black text-xs py-3 px-5 rounded-2xl shadow-md transition-all cursor-pointer whitespace-nowrap flex items-center justify-center gap-2 active:scale-95 shrink-0 ${
-            isEmergencyRush
-              ? "bg-red-600/90 hover:bg-red-700"
+          disabled={isStoreClosed}
+          className={`w-full sm:w-auto text-white font-black text-xs py-3 px-5 rounded-2xl shadow-md transition-all whitespace-nowrap flex items-center justify-center gap-2 shrink-0 ${
+            isStoreClosed
+              ? "bg-slate-400 cursor-not-allowed opacity-75"
+              : isEmergencyRush
+              ? "bg-red-600/90 hover:bg-red-700 cursor-pointer active:scale-95"
               : isPharmacy
-              ? "bg-emerald-600 hover:bg-emerald-700 shadow-emerald-600/25"
-              : "bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 shadow-orange-500/25"
+              ? "bg-emerald-600 hover:bg-emerald-700 shadow-emerald-600/25 cursor-pointer active:scale-95"
+              : "bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 shadow-orange-500/25 cursor-pointer active:scale-95"
           }`}
         >
           {isPharmacy ? (
             <>
               <Pill className="w-4 h-4" />
               <span>
-                {isEmergencyRush
+                {isStoreClosed
+                  ? "الصيدلية مغلقة حالياً 🔒"
+                  : isEmergencyRush
                   ? "🚨 استقبال الطلبات مجمّد حالياً"
                   : "طلب دواء أو روشتة خاصة 💊"}
               </span>
@@ -1357,7 +1435,9 @@ export const StoreDetails: React.FC<StoreDetailsProps> = ({
             <>
               <Edit3 className="w-4 h-4" />
               <span>
-                {isEmergencyRush
+                {isStoreClosed
+                  ? "المتجر مغلق حالياً 🔒"
+                  : isEmergencyRush
                   ? "🚨 استقبال الطلبات مجمّد حالياً"
                   : "اطلب منتج غير معروض الآن 🚀"}
               </span>

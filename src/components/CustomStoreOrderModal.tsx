@@ -338,6 +338,11 @@ export const CustomStoreOrderModal: React.FC<CustomStoreOrderModalProps> = ({
       return;
     }
 
+    if (selectedStore.status === "closed") {
+      alert(`عذراً، متجر (${selectedStore.name}) مغلق حالياً من قِبل صاحبه ولا يستقبل طلبات خاصة حتى يعاد فتحه.`);
+      return;
+    }
+
     if (!customerName.trim()) {
       alert("يرجى إدخال اسم المستلم / الزبون.");
       return;
@@ -834,10 +839,12 @@ export const CustomStoreOrderModal: React.FC<CustomStoreOrderModalProps> = ({
           <div className="pt-2">
             <button
               type="submit"
-              disabled={isCompressing || Boolean(isEmergencyRush)}
+              disabled={isCompressing || Boolean(isEmergencyRush || selectedStore?.status === "closed")}
               className={`w-full font-black text-sm py-3.5 rounded-2xl shadow-lg transition-all flex items-center justify-center gap-2 ${
                 isEmergencyRush
                   ? "bg-red-600/90 text-white cursor-not-allowed shadow-red-500/20 border border-red-700"
+                  : selectedStore?.status === "closed"
+                  ? "bg-rose-600/90 text-white cursor-not-allowed shadow-rose-500/20 border border-rose-700"
                   : isPharmacy
                   ? "bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-600/25 cursor-pointer active:scale-98 disabled:opacity-50"
                   : "bg-orange-600 hover:bg-orange-700 text-white shadow-orange-600/25 cursor-pointer active:scale-98 disabled:opacity-50"
@@ -847,6 +854,8 @@ export const CustomStoreOrderModal: React.FC<CustomStoreOrderModalProps> = ({
               <span>
                 {isEmergencyRush
                   ? "🚨 استقبال الطلبات مجمّد حالياً (وضع الضغط)"
+                  : selectedStore?.status === "closed"
+                  ? "🔒 المتجر مغلق حالياً - غير متاح للطلب"
                   : isPharmacy
                   ? "إرسال طلب الأدوية والروشتة للصيدلية فوراً 💊"
                   : "إرسال الطلب الخاص للمتجر فوراً 🛍️"}

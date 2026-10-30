@@ -129,6 +129,11 @@ export const CartCheckout: React.FC<CartCheckoutProps> = ({
     e.preventDefault();
     if (cartItems.length === 0) return;
 
+    if (currentStore && currentStore.status === "closed") {
+      alert(`عذراً، متجر (${currentStore.name}) مغلق حالياً من قِبل صاحبه ولا يستقبل طلبات جديدة حتى يعاد فتحه.`);
+      return;
+    }
+
     if (isEmergencyRush) {
       alert("عذراً، تم تجميد استقبال الطلبات مؤقتاً في التطبيق بسبب ضغط العمل العالي لدى المحلات وأسطول التوصيل. يرجى المحاولة لاحقاً بعد استئناف الاستقبال.");
       return;
@@ -232,6 +237,28 @@ export const CartCheckout: React.FC<CartCheckoutProps> = ({
           </div>
           <span className="bg-white/20 text-white text-[11px] font-black px-3 py-1.5 rounded-xl shrink-0 whitespace-nowrap">
             وضع الضغط
+          </span>
+        </div>
+      )}
+      {/* Store Closed Warning Banner */}
+      {currentStore?.status === "closed" && (
+        <div
+          className="bg-rose-600 text-white p-4 sm:p-5 rounded-2xl sm:rounded-3xl shadow-xl flex items-center justify-between gap-4 border border-rose-500 text-right animate-fade-in"
+          dir="rtl"
+        >
+          <div className="flex items-center gap-3">
+            <span className="text-3xl shrink-0">🔒</span>
+            <div>
+              <h4 className="font-black text-sm sm:text-base">
+                تنبيه: متجر ({currentStore.name}) مغلق حالياً
+              </h4>
+              <p className="text-xs text-rose-100 mt-1 leading-relaxed">
+                قام صاحب المتجر بإغلاقه مؤقتاً، وتم إيقاف استقبال الطلبات حتى يعاد فتحه. يمكنك الاحتفاظ بالسلة لحين فتح المتجر مجدداً.
+              </p>
+            </div>
+          </div>
+          <span className="bg-white/20 text-white text-[11px] font-black px-3 py-1.5 rounded-xl shrink-0 whitespace-nowrap">
+            مغلق مؤقتاً 🔴
           </span>
         </div>
       )}
@@ -617,15 +644,19 @@ export const CartCheckout: React.FC<CartCheckoutProps> = ({
               <button
                 type="submit"
                 form="checkout-form"
-                disabled={Boolean(isEmergencyRush)}
+                disabled={Boolean(isEmergencyRush || currentStore?.status === "closed")}
                 className={`w-full font-black text-xs py-3.5 rounded-2xl shadow-lg transition-all text-center ${
                   isEmergencyRush
                     ? "bg-red-600/90 text-white cursor-not-allowed shadow-red-500/20 border border-red-700"
+                    : currentStore?.status === "closed"
+                    ? "bg-rose-600/90 text-white cursor-not-allowed shadow-rose-500/20 border border-rose-700"
                     : "bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white shadow-orange-500/25 cursor-pointer active:scale-98"
                 }`}
               >
                 {isEmergencyRush
                   ? "🚨 استقبال الطلبات مجمّد حالياً (وضع الضغط)"
+                  : currentStore?.status === "closed"
+                  ? "🔒 المتجر مغلق حالياً - غير متاح للطلب"
                   : "تأكيد وإرسال الطلب فوراً 🚀"}
               </button>
 
